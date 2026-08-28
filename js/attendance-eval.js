@@ -551,19 +551,15 @@ function _buildAttReportHTML(monthStr){
   const monthLabel = monthDate.toLocaleDateString('en-US',{month:'long',year:'numeric'}).toUpperCase();
 
   const recordsInMonth = absensiList.filter(a=>a.tanggal && a.tanggal.startsWith(monthStr));
-
-  // distinct dates, sorted
   const dates = [...new Set(recordsInMonth.map(a=>a.tanggal))].sort();
-
-  // students who have at least 1 record this month, sorted by name
   const studentIds = [...new Set(recordsInMonth.map(a=>a.siswaId))];
   const students = studentIds
     .map(id => siswaList.find(s=>s.id===id) || {id, nama: recordsInMonth.find(a=>a.siswaId===id)?.namaSiswa || 'Unknown'})
     .sort((a,b)=>(a.nama||'').localeCompare(b.nama||''));
 
   let totalPresent=0, totalExcused=0, totalAbsent=0;
-
-  const dateColWidth = dates.length > 6 ? 'font-size:8px;padding:6px 2px' : 'font-size:9px;padding:8px 2px';
+  const dateFont = dates.length > 6 ? '7.5px' : '9px';
+  const avatarPalette = ['#a78bfa,#6c63ff','#38bdf8,#00c9a7','#ff6584,#ff8c42','#00d68f,#38bdf8','#ffb347,#ff6584'];
 
   const rows = students.map((s,idx)=>{
     const studentRecords = recordsInMonth.filter(a=>a.siswaId===s.id);
@@ -573,29 +569,32 @@ function _buildAttReportHTML(monthStr){
     totalPresent+=p; totalExcused+=i; totalAbsent+=a;
     const total = studentRecords.length;
     const pct = total ? Math.round((p/total)*100) : 0;
+    const pctColor = pct>=90?'#00c9a7':pct>=75?'#a78bfa':pct>=50?'#ff8c42':'#ff4f6d';
 
     const marks = dates.map(d=>{
       const rec = studentRecords.find(a=>a.tanggal===d);
-      if(!rec) return `<td style="${dateColWidth}"><span style="color:#d0d0d8">–</span></td>`;
-      if(rec.status==='Hadir') return `<td style="${dateColWidth}"><span style="display:inline-flex;width:18px;height:18px;border-radius:50%;background:#00d68f;color:#fff;align-items:center;justify-content:center;font-size:10px">✓</span></td>`;
-      if(rec.status==='Izin')  return `<td style="${dateColWidth}"><span style="display:inline-flex;width:18px;height:18px;border-radius:50%;background:#ffb347;color:#fff;align-items:center;justify-content:center;font-size:9px">I</span></td>`;
-      return `<td style="${dateColWidth}"><span style="display:inline-flex;width:18px;height:18px;border-radius:50%;background:#ff4f6d;color:#fff;align-items:center;justify-content:center;font-size:10px">✕</span></td>`;
+      const cell = 'padding:9px 2px;text-align:center;border-bottom:1px solid rgba(58,53,96,0.05)';
+      if(!rec) return `<td style="${cell}"><span style="color:#d8d4e8;font-size:11px">–</span></td>`;
+      if(rec.status==='Hadir') return `<td style="${cell}"><span style="display:inline-flex;width:19px;height:19px;border-radius:50%;background:linear-gradient(135deg,#00e0a1,#00c9a7);color:#fff;align-items:center;justify-content:center;font-size:10px;box-shadow:0 2px 4px rgba(0,201,167,0.35)">✓</span></td>`;
+      if(rec.status==='Izin')  return `<td style="${cell}"><span style="display:inline-flex;width:19px;height:19px;border-radius:50%;background:linear-gradient(135deg,#ffc369,#ffb347);color:#fff;align-items:center;justify-content:center;font-size:9px;font-weight:800;box-shadow:0 2px 4px rgba(255,179,71,0.35)">I</span></td>`;
+      return `<td style="${cell}"><span style="display:inline-flex;width:19px;height:19px;border-radius:50%;background:linear-gradient(135deg,#ff6b83,#ff4f6d);color:#fff;align-items:center;justify-content:center;font-size:10px;box-shadow:0 2px 4px rgba(255,79,109,0.35)">✕</span></td>`;
     }).join('');
 
     const initials = (s.nama||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
-    const rowBg = idx%2===1 ? 'background:rgba(167,139,250,0.045)' : '';
+    const grad = avatarPalette[idx % avatarPalette.length];
+    const rowBg = idx%2===1 ? 'background:linear-gradient(90deg,rgba(167,139,250,0.05),rgba(255,101,132,0.03))' : '';
 
     return `<tr style="${rowBg}">
-      <td style="font-size:10.5px;text-align:center;padding:11px 2px;border-bottom:1px solid rgba(58,53,96,0.06);width:22px">${idx+1}</td>
-      <td style="font-size:10.5px;font-weight:700;text-align:left;padding:11px 2px 11px 12px;border-bottom:1px solid rgba(58,53,96,0.06)">
-        <span style="display:inline-flex;width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#a78bfa,#38bdf8);color:#fff;align-items:center;justify-content:center;font-size:9px;font-weight:800;font-family:'Fredoka One',sans-serif">${initials}</span>
-        &nbsp;${s.nama}
+      <td style="font-size:10px;text-align:center;padding:12px 2px;border-bottom:1px solid rgba(58,53,96,0.05);color:#b3aecb;font-weight:700">${idx+1}</td>
+      <td style="font-size:10.5px;font-weight:700;text-align:left;padding:12px 2px 12px 14px;border-bottom:1px solid rgba(58,53,96,0.05)">
+        <span style="display:inline-flex;width:21px;height:21px;border-radius:50%;background:linear-gradient(135deg,${grad});color:#fff;align-items:center;justify-content:center;font-size:8.5px;font-weight:800;font-family:'Fredoka One',sans-serif;box-shadow:0 2px 5px rgba(108,99,255,0.3);vertical-align:middle">${initials}</span>
+        <span style="vertical-align:middle;margin-left:3px">${s.nama}</span>
       </td>
       ${marks}
-      <td style="font-size:10.5px;text-align:center;padding:11px 2px;border-bottom:1px solid rgba(58,53,96,0.06);color:#00c9a7;font-weight:800;font-family:'Fredoka One',sans-serif">${p}</td>
-      <td style="font-size:10.5px;text-align:center;padding:11px 2px;border-bottom:1px solid rgba(58,53,96,0.06);color:#ff8c42;font-weight:800;font-family:'Fredoka One',sans-serif">${i}</td>
-      <td style="font-size:10.5px;text-align:center;padding:11px 2px;border-bottom:1px solid rgba(58,53,96,0.06);color:#ff4f6d;font-weight:800;font-family:'Fredoka One',sans-serif">${a}</td>
-      <td style="font-size:10.5px;text-align:center;padding:11px 2px;border-bottom:1px solid rgba(58,53,96,0.06)"><span style="background:rgba(167,139,250,0.18);color:#a78bfa;border-radius:12px;padding:3px 8px;font-family:'Fredoka One',sans-serif;font-size:10px">${pct}%</span></td>
+      <td style="font-size:10.5px;text-align:center;padding:12px 2px;border-bottom:1px solid rgba(58,53,96,0.05);color:#00c9a7;font-weight:800;font-family:'Fredoka One',sans-serif">${p}</td>
+      <td style="font-size:10.5px;text-align:center;padding:12px 2px;border-bottom:1px solid rgba(58,53,96,0.05);color:#ff8c42;font-weight:800;font-family:'Fredoka One',sans-serif">${i}</td>
+      <td style="font-size:10.5px;text-align:center;padding:12px 2px;border-bottom:1px solid rgba(58,53,96,0.05);color:#ff4f6d;font-weight:800;font-family:'Fredoka One',sans-serif">${a}</td>
+      <td style="font-size:10.5px;text-align:center;padding:12px 2px;border-bottom:1px solid rgba(58,53,96,0.05)"><span style="background:${pctColor}18;color:${pctColor};border-radius:12px;padding:4px 10px;font-family:'Fredoka One',sans-serif;font-size:10px;box-shadow:0 1px 3px rgba(0,0,0,0.06)">${pct}%</span></td>
     </tr>`;
   }).join('');
 
@@ -606,114 +605,120 @@ function _buildAttReportHTML(monthStr){
     const dd = new Date(d);
     const dayNum = String(dd.getDate()).padStart(2,'0');
     const dayName = dd.toLocaleDateString('en-US',{weekday:'short'}).toUpperCase();
-    return `<th style="${dateColWidth}font-weight:800;color:#3a3560;text-align:center">${dayNum}<br>${dayName}</th>`;
+    return `<th style="font-size:${dateFont};font-weight:800;color:#3a3560;text-align:center;padding:10px 2px">${dayNum}<br>${dayName}</th>`;
   }).join('');
 
   if(!students.length){
-    return `<div style="font-family:'Baloo 2',sans-serif;padding:60px;text-align:center;color:#8b86a8">
-      <div style="font-size:40px;margin-bottom:12px">📭</div>
-      No attendance records found for ${monthLabel}.
+    return `<div style="width:794px;min-height:1123px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;
+      font-family:'Baloo 2',sans-serif;background:#fffaf3;color:#8b86a8;text-align:center">
+      <div><div style="font-size:52px;margin-bottom:16px">📭</div>
+      <div style="font-size:15px;font-weight:700">No attendance records found for ${monthLabel}</div></div>
     </div>`;
   }
 
   return `
-  <div style="width:794px;min-height:1123px;box-sizing:border-box;padding:34px 49px 24px;
+  <div style="width:794px;min-height:1123px;box-sizing:border-box;padding:16px;
     font-family:'Baloo 2',sans-serif;color:#3a3560;position:relative;
-    background:radial-gradient(circle at 8% 6%, rgba(108,99,255,0.07), transparent 22%),
-               radial-gradient(circle at 94% 10%, rgba(255,101,132,0.07), transparent 24%),
-               radial-gradient(circle at 90% 90%, rgba(0,201,167,0.06), transparent 26%),
+    background:radial-gradient(circle at 8% 6%, rgba(108,99,255,0.08), transparent 24%),
+               radial-gradient(circle at 94% 8%, rgba(255,101,132,0.08), transparent 26%),
+               radial-gradient(circle at 90% 92%, rgba(0,201,167,0.07), transparent 28%),
+               radial-gradient(circle at 4% 90%, rgba(56,189,248,0.06), transparent 24%),
                #fffaf3;">
 
-    <div style="position:absolute;top:30px;left:295px;font-size:20px;opacity:0.55">⭐</div>
-    <div style="position:absolute;top:22px;right:195px;font-size:20px;opacity:0.55;color:#ff6584">✨</div>
+    <div style="width:100%;min-height:1091px;box-sizing:border-box;border:2.5px dashed rgba(167,139,250,0.35);border-radius:22px;padding:26px 33px 20px;position:relative">
 
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px">
-      <div style="width:143px;height:143px;flex-shrink:0">
-        <img src="icon-512.png" style="width:143px;height:143px;object-fit:contain">
-      </div>
+      <div style="position:absolute;top:14px;left:265px;font-size:19px;opacity:0.6">⭐</div>
+      <div style="position:absolute;top:8px;right:175px;font-size:18px;opacity:0.6;color:#ff6584">✨</div>
+      <div style="position:absolute;top:70px;left:20px;font-size:14px;opacity:0.5">🌸</div>
+      <div style="position:absolute;top:80px;right:24px;font-size:14px;opacity:0.5">💫</div>
 
-      <div style="flex:1;text-align:center;padding-top:8px">
-        <div style="display:inline-block;background:linear-gradient(90deg,#00c9a7,#38bdf8);color:#fff;
-          font-family:'Fredoka One',sans-serif;font-size:12px;letter-spacing:2px;padding:9px 34px;
-          border-radius:11px;box-shadow:0 8px 16px rgba(56,189,248,0.35);margin-bottom:15px">LITTLELUME ENGLISH</div>
-        <div style="font-family:'Fredoka One',sans-serif;font-size:36px;line-height:1.05">
-          <span style="color:#a78bfa">ATTENDANCE</span> <span style="color:#ff6584">RECORD</span>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
+        <div style="width:112px;height:112px;flex-shrink:0;filter:drop-shadow(0 6px 12px rgba(108,99,255,0.25))">
+          <img src="favicon-256x256.png" style="width:112px;height:112px;object-fit:contain">
         </div>
-        <div style="margin-top:15px">
-          <span style="display:inline-block;font-family:'Fredoka One',sans-serif;font-size:15px;color:#00c9a7;
-            border:2px dashed #00c9a7;padding:7px 30px;border-radius:11px;letter-spacing:1px">${monthLabel}</span>
+
+        <div style="flex:1;text-align:center;padding-top:6px">
+          <div style="display:inline-block;background:linear-gradient(90deg,#00c9a7,#38bdf8);color:#fff;
+            font-family:'Fredoka One',sans-serif;font-size:11.5px;letter-spacing:2px;padding:8px 30px;
+            border-radius:20px;box-shadow:0 6px 14px rgba(56,189,248,0.4);margin-bottom:13px">LITTLELUME ENGLISH</div>
+          <div style="font-family:'Fredoka One',sans-serif;font-size:34px;line-height:1.05;text-shadow:0 2px 0 rgba(0,0,0,0.03)">
+            <span style="color:#a78bfa">ATTENDANCE</span> <span style="color:#ff6584">RECORD</span>
+          </div>
+          <div style="margin-top:13px">
+            <span style="display:inline-block;font-family:'Fredoka One',sans-serif;font-size:14px;color:#00c9a7;
+              background:#fff;border:2px dashed #00c9a7;padding:6px 26px;border-radius:20px;letter-spacing:1px;box-shadow:0 3px 8px rgba(0,201,167,0.15)">${monthLabel}</span>
+          </div>
+          <div style="margin-top:10px;font-size:12.5px;font-weight:800;color:#6c63ff">✦ ${currentClassName || ''} ✦</div>
         </div>
-        <div style="margin-top:11px;font-size:13px;font-weight:700;opacity:0.8">${currentClassName || ''}</div>
+
+        <div style="width:96px;text-align:center;font-size:32px;line-height:1;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.1))">📔
+          <div style="font-size:8px;color:#8b86a8;font-weight:700;margin-top:6px">Keep<br>shining!</div>
+        </div>
       </div>
 
-      <div style="width:106px;text-align:center;font-size:34px;line-height:1">📔
-        <div style="font-size:8.5px;color:#8b86a8;font-weight:700;margin-top:6px">Keep<br>shining!</div>
+      <div style="display:flex;gap:14px;margin-bottom:17px">
+        <div style="flex:1;background:linear-gradient(160deg,#fff,#faf8ff);border-radius:16px;padding:16px 13px;display:flex;align-items:center;gap:11px;box-shadow:0 6px 16px rgba(108,99,255,0.1);border:1px solid rgba(167,139,250,0.12)">
+          <div style="width:44px;height:44px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:17px;color:#fff;background:linear-gradient(135deg,#a78bfa,#6c63ff);box-shadow:0 4px 10px rgba(108,99,255,0.35)">📋</div>
+          <div><div style="font-size:8.5px;font-weight:800;color:#8b86a8;text-transform:uppercase;letter-spacing:0.3px">Total Records</div><div style="font-family:'Fredoka One',sans-serif;font-size:20px;color:#3a3560">${totalRecords}</div><div style="font-size:8.5px;color:#8b86a8;font-weight:700">records</div></div>
+        </div>
+        <div style="flex:1;background:linear-gradient(160deg,#fff,#f6fffb);border-radius:16px;padding:16px 13px;display:flex;align-items:center;gap:11px;box-shadow:0 6px 16px rgba(0,201,167,0.1);border:1px solid rgba(0,201,167,0.14)">
+          <div style="width:44px;height:44px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:17px;color:#fff;background:linear-gradient(135deg,#00e0a1,#00c9a7);box-shadow:0 4px 10px rgba(0,201,167,0.35)">✓</div>
+          <div><div style="font-size:8.5px;font-weight:800;color:#8b86a8;text-transform:uppercase;letter-spacing:0.3px">Present</div><div style="font-family:'Fredoka One',sans-serif;font-size:20px;color:#3a3560">${totalPresent}</div><div style="font-size:8.5px;color:#00c9a7;font-weight:800">${pctOf(totalPresent)}%</div></div>
+        </div>
+        <div style="flex:1;background:linear-gradient(160deg,#fff,#fffaf3);border-radius:16px;padding:16px 13px;display:flex;align-items:center;gap:11px;box-shadow:0 6px 16px rgba(255,179,71,0.12);border:1px solid rgba(255,179,71,0.16)">
+          <div style="width:44px;height:44px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:17px;color:#fff;background:linear-gradient(135deg,#ffc369,#ff8c42);box-shadow:0 4px 10px rgba(255,140,66,0.35)">★</div>
+          <div><div style="font-size:8.5px;font-weight:800;color:#8b86a8;text-transform:uppercase;letter-spacing:0.3px">Excused</div><div style="font-family:'Fredoka One',sans-serif;font-size:20px;color:#3a3560">${totalExcused}</div><div style="font-size:8.5px;color:#ff8c42;font-weight:800">${pctOf(totalExcused)}%</div></div>
+        </div>
+        <div style="flex:1;background:linear-gradient(160deg,#fff,#fff5f6);border-radius:16px;padding:16px 13px;display:flex;align-items:center;gap:11px;box-shadow:0 6px 16px rgba(255,79,109,0.1);border:1px solid rgba(255,79,109,0.14)">
+          <div style="width:44px;height:44px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:17px;color:#fff;background:linear-gradient(135deg,#ff6b83,#ff4f6d);box-shadow:0 4px 10px rgba(255,79,109,0.35)">✕</div>
+          <div><div style="font-size:8.5px;font-weight:800;color:#8b86a8;text-transform:uppercase;letter-spacing:0.3px">Absent</div><div style="font-family:'Fredoka One',sans-serif;font-size:20px;color:#3a3560">${totalAbsent}</div><div style="font-size:8.5px;color:#ff4f6d;font-weight:800">${pctOf(totalAbsent)}%</div></div>
+        </div>
       </div>
+
+      <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 10px 24px rgba(58,53,96,0.09);margin-bottom:16px">
+        <thead>
+          <tr style="background:linear-gradient(90deg,#a78bfa,#ff6584)">
+            <th colspan="2" style="padding:10px 2px"></th>
+            <th colspan="${dates.length}" style="font-size:9.5px;font-weight:800;padding:10px 2px;color:#fff;letter-spacing:0.5px">DATE · ${monthLabel}</th>
+            <th colspan="4" style="padding:10px 2px"></th>
+          </tr>
+          <tr style="background:#f6f4fc;border-bottom:2px solid rgba(167,139,250,0.15)">
+            <th style="font-size:8px;font-weight:800;color:#8b86a8;padding:9px 2px;text-transform:uppercase">No</th>
+            <th style="font-size:8px;font-weight:800;color:#8b86a8;padding:9px 2px 9px 14px;text-transform:uppercase;text-align:left">Student Name</th>
+            ${dateHeaders}
+            <th style="font-size:8px;font-weight:800;color:#00c9a7;padding:9px 2px;text-transform:uppercase">Present</th>
+            <th style="font-size:8px;font-weight:800;color:#ff8c42;padding:9px 2px;text-transform:uppercase">Excused</th>
+            <th style="font-size:8px;font-weight:800;color:#ff4f6d;padding:9px 2px;text-transform:uppercase">Absent</th>
+            <th style="font-size:8px;font-weight:800;color:#a78bfa;padding:9px 2px;text-transform:uppercase">Att. %</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+
+      <div style="display:flex;gap:14px;margin-bottom:16px">
+        <div style="flex:1;background:#fff;border-radius:14px;padding:15px;box-shadow:0 5px 14px rgba(58,53,96,0.07);border:1px solid rgba(0,201,167,0.1)">
+          <div style="display:inline-block;font-family:'Fredoka One',sans-serif;font-size:8.5px;padding:5px 12px;border-radius:10px;margin-bottom:10px;background:linear-gradient(90deg,#00e0a1,#00c9a7);color:#fff;box-shadow:0 3px 8px rgba(0,201,167,0.3)">✓ LEGEND</div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:9px;margin-bottom:7px;font-weight:700"><span style="display:inline-flex;width:17px;height:17px;border-radius:50%;background:linear-gradient(135deg,#00e0a1,#00c9a7);color:#fff;align-items:center;justify-content:center;font-size:8px">✓</span> Present (Hadir)</div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:9px;margin-bottom:7px;font-weight:700"><span style="display:inline-flex;width:17px;height:17px;border-radius:50%;background:linear-gradient(135deg,#ffc369,#ffb347);color:#fff;align-items:center;justify-content:center;font-size:8px">I</span> Excused (Izin)</div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:9px;font-weight:700"><span style="display:inline-flex;width:17px;height:17px;border-radius:50%;background:linear-gradient(135deg,#ff6b83,#ff4f6d);color:#fff;align-items:center;justify-content:center;font-size:8px">✕</span> Absent (Alpha)</div>
+        </div>
+        <div style="flex:1;background:#fff;border-radius:14px;padding:15px;box-shadow:0 5px 14px rgba(58,53,96,0.07);border:1px solid rgba(167,139,250,0.12)">
+          <div style="display:inline-block;font-family:'Fredoka One',sans-serif;font-size:8.5px;padding:5px 12px;border-radius:10px;margin-bottom:10px;background:linear-gradient(90deg,#a78bfa,#6c63ff);color:#fff;box-shadow:0 3px 8px rgba(108,99,255,0.3)">✎ NOTE</div>
+          <div style="font-size:9px;line-height:1.75;font-weight:600;color:#5b5580">– = No session that date<br>Att. % = Present ÷ Total sessions</div>
+        </div>
+        <div style="flex:1;background:#fff;border-radius:14px;padding:15px;box-shadow:0 5px 14px rgba(58,53,96,0.07);border:1px solid rgba(255,101,132,0.12)">
+          <div style="display:inline-block;font-family:'Fredoka One',sans-serif;font-size:8.5px;padding:5px 12px;border-radius:10px;margin-bottom:10px;background:linear-gradient(90deg,#ff8ea3,#ff6584);color:#fff;box-shadow:0 3px 8px rgba(255,101,132,0.3)">♡ REMINDER</div>
+          <div style="font-size:9px;line-height:1.75;font-weight:600;color:#5b5580">Let's come to class on time, be present, and make every lesson count!</div>
+        </div>
+      </div>
+
+      <div style="text-align:center">
+        <span style="background:linear-gradient(90deg,#faf8ff,#fff5f7);border:2px dashed #a78bfa;border-radius:20px;padding:9px 28px;font-family:'Fredoka One',sans-serif;font-size:12px;color:#8b5cf6;box-shadow:0 4px 10px rgba(167,139,250,0.15)">✨ Thank you for being awesome every day! ✨</span>
+      </div>
+      <div style="text-align:center;font-size:8.5px;color:#b3aecb;font-weight:700;margin-top:12px;letter-spacing:0.3px">Generated by LittleLume English Course · Attendance Management System</div>
     </div>
-
-    <div style="display:flex;gap:19px;margin-bottom:19px">
-      <div style="flex:1;background:#fff;border-radius:15px;padding:19px 15px;display:flex;align-items:center;gap:13px;box-shadow:0 8px 16px rgba(58,53,96,0.06);border:1.5px solid rgba(58,53,96,0.06)">
-        <div style="width:49px;height:49px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;background:linear-gradient(135deg,#a78bfa,#6c63ff)">📋</div>
-        <div><div style="font-size:9px;font-weight:700;color:#8b86a8;text-transform:uppercase">Total Records</div><div style="font-family:'Fredoka One',sans-serif;font-size:22px">${totalRecords}</div><div style="font-size:9px;color:#8b86a8;font-weight:700">records</div></div>
-      </div>
-      <div style="flex:1;background:#fff;border-radius:15px;padding:19px 15px;display:flex;align-items:center;gap:13px;box-shadow:0 8px 16px rgba(58,53,96,0.06);border:1.5px solid rgba(58,53,96,0.06)">
-        <div style="width:49px;height:49px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;background:linear-gradient(135deg,#00d68f,#00c9a7)">✓</div>
-        <div><div style="font-size:9px;font-weight:700;color:#8b86a8;text-transform:uppercase">Present</div><div style="font-family:'Fredoka One',sans-serif;font-size:22px">${totalPresent}</div><div style="font-size:9px;color:#8b86a8;font-weight:700">${pctOf(totalPresent)}%</div></div>
-      </div>
-      <div style="flex:1;background:#fff;border-radius:15px;padding:19px 15px;display:flex;align-items:center;gap:13px;box-shadow:0 8px 16px rgba(58,53,96,0.06);border:1.5px solid rgba(58,53,96,0.06)">
-        <div style="width:49px;height:49px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;background:linear-gradient(135deg,#ffb347,#ff8c42)">★</div>
-        <div><div style="font-size:9px;font-weight:700;color:#8b86a8;text-transform:uppercase">Excused (Izin)</div><div style="font-family:'Fredoka One',sans-serif;font-size:22px">${totalExcused}</div><div style="font-size:9px;color:#8b86a8;font-weight:700">${pctOf(totalExcused)}%</div></div>
-      </div>
-      <div style="flex:1;background:#fff;border-radius:15px;padding:19px 15px;display:flex;align-items:center;gap:13px;box-shadow:0 8px 16px rgba(58,53,96,0.06);border:1.5px solid rgba(58,53,96,0.06)">
-        <div style="width:49px;height:49px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;background:linear-gradient(135deg,#ff4f6d,#ff6584)">✕</div>
-        <div><div style="font-size:9px;font-weight:700;color:#8b86a8;text-transform:uppercase">Absent</div><div style="font-family:'Fredoka One',sans-serif;font-size:22px">${totalAbsent}</div><div style="font-size:9px;color:#8b86a8;font-weight:700">${pctOf(totalAbsent)}%</div></div>
-      </div>
-    </div>
-
-    <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:15px;overflow:hidden;box-shadow:0 8px 19px rgba(58,53,96,0.07);margin-bottom:19px">
-      <thead>
-        <tr style="background:linear-gradient(90deg,rgba(167,139,250,0.18),rgba(255,101,132,0.14))">
-          <th colspan="2" style="padding:9px 2px"></th>
-          <th colspan="${dates.length}" style="font-size:9px;font-weight:800;padding:9px 2px;color:#3a3560">DATE (${monthLabel})</th>
-          <th colspan="4" style="padding:9px 2px"></th>
-        </tr>
-        <tr style="background:#f4f1fb;border-bottom:1.5px solid rgba(58,53,96,0.08)">
-          <th style="font-size:8px;font-weight:800;color:#8b86a8;padding:8px 2px;text-transform:uppercase">No</th>
-          <th style="font-size:8px;font-weight:800;color:#8b86a8;padding:8px 2px 8px 12px;text-transform:uppercase;text-align:left">Student Name</th>
-          ${dateHeaders}
-          <th style="font-size:8px;font-weight:800;color:#8b86a8;padding:8px 2px;text-transform:uppercase">Present</th>
-          <th style="font-size:8px;font-weight:800;color:#8b86a8;padding:8px 2px;text-transform:uppercase">Excused</th>
-          <th style="font-size:8px;font-weight:800;color:#8b86a8;padding:8px 2px;text-transform:uppercase">Absent</th>
-          <th style="font-size:8px;font-weight:800;color:#8b86a8;padding:8px 2px;text-transform:uppercase">Att. %</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
-
-    <div style="display:flex;gap:19px;margin-bottom:19px">
-      <div style="flex:1;background:#fff;border-radius:13px;padding:17px;box-shadow:0 6px 11px rgba(58,53,96,0.06)">
-        <div style="display:inline-block;font-family:'Fredoka One',sans-serif;font-size:9px;padding:5px 13px;border-radius:9px;margin-bottom:11px;background:rgba(0,201,167,0.15);color:#00c9a7">LEGEND</div>
-        <div style="display:flex;align-items:center;gap:9px;font-size:9.5px;margin-bottom:7px;font-weight:600"><span style="display:inline-flex;width:18px;height:18px;border-radius:50%;background:#00d68f;color:#fff;align-items:center;justify-content:center;font-size:9px">✓</span> Present (Hadir)</div>
-        <div style="display:flex;align-items:center;gap:9px;font-size:9.5px;margin-bottom:7px;font-weight:600"><span style="display:inline-flex;width:18px;height:18px;border-radius:50%;background:#ffb347;color:#fff;align-items:center;justify-content:center;font-size:9px">I</span> Excused (Izin)</div>
-        <div style="display:flex;align-items:center;gap:9px;font-size:9.5px;font-weight:600"><span style="display:inline-flex;width:18px;height:18px;border-radius:50%;background:#ff4f6d;color:#fff;align-items:center;justify-content:center;font-size:9px">✕</span> Absent (Alpha)</div>
-      </div>
-      <div style="flex:1;background:#fff;border-radius:13px;padding:17px;box-shadow:0 6px 11px rgba(58,53,96,0.06)">
-        <div style="display:inline-block;font-family:'Fredoka One',sans-serif;font-size:9px;padding:5px 13px;border-radius:9px;margin-bottom:11px;background:rgba(167,139,250,0.18);color:#a78bfa">NOTE</div>
-        <div style="font-size:9.5px;line-height:1.7;font-weight:600">– = No session scheduled that date<br>Attendance % = Present / Total sessions</div>
-      </div>
-      <div style="flex:1;background:#fff;border-radius:13px;padding:17px;box-shadow:0 6px 11px rgba(58,53,96,0.06)">
-        <div style="display:inline-block;font-family:'Fredoka One',sans-serif;font-size:9px;padding:5px 13px;border-radius:9px;margin-bottom:11px;background:rgba(255,101,132,0.15);color:#ff6584">REMINDER</div>
-        <div style="font-size:9.5px;line-height:1.7;font-weight:600">Let's come to class on time, be present, and make every lesson count!</div>
-      </div>
-    </div>
-
-    <div style="text-align:center;margin-top:19px">
-      <span style="background:#fff;border:2px dashed #a78bfa;border-radius:15px;padding:9px 26px;font-family:'Fredoka One',sans-serif;font-size:12px;color:#a78bfa">✨ Thank you for being awesome every day! ✨</span>
-    </div>
-    <div style="text-align:center;font-size:9px;color:#8b86a8;font-weight:700;margin-top:15px">Generated by LittleLume English Course · Attendance Management System</div>
   </div>`;
 }
-
 async function _renderAttReportCanvas(monthStr){
   const panel = document.getElementById('att-report-render-panel');
   panel.innerHTML = _buildAttReportHTML(monthStr);
