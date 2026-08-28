@@ -531,3 +531,239 @@ function openEditEval(id){
 }
 
 // ════════════════════════════════════════════════
+//  MONTHLY ATTENDANCE REPORT EXPORT
+// ════════════════════════════════════════════════
+function openAttReportModal(){
+  const monthInput = document.getElementById('att-report-month');
+  if(!monthInput.value){
+    const now = new Date();
+    monthInput.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  }
+  document.getElementById('att-report-info').textContent =
+    `Class: ${currentClassName || '-'}`;
+  openModal('modal-att-report');
+}
+
+function _buildAttReportHTML(monthStr){
+  // monthStr format: "YYYY-MM"
+  const [y,m] = monthStr.split('-');
+  const monthDate = new Date(Number(y), Number(m)-1, 1);
+  const monthLabel = monthDate.toLocaleDateString('en-US',{month:'long',year:'numeric'}).toUpperCase();
+
+  const recordsInMonth = absensiList.filter(a=>a.tanggal && a.tanggal.startsWith(monthStr));
+
+  // distinct dates, sorted
+  const dates = [...new Set(recordsInMonth.map(a=>a.tanggal))].sort();
+
+  // students who have at least 1 record this month, sorted by name
+  const studentIds = [...new Set(recordsInMonth.map(a=>a.siswaId))];
+  const students = studentIds
+    .map(id => siswaList.find(s=>s.id===id) || {id, nama: recordsInMonth.find(a=>a.siswaId===id)?.namaSiswa || 'Unknown'})
+    .sort((a,b)=>(a.nama||'').localeCompare(b.nama||''));
+
+  let totalPresent=0, totalExcused=0, totalAbsent=0;
+
+  const dateColWidth = dates.length > 6 ? 'font-size:8px;padding:6px 2px' : 'font-size:9px;padding:8px 2px';
+
+  const rows = students.map((s,idx)=>{
+    const studentRecords = recordsInMonth.filter(a=>a.siswaId===s.id);
+    const p = studentRecords.filter(a=>a.status==='Hadir').length;
+    const i = studentRecords.filter(a=>a.status==='Izin').length;
+    const a = studentRecords.filter(a=>a.status==='Alpha').length;
+    totalPresent+=p; totalExcused+=i; totalAbsent+=a;
+    const total = studentRecords.length;
+    const pct = total ? Math.round((p/total)*100) : 0;
+
+    const marks = dates.map(d=>{
+      const rec = studentRecords.find(a=>a.tanggal===d);
+      if(!rec) return `<td style="${dateColWidth}"><span style="color:#d0d0d8">–</span></td>`;
+      if(rec.status==='Hadir') return `<td style="${dateColWidth}"><span style="display:inline-flex;width:18px;height:18px;border-radius:50%;background:#00d68f;color:#fff;align-items:center;justify-content:center;font-size:10px">✓</span></td>`;
+      if(rec.status==='Izin')  return `<td style="${dateColWidth}"><span style="display:inline-flex;width:18px;height:18px;border-radius:50%;background:#ffb347;color:#fff;align-items:center;justify-content:center;font-size:9px">I</span></td>`;
+      return `<td style="${dateColWidth}"><span style="display:inline-flex;width:18px;height:18px;border-radius:50%;background:#ff4f6d;color:#fff;align-items:center;justify-content:center;font-size:10px">✕</span></td>`;
+    }).join('');
+
+    const initials = (s.nama||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    const rowBg = idx%2===1 ? 'background:rgba(167,139,250,0.045)' : '';
+
+    return `<tr style="${rowBg}">
+      <td style="font-size:10.5px;text-align:center;padding:11px 2px;border-bottom:1px solid rgba(58,53,96,0.06);width:22px">${idx+1}</td>
+      <td style="font-size:10.5px;font-weight:700;text-align:left;padding:11px 2px 11px 12px;border-bottom:1px solid rgba(58,53,96,0.06)">
+        <span style="display:inline-flex;width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#a78bfa,#38bdf8);color:#fff;align-items:center;justify-content:center;font-size:9px;font-weight:800;font-family:'Fredoka One',sans-serif">${initials}</span>
+        &nbsp;${s.nama}
+      </td>
+      ${marks}
+      <td style="font-size:10.5px;text-align:center;padding:11px 2px;border-bottom:1px solid rgba(58,53,96,0.06);color:#00c9a7;font-weight:800;font-family:'Fredoka One',sans-serif">${p}</td>
+      <td style="font-size:10.5px;text-align:center;padding:11px 2px;border-bottom:1px solid rgba(58,53,96,0.06);color:#ff8c42;font-weight:800;font-family:'Fredoka One',sans-serif">${i}</td>
+      <td style="font-size:10.5px;text-align:center;padding:11px 2px;border-bottom:1px solid rgba(58,53,96,0.06);color:#ff4f6d;font-weight:800;font-family:'Fredoka One',sans-serif">${a}</td>
+      <td style="font-size:10.5px;text-align:center;padding:11px 2px;border-bottom:1px solid rgba(58,53,96,0.06)"><span style="background:rgba(167,139,250,0.18);color:#a78bfa;border-radius:12px;padding:3px 8px;font-family:'Fredoka One',sans-serif;font-size:10px">${pct}%</span></td>
+    </tr>`;
+  }).join('');
+
+  const totalRecords = totalPresent+totalExcused+totalAbsent;
+  const pctOf = n => totalRecords ? Math.round((n/totalRecords)*100) : 0;
+
+  const dateHeaders = dates.map(d=>{
+    const dd = new Date(d);
+    const dayNum = String(dd.getDate()).padStart(2,'0');
+    const dayName = dd.toLocaleDateString('en-US',{weekday:'short'}).toUpperCase();
+    return `<th style="${dateColWidth}font-weight:800;color:#3a3560;text-align:center">${dayNum}<br>${dayName}</th>`;
+  }).join('');
+
+  if(!students.length){
+    return `<div style="font-family:'Baloo 2',sans-serif;padding:60px;text-align:center;color:#8b86a8">
+      <div style="font-size:40px;margin-bottom:12px">📭</div>
+      No attendance records found for ${monthLabel}.
+    </div>`;
+  }
+
+  return `
+  <div style="width:794px;min-height:1123px;box-sizing:border-box;padding:34px 49px 24px;
+    font-family:'Baloo 2',sans-serif;color:#3a3560;position:relative;
+    background:radial-gradient(circle at 8% 6%, rgba(108,99,255,0.07), transparent 22%),
+               radial-gradient(circle at 94% 10%, rgba(255,101,132,0.07), transparent 24%),
+               radial-gradient(circle at 90% 90%, rgba(0,201,167,0.06), transparent 26%),
+               #fffaf3;">
+
+    <div style="position:absolute;top:30px;left:295px;font-size:20px;opacity:0.55">⭐</div>
+    <div style="position:absolute;top:22px;right:195px;font-size:20px;opacity:0.55;color:#ff6584">✨</div>
+
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px">
+      <div style="width:143px;height:143px;border-radius:46% 54% 52% 48%/50% 46% 54% 50%;background:#fff;
+        border:2.5px dashed #ff6584;display:flex;flex-direction:column;align-items:center;justify-content:center;
+        text-align:center;box-shadow:0 11px 22px rgba(108,99,255,0.15);padding:8px">
+        <div style="font-family:'Fredoka One',sans-serif;font-size:14px;line-height:1.1">
+          <span style="color:#a78bfa">Little</span><span style="color:#ff6584">lume</span><br>
+          <span style="color:#ff6584">English</span>
+        </div>
+        <div style="font-size:6.5px;letter-spacing:1px;color:#8b86a8;margin-top:6px;font-weight:700">LEARN • PLAY • SHINE</div>
+      </div>
+
+      <div style="flex:1;text-align:center;padding-top:8px">
+        <div style="display:inline-block;background:linear-gradient(90deg,#00c9a7,#38bdf8);color:#fff;
+          font-family:'Fredoka One',sans-serif;font-size:12px;letter-spacing:2px;padding:9px 34px;
+          border-radius:11px;box-shadow:0 8px 16px rgba(56,189,248,0.35);margin-bottom:15px">LITTLELUME ENGLISH</div>
+        <div style="font-family:'Fredoka One',sans-serif;font-size:36px;line-height:1.05">
+          <span style="color:#a78bfa">ATTENDANCE</span> <span style="color:#ff6584">RECORD</span>
+        </div>
+        <div style="margin-top:15px">
+          <span style="display:inline-block;font-family:'Fredoka One',sans-serif;font-size:15px;color:#00c9a7;
+            border:2px dashed #00c9a7;padding:7px 30px;border-radius:11px;letter-spacing:1px">${monthLabel}</span>
+        </div>
+        <div style="margin-top:11px;font-size:13px;font-weight:700;opacity:0.8">${currentClassName || ''}</div>
+      </div>
+
+      <div style="width:106px;text-align:center;font-size:34px;line-height:1">📔
+        <div style="font-size:8.5px;color:#8b86a8;font-weight:700;margin-top:6px">Keep<br>shining!</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:19px;margin-bottom:19px">
+      <div style="flex:1;background:#fff;border-radius:15px;padding:19px 15px;display:flex;align-items:center;gap:13px;box-shadow:0 8px 16px rgba(58,53,96,0.06);border:1.5px solid rgba(58,53,96,0.06)">
+        <div style="width:49px;height:49px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;background:linear-gradient(135deg,#a78bfa,#6c63ff)">📋</div>
+        <div><div style="font-size:9px;font-weight:700;color:#8b86a8;text-transform:uppercase">Total Records</div><div style="font-family:'Fredoka One',sans-serif;font-size:22px">${totalRecords}</div><div style="font-size:9px;color:#8b86a8;font-weight:700">records</div></div>
+      </div>
+      <div style="flex:1;background:#fff;border-radius:15px;padding:19px 15px;display:flex;align-items:center;gap:13px;box-shadow:0 8px 16px rgba(58,53,96,0.06);border:1.5px solid rgba(58,53,96,0.06)">
+        <div style="width:49px;height:49px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;background:linear-gradient(135deg,#00d68f,#00c9a7)">✓</div>
+        <div><div style="font-size:9px;font-weight:700;color:#8b86a8;text-transform:uppercase">Present</div><div style="font-family:'Fredoka One',sans-serif;font-size:22px">${totalPresent}</div><div style="font-size:9px;color:#8b86a8;font-weight:700">${pctOf(totalPresent)}%</div></div>
+      </div>
+      <div style="flex:1;background:#fff;border-radius:15px;padding:19px 15px;display:flex;align-items:center;gap:13px;box-shadow:0 8px 16px rgba(58,53,96,0.06);border:1.5px solid rgba(58,53,96,0.06)">
+        <div style="width:49px;height:49px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;background:linear-gradient(135deg,#ffb347,#ff8c42)">★</div>
+        <div><div style="font-size:9px;font-weight:700;color:#8b86a8;text-transform:uppercase">Excused (Izin)</div><div style="font-family:'Fredoka One',sans-serif;font-size:22px">${totalExcused}</div><div style="font-size:9px;color:#8b86a8;font-weight:700">${pctOf(totalExcused)}%</div></div>
+      </div>
+      <div style="flex:1;background:#fff;border-radius:15px;padding:19px 15px;display:flex;align-items:center;gap:13px;box-shadow:0 8px 16px rgba(58,53,96,0.06);border:1.5px solid rgba(58,53,96,0.06)">
+        <div style="width:49px;height:49px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;background:linear-gradient(135deg,#ff4f6d,#ff6584)">✕</div>
+        <div><div style="font-size:9px;font-weight:700;color:#8b86a8;text-transform:uppercase">Absent</div><div style="font-family:'Fredoka One',sans-serif;font-size:22px">${totalAbsent}</div><div style="font-size:9px;color:#8b86a8;font-weight:700">${pctOf(totalAbsent)}%</div></div>
+      </div>
+    </div>
+
+    <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:15px;overflow:hidden;box-shadow:0 8px 19px rgba(58,53,96,0.07);margin-bottom:19px">
+      <thead>
+        <tr style="background:linear-gradient(90deg,rgba(167,139,250,0.18),rgba(255,101,132,0.14))">
+          <th colspan="2" style="padding:9px 2px"></th>
+          <th colspan="${dates.length}" style="font-size:9px;font-weight:800;padding:9px 2px;color:#3a3560">DATE (${monthLabel})</th>
+          <th colspan="4" style="padding:9px 2px"></th>
+        </tr>
+        <tr style="background:#f4f1fb;border-bottom:1.5px solid rgba(58,53,96,0.08)">
+          <th style="font-size:8px;font-weight:800;color:#8b86a8;padding:8px 2px;text-transform:uppercase">No</th>
+          <th style="font-size:8px;font-weight:800;color:#8b86a8;padding:8px 2px 8px 12px;text-transform:uppercase;text-align:left">Student Name</th>
+          ${dateHeaders}
+          <th style="font-size:8px;font-weight:800;color:#8b86a8;padding:8px 2px;text-transform:uppercase">Present</th>
+          <th style="font-size:8px;font-weight:800;color:#8b86a8;padding:8px 2px;text-transform:uppercase">Excused</th>
+          <th style="font-size:8px;font-weight:800;color:#8b86a8;padding:8px 2px;text-transform:uppercase">Absent</th>
+          <th style="font-size:8px;font-weight:800;color:#8b86a8;padding:8px 2px;text-transform:uppercase">Att. %</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <div style="display:flex;gap:19px;margin-bottom:19px">
+      <div style="flex:1;background:#fff;border-radius:13px;padding:17px;box-shadow:0 6px 11px rgba(58,53,96,0.06)">
+        <div style="display:inline-block;font-family:'Fredoka One',sans-serif;font-size:9px;padding:5px 13px;border-radius:9px;margin-bottom:11px;background:rgba(0,201,167,0.15);color:#00c9a7">LEGEND</div>
+        <div style="display:flex;align-items:center;gap:9px;font-size:9.5px;margin-bottom:7px;font-weight:600"><span style="display:inline-flex;width:18px;height:18px;border-radius:50%;background:#00d68f;color:#fff;align-items:center;justify-content:center;font-size:9px">✓</span> Present (Hadir)</div>
+        <div style="display:flex;align-items:center;gap:9px;font-size:9.5px;margin-bottom:7px;font-weight:600"><span style="display:inline-flex;width:18px;height:18px;border-radius:50%;background:#ffb347;color:#fff;align-items:center;justify-content:center;font-size:9px">I</span> Excused (Izin)</div>
+        <div style="display:flex;align-items:center;gap:9px;font-size:9.5px;font-weight:600"><span style="display:inline-flex;width:18px;height:18px;border-radius:50%;background:#ff4f6d;color:#fff;align-items:center;justify-content:center;font-size:9px">✕</span> Absent (Alpha)</div>
+      </div>
+      <div style="flex:1;background:#fff;border-radius:13px;padding:17px;box-shadow:0 6px 11px rgba(58,53,96,0.06)">
+        <div style="display:inline-block;font-family:'Fredoka One',sans-serif;font-size:9px;padding:5px 13px;border-radius:9px;margin-bottom:11px;background:rgba(167,139,250,0.18);color:#a78bfa">NOTE</div>
+        <div style="font-size:9.5px;line-height:1.7;font-weight:600">– = No session scheduled that date<br>Attendance % = Present / Total sessions</div>
+      </div>
+      <div style="flex:1;background:#fff;border-radius:13px;padding:17px;box-shadow:0 6px 11px rgba(58,53,96,0.06)">
+        <div style="display:inline-block;font-family:'Fredoka One',sans-serif;font-size:9px;padding:5px 13px;border-radius:9px;margin-bottom:11px;background:rgba(255,101,132,0.15);color:#ff6584">REMINDER</div>
+        <div style="font-size:9.5px;line-height:1.7;font-weight:600">Let's come to class on time, be present, and make every lesson count!</div>
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:19px">
+      <span style="background:#fff;border:2px dashed #a78bfa;border-radius:15px;padding:9px 26px;font-family:'Fredoka One',sans-serif;font-size:12px;color:#a78bfa">✨ Thank you for being awesome every day! ✨</span>
+    </div>
+    <div style="text-align:center;font-size:9px;color:#8b86a8;font-weight:700;margin-top:15px">Generated by LittleLume English Course · Attendance Management System</div>
+  </div>`;
+}
+
+async function _renderAttReportCanvas(monthStr){
+  const panel = document.getElementById('att-report-render-panel');
+  panel.innerHTML = _buildAttReportHTML(monthStr);
+  await new Promise(r=>setTimeout(r,300));
+  const canvas = await html2canvas(panel, {
+    scale:2,
+    useCORS:true,
+    backgroundColor:'#ffffff',
+    width:794,
+    windowWidth:794,
+    logging:false
+  });
+  panel.innerHTML='';
+  return canvas;
+}
+
+async function exportAttReport(type){
+  const monthStr = document.getElementById('att-report-month').value;
+  if(!monthStr){ showToast('Please select a month','warning'); return; }
+  const safeMonth = monthStr;
+  const safeClass = (currentClassName||'class').replace(/\s+/g,'-');
+
+  if(type==='png'){
+    showToast('Generating PNG…','info',2500);
+    const canvas = await _renderAttReportCanvas(monthStr);
+    const a = document.createElement('a');
+    a.download = `attendance-report-${safeClass}-${safeMonth}.png`;
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+    showToast('PNG downloaded!','success');
+
+  } else if(type==='pdf'){
+    showToast('Generating PDF…','info',2500);
+    const canvas = await _renderAttReportCanvas(monthStr);
+    const imgData = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const pxW = canvas.width / 2;
+    const pxH = canvas.height / 2;
+    const pdf = new jsPDF({ orientation:'portrait', unit:'px', format:[pxW, pxH], hotfixes:['px_scaling'] });
+    pdf.addImage(imgData,'PNG',0,0,pxW,pxH);
+    pdf.save(`attendance-report-${safeClass}-${safeMonth}.pdf`);
+    showToast('PDF downloaded!','success');
+  }
+  closeModal('modal-att-report');
+}
+
+// ════════════════════════════════════════════════

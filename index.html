@@ -367,7 +367,10 @@
       </div>
       <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
-          <div style="font-family:'Fredoka One',sans-serif;font-weight:800">Attendance Record</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <div style="font-family:'Fredoka One',sans-serif;font-weight:800">Attendance Record</div>
+            <button class="btn sm" onclick="openAttReportModal()" title="Export monthly attendance report">📊 Export Report</button>
+          </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
             <div class="form-group" style="margin:0;min-width:120px"><label style="font-size:0.7rem">📅 From</label><input type="date" id="att-f-dari" onchange="renderAttendance()" style="padding:6px 10px;font-size:0.82rem"></div>
             <div class="form-group" style="margin:0;min-width:120px"><label style="font-size:0.7rem">📅 To</label><input type="date" id="att-f-sampai" onchange="renderAttendance()" style="padding:6px 10px;font-size:0.82rem"></div>
@@ -785,6 +788,7 @@
 <div id="receipt-render-panel"></div>
 <!-- ══ STUDENT PROFILE RENDER PANEL ══ -->
 <div id="sp-render-panel"></div>
+<div id="att-report-render-panel" style="position:fixed;left:-9999px;top:0;width:794px;background:#fff;z-index:-1;"></div>
 
 <!-- ══ MODAL: EVAL PRINT ══ -->
 <div class="overlay" id="modal-eval-print">
@@ -1089,6 +1093,23 @@
       </div>
     </div>
     <div id="sp-content"></div>
+  </div>
+</div>
+
+<!-- ══ MODAL: EXPORT ATTENDANCE REPORT ══ -->
+<div class="overlay" id="modal-att-report">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-title">📊 Export Attendance Report</div>
+    <div class="form-group">
+      <label>Month</label>
+      <input type="month" id="att-report-month">
+    </div>
+    <div id="att-report-info" style="font-size:0.8rem;color:var(--muted);margin-bottom:14px"></div>
+    <div class="btn-row" style="margin:0">
+      <button class="btn sm" onclick="exportAttReport('png')" title="Download PNG">🖼️ PNG</button>
+      <button class="btn sm" onclick="exportAttReport('pdf')" title="Download PDF">📄 PDF</button>
+      <button class="btn sm" onclick="closeModal('modal-att-report')">Cancel</button>
+    </div>
   </div>
 </div>
 
