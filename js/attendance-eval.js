@@ -628,14 +628,8 @@ function _buildAttReportHTML(monthStr){
     <div style="position:absolute;top:22px;right:195px;font-size:20px;opacity:0.55;color:#ff6584">✨</div>
 
     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px">
-      <div style="width:143px;height:143px;border-radius:46% 54% 52% 48%/50% 46% 54% 50%;background:#fff;
-        border:2.5px dashed #ff6584;display:flex;flex-direction:column;align-items:center;justify-content:center;
-        text-align:center;box-shadow:0 11px 22px rgba(108,99,255,0.15);padding:8px">
-        <div style="font-family:'Fredoka One',sans-serif;font-size:14px;line-height:1.1">
-          <span style="color:#a78bfa">Little</span><span style="color:#ff6584">lume</span><br>
-          <span style="color:#ff6584">English</span>
-        </div>
-        <div style="font-size:6.5px;letter-spacing:1px;color:#8b86a8;margin-top:6px;font-weight:700">LEARN • PLAY • SHINE</div>
+      <div style="width:143px;height:143px;flex-shrink:0">
+        <img src="icon-512.png" style="width:143px;height:143px;object-fit:contain">
       </div>
 
       <div style="flex:1;text-align:center;padding-top:8px">
@@ -723,7 +717,14 @@ function _buildAttReportHTML(monthStr){
 async function _renderAttReportCanvas(monthStr){
   const panel = document.getElementById('att-report-render-panel');
   panel.innerHTML = _buildAttReportHTML(monthStr);
-  await new Promise(r=>setTimeout(r,300));
+
+  // pastikan gambar logo selesai dimuat sebelum di-capture
+  const imgs = panel.querySelectorAll('img');
+  await Promise.all([...imgs].map(img=>
+    img.complete ? Promise.resolve() : new Promise(res=>{ img.onload=res; img.onerror=res; })
+  ));
+  await new Promise(r=>setTimeout(r,200));
+
   const canvas = await html2canvas(panel, {
     scale:2,
     useCORS:true,
