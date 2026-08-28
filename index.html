@@ -1098,16 +1098,21 @@
 
 <!-- ══ MODAL: EXPORT ATTENDANCE REPORT ══ -->
 <div class="overlay" id="modal-att-report">
-  <div class="modal" style="max-width:420px">
-    <div class="modal-title">📊 Export Attendance Report</div>
+  <div class="modal modal-sm">
+    <div class="modal-title" style="display:flex;align-items:center;gap:10px">
+      <span style="display:inline-flex;width:36px;height:36px;border-radius:11px;flex-shrink:0;
+        background:linear-gradient(135deg,#a78bfa,#6c63ff);align-items:center;justify-content:center;
+        font-size:17px;box-shadow:0 4px 10px rgba(108,99,255,0.35)">📊</span>
+      Export Attendance Report
+    </div>
     <div class="form-group">
       <label>Month</label>
       <input type="month" id="att-report-month">
     </div>
-    <div id="att-report-info" style="font-size:0.8rem;color:var(--muted);margin-bottom:14px"></div>
+    <div id="att-report-info" style="font-size:0.82rem;color:var(--accent);font-weight:700;margin:8px 2px 18px"></div>
     <div class="btn-row" style="margin:0">
-      <button class="btn sm" onclick="exportAttReport('png')" title="Download PNG">🖼️ PNG</button>
-      <button class="btn sm" onclick="exportAttReport('pdf')" title="Download PDF">📄 PDF</button>
+      <button class="btn sm png-export" onclick="exportAttReport('png')" title="Download PNG">🖼️ PNG</button>
+      <button class="btn sm pdf-export" onclick="exportAttReport('pdf')" title="Download PDF">📄 PDF</button>
       <button class="btn sm" onclick="closeModal('modal-att-report')">Cancel</button>
     </div>
   </div>

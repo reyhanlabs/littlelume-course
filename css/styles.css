@@ -187,11 +187,12 @@ body{font-family:'Fredoka One',sans-serif;background:var(--bg);color:var(--text)
 @media(max-width:640px){ .form-row{grid-template-columns:1fr} }
 .form-group { display:flex;flex-direction:column;gap:5px;margin-top:12px }
 .form-group label { font-size:0.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px }
-input[type=text],input[type=date],input[type=number],input[type=time],textarea,select {
+input[type=text],input[type=date],input[type=month],input[type=number],input[type=time],textarea,select {
   width:100%;padding:10px 13px;background:var(--bg3);border:1px solid var(--border);
   border-radius:9px;color:var(--text);font-family:'Fredoka One',sans-serif;font-size:0.9rem;
   outline:none;transition:border .18s,box-shadow .18s;
 }
+input[type=month]{ cursor:pointer }
 input:focus,textarea:focus,select:focus { border-color:var(--accent);box-shadow:0 0 0 3px rgba(108,99,255,0.15) }
 textarea { resize:vertical;min-height:76px }
 input[type=number].rp { text-align:right;font-weight:700 }
@@ -234,6 +235,10 @@ input[type=time]:focus {
 .btn.wa:hover{ filter:brightness(1.1) }
 .btn.wa2     { background:#128C7E;border-color:#128C7E;color:#fff }
 .btn.wa3     { background:#075E54;border-color:#075E54;color:#fff }
+.btn.png-export { background:linear-gradient(135deg,#38bdf8,#00c9a7);border-color:transparent;color:#fff;box-shadow:0 4px 12px rgba(56,189,248,0.35) }
+.btn.png-export:hover { filter:brightness(1.1);color:#fff }
+.btn.pdf-export { background:linear-gradient(135deg,#ff8c42,#ff4f6d);border-color:transparent;color:#fff;box-shadow:0 4px 12px rgba(255,79,109,0.35) }
+.btn.pdf-export:hover { filter:brightness(1.1);color:#fff }
 .btn.sm { padding:6px 12px;font-size:0.78rem }
 .btn.icon-only { width:32px;height:32px;padding:0;border-radius:8px;justify-content:center }
 .btn-row { display:flex;gap:8px;flex-wrap:wrap;margin-top:16px }
