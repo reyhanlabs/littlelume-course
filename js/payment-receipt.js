@@ -852,8 +852,10 @@ function showReceipt(id){
       `<div style="font-size:0.62rem;font-weight:700"><span style="color:#ec4899">Little</span><span style="color:#0d9488">Lume</span> <span style="color:#ec4899">English</span><span style="color:#0d9488"> Course</span></div>` +
     `</div>`;
   document.getElementById('receipt-content').innerHTML=html;
-  document.getElementById('modal-receipt').dataset.receiptId=id;
-  document.getElementById('modal-receipt').dataset.receiptText=
+  const modal=document.getElementById('modal-receipt');
+  modal.dataset.receiptId=id;
+  modal.dataset.receiptType='payment';
+  modal.dataset.receiptText=
     `LITTLELUME ENGLISH COURSE\nPayment Receipt — ${rno}\n\n${rows.map(([k,v])=>k.padEnd(16)+': '+v).join('\n')}\n\nAmount Paid     : ${fmt(b.jumlah)}\n${(+b.depositUsed||0)>0?`From Deposit    : ${fmt(b.depositUsed)}\nCash            : ${fmt(b.jumlah-b.depositUsed)}\n`:''}Status          : ${b.status}\n${b.catatan?'Note            : '+b.catatan+'\n':''}\nThank you for your trust!`;
   document.getElementById('wa-status').style.display='none';
   openModal('modal-receipt');
@@ -980,60 +982,61 @@ function _buildReceiptRenderHTML(b,siswa){
     <div style="font-size:0.6rem;color:#0d9488;margin-top:2px">Thank you for your trust!</div>
   </div>`;
 }
-async function _renderToCanvas(b,siswa){
-  const panel=document.getElementById('receipt-render-panel');
-  panel.innerHTML=_buildReceiptRenderHTML(b,siswa);
-  // Tunggu semua <img> dalam panel selesai load sebelum capture
-  await Promise.all(
-    [...panel.querySelectorAll('img')].map(img =>
-      img.complete
-        ? Promise.resolve()
-        : new Promise(r => { img.onload = r; img.onerror = r; setTimeout(r, 5000); })
-    )
-  );
-  // Beri sedikit jeda agar browser selesai layout
-  await new Promise(r => setTimeout(r, 80));
-  const canvas = await html2canvas(panel, {
-    scale: 3,
-    useCORS: true,
-    allowTaint: true,
-    backgroundColor: '#fdf2f8',
-    width: 380,
-    windowWidth: 380,
-    imageTimeout: 8000,
-    logging: false
-  });
-  panel.innerHTML = '';
-  return canvas;
+// ─── Receipt lookup shim (payment vs deposit) ───
+// Semua tombol receipt (print/PDF/PNG/WA/copy) baca modal-receipt.dataset:
+//   receiptType = 'payment' (default) | 'deposit'
+//   receiptId   = ID di bayarList / depositList
+// Shim ini mengembalikan record + siswa yang tepat + builder HTML yang tepat.
+function _getReceiptContext(){
+  const modal = document.getElementById('modal-receipt');
+  const id    = modal.dataset.receiptId;
+  const type  = modal.dataset.receiptType || 'payment';
+  if(type === 'deposit'){
+    const d = (typeof depositList!=='undefined') ? depositList.find(x=>x.id===id) : null;
+    if(!d) return null;
+    const siswa = siswaList.find(s=>s.id===d.siswaId);
+    return {
+      type, record:d, siswa,
+      printHTML:  _buildDepositReceiptPrintHTML(d,siswa),
+      renderHTML: _buildDepositReceiptRenderHTML(d,siswa),
+      filenameBase: 'DepositReceipt-'+((d.namaSiswa||'Student').replace(/[^a-zA-Z0-9 ]/g,'').trim().replace(/ +/g,'_'))+'-'+((d.tanggal||'').slice(0,10)),
+      shareTextTitle: (d.tipe==='refund'?'Deposit Refund for ':'Deposit Receipt for ')+d.namaSiswa,
+      studentPhone: siswa?.hp,
+    };
+  }
+  const b = bayarList.find(x=>x.id===id);
+  if(!b) return null;
+  const siswa = siswaList.find(s=>s.id===b.siswaId);
+  return {
+    type, record:b, siswa,
+    printHTML:  _buildReceiptPrintHTML(b,siswa),
+    renderHTML: _buildReceiptRenderHTML(b,siswa),
+    filenameBase: 'Receipt-'+((b.namaSiswa||'Student').replace(/[^a-zA-Z0-9 ]/g,'').trim().replace(/ +/g,'_'))+'-'+((b.tanggal||'').slice(0,10)),
+    shareTextTitle: 'Receipt for '+b.namaSiswa,
+    studentPhone: siswa?.hp,
+  };
 }
+
 function printReceipt(){
-  const id=document.getElementById('modal-receipt').dataset.receiptId;
-  const b=bayarList.find(x=>x.id===id); if(!b) return;
-  const siswa=siswaList.find(s=>s.id===b.siswaId);
+  const ctx = _getReceiptContext(); if(!ctx) return;
   const w=window.open('','_blank','width=500,height=720');
-  w.document.write(_buildReceiptPrintHTML(b,siswa)+`<script>window.onload=function(){window.print();}<\/script>`);
+  w.document.write(ctx.printHTML+`<script>window.onload=function(){window.print();}<\/script>`);
   w.document.close();
 }
 function downloadPDF(){
-  const id=document.getElementById('modal-receipt').dataset.receiptId;
-  const b=bayarList.find(x=>x.id===id); if(!b) return;
-  const siswa=siswaList.find(s=>s.id===b.siswaId);
+  const ctx = _getReceiptContext(); if(!ctx) return;
   const w=window.open('','_blank','width=500,height=720');
-  w.document.write(_buildReceiptPrintHTML(b,siswa)+`<script>window.onload=function(){setTimeout(function(){window.print();},600);}<\/script>`);
+  w.document.write(ctx.printHTML+`<script>window.onload=function(){setTimeout(function(){window.print();},600);}<\/script>`);
   w.document.close();
 }
 async function downloadPNG(){
-  const id=document.getElementById('modal-receipt').dataset.receiptId;
-  const b=bayarList.find(x=>x.id===id); if(!b) return;
-  const siswa=siswaList.find(s=>s.id===b.siswaId);
+  const ctx = _getReceiptContext(); if(!ctx) return;
   const ws=document.getElementById('wa-status');
   ws.style.display='block'; ws.textContent='⏳ Generating image…';
   try{
-    const canvas=await _renderToCanvas(b,siswa);
-    const _safeName1=(b.namaSiswa||'Student').replace(/[^a-zA-Z0-9 ]/g,'').trim().replace(/ +/g,'_');
-    const _safeDate1=(b.tanggal||'').slice(0,10);
+    const canvas=await _renderToCanvasHTML(ctx.renderHTML);
     const a=document.createElement('a');
-    a.download='Receipt-'+_safeName1+'-'+_safeDate1+'.png';
+    a.download=ctx.filenameBase+'.png';
     a.href=canvas.toDataURL('image/png'); a.click();
     ws.textContent='✅ Saved to Downloads.';
     setTimeout(()=>ws.style.display='none',4000);
@@ -1044,22 +1047,18 @@ function waText(){
   window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank');
 }
 async function waImage(){
-  const id=document.getElementById('modal-receipt').dataset.receiptId;
-  const b=bayarList.find(x=>x.id===id); if(!b) return;
-  const siswa=siswaList.find(s=>s.id===b.siswaId);
+  const ctx = _getReceiptContext(); if(!ctx) return;
   const ws=document.getElementById('wa-status');
   const btn=document.getElementById('btn-wa-img');
   ws.style.display='block'; ws.textContent='⏳ Generating image…'; btn.disabled=true;
   try{
-    const canvas=await _renderToCanvas(b,siswa);
-    const _safeName2=(b.namaSiswa||'Student').replace(/[^a-zA-Z0-9 ]/g,'').trim().replace(/ +/g,'_');
-    const _safeDate2=(b.tanggal||'').slice(0,10);
+    const canvas=await _renderToCanvasHTML(ctx.renderHTML);
     const a=document.createElement('a');
-    a.download='Receipt-'+_safeName2+'-'+_safeDate2+'.png';
+    a.download=ctx.filenameBase+'.png';
     a.href=canvas.toDataURL('image/png'); a.click();
     await new Promise(r=>setTimeout(r,600));
-    const hp=(siswa?.hp||'').replace(/\D/g,'');
-    const waUrl=hp?`https://wa.me/62${hp.replace(/^0/,'')}?text=${encodeURIComponent('Receipt for '+b.namaSiswa)}`:`https://wa.me/?text=${encodeURIComponent('Receipt for '+b.namaSiswa)}`;
+    const hp=(ctx.studentPhone||'').replace(/\D/g,'');
+    const waUrl=hp?`https://wa.me/62${hp.replace(/^0/,'')}?text=${encodeURIComponent(ctx.shareTextTitle)}`:`https://wa.me/?text=${encodeURIComponent(ctx.shareTextTitle)}`;
     window.open(waUrl,'_blank');
     ws.innerHTML='✅ Image saved → WhatsApp opened → tap 📎 → Gallery to attach.';
     setTimeout(()=>ws.style.display='none',7000);
@@ -1069,6 +1068,27 @@ async function waImage(){
 function copyReceipt(){
   const text=document.getElementById('modal-receipt').dataset.receiptText||'';
   navigator.clipboard.writeText(text).then(()=>showToast('✅ Copied to clipboard!','success'));
+}
+
+// Refactored: canvas render sekarang terima HTML string, bukan resolve HTML sendiri
+async function _renderToCanvasHTML(html){
+  const panel=document.getElementById('receipt-render-panel');
+  panel.innerHTML=html;
+  await Promise.all(
+    [...panel.querySelectorAll('img')].map(img =>
+      img.complete ? Promise.resolve()
+      : new Promise(r => { img.onload = r; img.onerror = r; setTimeout(r, 5000); })
+    )
+  );
+  await new Promise(r => setTimeout(r, 80));
+  const canvas = await html2canvas(panel, {
+    scale: 3, useCORS: true, allowTaint: true,
+    backgroundColor: '#fdf2f8',
+    width: 380, windowWidth: 380,
+    imageTimeout: 8000, logging: false
+  });
+  panel.innerHTML = '';
+  return canvas;
 }
 
 // ════════════════════════════════════════════════

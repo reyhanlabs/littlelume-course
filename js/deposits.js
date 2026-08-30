@@ -102,7 +102,7 @@ function renderDeposits(){
       <td class="r" style="font-weight:800;color:${balColor};font-size:0.95rem;white-space:nowrap">${fmt(balance)}</td>
       <td class="nowrap">
         <button class="btn sm primary" onclick="openDepositForm(null,'${s.id}')" title="Top Up">➕</button>
-        <button class="btn sm" onclick="openDepositDetail('${s.id}')" title="History">📖</button>
+        <button class="btn sm" onclick="openDepositDetail('${s.id}')" title="History & Receipts">📖</button>
         ${balance>0?`<button class="btn sm" onclick="openRefundForm('${s.id}')" title="Refund" style="background:rgba(255,179,71,0.15);color:var(--yellow)">↩️</button>`:''}
       </td>
     </tr>`;
@@ -194,13 +194,19 @@ function saveDeposit(){
       return;
     }
     depositList[i] = {...old, ...data};
+    DB.set('deposits', depositList);
+    closeDepositForm();
+    renderDeposits();
+    showToast('✅ Top-up updated!','success');
   } else {
-    depositList.push({ id: uid(), ...data });
+    const newId = uid();
+    depositList.push({ id:newId, ...data });
+    DB.set('deposits', depositList);
+    closeDepositForm();
+    renderDeposits();
+    // Setelah top-up baru, langsung tampilkan receipt supaya bisa langsung diserahkan ke ortu
+    setTimeout(()=>showDepositReceipt(newId), 300);
   }
-  DB.set('deposits', depositList);
-  closeDepositForm();
-  renderDeposits();
-  showToast(id?'✅ Top-up updated!':'✅ Deposit added!','success');
 }
 
 function deleteDeposit(id){
@@ -299,8 +305,9 @@ function saveRefund(siswaId){
     showToast(`Refund exceeds available balance (${fmt(balance)})`,'warn'); return;
   }
 
+  const newId = uid();
   depositList.push({
-    id: uid(), siswaId, namaSiswa: s?.nama||'-',
+    id: newId, siswaId, namaSiswa: s?.nama||'-',
     tanggal, jumlah, tipe:'refund', metode, catatan
   });
   DB.set('deposits', depositList);
@@ -314,7 +321,8 @@ function saveRefund(siswaId){
   if(document.getElementById('modal-deposit-detail')?.classList.contains('open')){
     openDepositDetail(siswaId);
   }
-  showToast('✅ Refund recorded!','success');
+  // Auto-show refund receipt — serahkan ke ortu sebagai bukti
+  setTimeout(()=>showDepositReceipt(newId), 300);
 }
 
 // ─── Detail / mutation history ──────────────────────────────────────
@@ -360,12 +368,15 @@ function openDepositDetail(siswaId){
       icon='📥'; label='Top-Up';
       detail = `${m.entry.metode||''}${m.entry.catatan?' · '+m.entry.catatan:''}`;
       actions = `
-        <button class="btn sm icon-only" onclick="closeModal('modal-deposit-detail');openDepositForm('${m.entry.id}')">✏️</button>
-        <button class="btn danger sm icon-only" onclick="deleteDeposit('${m.entry.id}')">🗑️</button>`;
+        <button class="btn sm icon-only" onclick="closeModal('modal-deposit-detail');showDepositReceipt('${m.entry.id}')" title="Receipt">🧾</button>
+        <button class="btn sm icon-only" onclick="closeModal('modal-deposit-detail');openDepositForm('${m.entry.id}')" title="Edit">✏️</button>
+        <button class="btn danger sm icon-only" onclick="deleteDeposit('${m.entry.id}')" title="Delete">🗑️</button>`;
     } else if(m.type==='refund'){
       icon='↩️'; label='Refund';
       detail = `${m.entry.metode||''}${m.entry.catatan?' · '+m.entry.catatan:''}`;
-      actions = `<button class="btn danger sm icon-only" onclick="deleteDeposit('${m.entry.id}')">🗑️</button>`;
+      actions = `
+        <button class="btn sm icon-only" onclick="closeModal('modal-deposit-detail');showDepositReceipt('${m.entry.id}')" title="Receipt">🧾</button>
+        <button class="btn danger sm icon-only" onclick="deleteDeposit('${m.entry.id}')" title="Delete">🗑️</button>`;
     } else {
       icon='💳'; label='Applied to Payment';
       detail = `${m.entry.periode||'Payment'} · Invoice ${fmt(m.entry.tagihan)}`;
@@ -459,4 +470,199 @@ function updateDepositPayHint(){
 function resetDepositPanelState(){
   const el = document.getElementById('b-depositUsed');
   if(el){ el.value=''; delete el.dataset.touched; }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// DEPOSIT RECEIPT — tanda terima untuk diserahkan ke ortu
+// ────────────────────────────────────────────────────────────────────
+// Reuse modal-receipt (payment receipt) dengan menandai receiptType
+// sehingga tombol print/PDF/PNG/WA/copy resolve ke deposit context.
+// ════════════════════════════════════════════════════════════════════
+
+function _depositReceiptCore(d, siswa){
+  const isRefund = d.tipe === 'refund';
+  const rno = (isRefund ? 'BREF-' : 'BDEP-') + d.id.slice(-6).toUpperCase();
+  // Saldo setelah entry ini (histori sampai tanggal ini + entry ini)
+  const balanceNow = getDepositBalance(d.siswaId);
+  return { isRefund, rno, balanceNow };
+}
+
+/**
+ * Build receipt untuk diserahkan ke ortu.
+ * Titip HTML rich (print), plain WA text, dan render HTML (canvas).
+ */
+function showDepositReceipt(id){
+  const d = depositList.find(x=>x.id===id);
+  if(!d){ showToast('Deposit entry not found','warn'); return; }
+  const siswa = siswaList.find(s=>s.id===d.siswaId);
+  const { isRefund, rno, balanceNow } = _depositReceiptCore(d, siswa);
+
+  // WA text (plain)
+  const title = isRefund ? 'Deposit Refund' : 'Deposit Receipt';
+  const lines = [
+    ['Date', tglFmt(d.tanggal)],
+    ['Student', d.namaSiswa||'-'],
+    siswa?.namaOrtu ? ['Parent', siswa.namaOrtu] : null,
+    ['Method', d.metode||'-'],
+    [isRefund ? 'Refund Amount' : 'Amount Received', fmt(d.jumlah)],
+    ['Current Balance', fmt(balanceNow)],
+    d.catatan ? ['Note', d.catatan] : null,
+  ].filter(Boolean);
+  const waText = `LITTLELUME ENGLISH COURSE\n${title} — ${rno}\n\n${lines.map(([k,v])=>k.padEnd(16)+': '+v).join('\n')}\n\n${isRefund
+    ? 'Your deposit refund has been processed. Thank you.'
+    : 'Your deposit has been received and will be applied to future sessions. Thank you for your trust!'
+  }`;
+
+  // Render preview & wire modal
+  document.getElementById('receipt-content').innerHTML = _buildDepositReceiptRenderHTML(d, siswa);
+  const modal = document.getElementById('modal-receipt');
+  modal.dataset.receiptId   = id;
+  modal.dataset.receiptType = 'deposit';
+  modal.dataset.receiptText = waText;
+  document.getElementById('wa-status').style.display = 'none';
+  openModal('modal-receipt');
+}
+
+// Print/PDF version — mengikuti style _buildReceiptPrintHTML tapi disesuaikan
+function _buildDepositReceiptPrintHTML(d, siswa){
+  const { isRefund, rno, balanceNow } = _depositReceiptCore(d, siswa);
+  const initials = (d.namaSiswa||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+  const label    = isRefund ? 'DEPOSIT REFUND' : 'DEPOSIT RECEIVED';
+  const badgeBg  = isRefund ? '#fff7ed' : '#e0fdf4';
+  const badgeBd  = isRefund ? '#fed7aa' : '#5eead4';
+  const badgeCol = isRefund ? '#7c2d12' : '#0f4c4c';
+  const amtIcon  = isRefund ? '↩️' : '💰';
+  const rows = [
+    ['Date', tglFmt(d.tanggal)],
+    siswa?.namaOrtu ? ['Parent', siswa.namaOrtu] : null,
+    ['Method', d.metode||'-'],
+    ['Type', isRefund ? '↩️ Refund' : '📥 Top-Up'],
+  ].filter(Boolean);
+  const scTop=`<svg viewBox="0 0 380 18" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%"><path d="M0,0 Q19,18 38,0 Q57,18 76,0 Q95,18 114,0 Q133,18 152,0 Q171,18 190,0 Q209,18 228,0 Q247,18 266,0 Q285,18 304,0 Q323,18 342,0 Q361,18 380,0 L380,18 L0,18 Z" fill="#fef9ff"/></svg>`;
+  const scBot=`<svg viewBox="0 0 380 18" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%"><path d="M0,18 Q19,0 38,18 Q57,0 76,18 Q95,0 114,18 Q133,0 152,18 Q171,0 190,18 Q209,0 228,18 Q247,0 266,18 Q285,0 304,18 Q323,0 342,18 Q361,0 380,18 L380,0 L0,0 Z" fill="#fef9ff"/></svg>`;
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${isRefund?'Refund':'Deposit'} ${rno}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;max-width:380px;margin:auto;background:#fef9ff;color:#4a1942}
+    @page{size:A5 portrait;margin:8mm}
+    .hdr{background:linear-gradient(135deg,#fdf2f8,#f0fdfa);padding:18px 16px;display:flex;align-items:center;gap:12px}
+    .logo-img{width:44px;height:44px;border-radius:12px;border:2px solid #f9a8d4;overflow:hidden;flex-shrink:0}
+    .logo-img img{width:100%;height:100%;object-fit:cover}
+    .brand1,.brand2{font-size:0.92rem;font-weight:800;line-height:1.15}
+    .sub{color:#0d9488;font-size:0.62rem;margin-top:2px}
+    .rno{margin-left:auto;background:linear-gradient(135deg,#fce7f3,#d1fae5);border-radius:20px;padding:3px 10px;font-size:0.6rem;font-weight:800;color:#4a1942;font-family:monospace;white-space:nowrap;border:1px solid #f9a8d4}
+    .body{background:#fef9ff;padding:12px 16px}
+    .student{display:flex;align-items:center;gap:10px;padding:10px;background:linear-gradient(135deg,#fce7f3,#d1fae5);border-radius:10px;margin-bottom:10px;border:1px solid #f9a8d4}
+    .avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#ec4899,#0d9488);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;color:#fff;flex-shrink:0}
+    .sname{font-size:0.85rem;font-weight:800;color:#4a1942;word-spacing:2px;letter-spacing:0.2px}
+    .smeta{font-size:0.68rem;color:#0d9488;margin-top:1px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px}
+    .cell{background:#fff;border:1px solid #f9a8d4;border-radius:8px;padding:8px 10px}
+    .clabel{font-size:0.6rem;color:#ec4899;text-transform:uppercase;letter-spacing:0.5px;font-weight:700}
+    .cval{font-size:0.78rem;font-weight:700;color:#4a1942;margin-top:3px}
+    .amt-box{background:linear-gradient(135deg,#db2777,#0d9488);border-radius:10px;padding:14px 12px;text-align:center;margin-bottom:10px}
+    .amt-lbl{font-size:0.65rem;color:rgba(255,255,255,0.9);text-transform:uppercase;letter-spacing:1px;font-weight:700}
+    .amt-val{font-size:1.6rem;font-weight:800;color:#fff;margin-top:4px;font-family:Arial,sans-serif}
+    .bal-box{background:#fff;border:1.5px solid #0d9488;border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+    .bal-lbl{font-size:0.7rem;color:#0d9488;font-weight:700;text-transform:uppercase;letter-spacing:0.5px}
+    .bal-val{font-size:1rem;font-weight:800;color:#0d9488;font-family:Arial,sans-serif}
+    .status{text-align:center;padding:9px;border-radius:8px;font-size:0.75rem;font-weight:800}
+    .note{font-size:0.72rem;color:#0d9488;text-align:center;margin-top:8px;font-style:italic;padding:6px 10px;background:rgba(13,148,136,0.08);border-radius:6px}
+    .info-line{font-size:0.65rem;color:#7a6470;text-align:center;margin-top:8px;line-height:1.4;padding:0 8px}
+    .footer{background:linear-gradient(135deg,#fce7f3,#d1fae5);padding:10px 16px;text-align:center}
+    .fbrand{font-size:0.65rem;font-weight:700}
+  </style></head><body>
+  <div class="hdr">
+    <div class="logo-img"><img src="https://raw.githubusercontent.com/reyhanlabs/bunrey-course/refs/heads/main/favicon.ico"></div>
+    <div>
+      <div class="brand1"><span style="color:#ec4899">Little</span><span style="color:#0d9488">Lume</span></div>
+      <div class="brand2"><span style="color:#ec4899">English</span><span style="color:#0d9488"> Course</span></div>
+      <div class="sub">${isRefund ? 'Deposit Refund' : 'Deposit Receipt'}</div>
+    </div>
+    <div class="rno">${rno}</div>
+  </div>
+  <div style="background:linear-gradient(135deg,#fdf2f8,#f0fdfa);line-height:0">${scTop}</div>
+  <div class="body">
+    <div class="student">
+      <div class="avatar">${initials}</div>
+      <div><div class="sname">${d.namaSiswa||'-'}</div><div class="smeta">Prepayment / Uang Muka</div></div>
+    </div>
+    <div class="amt-box">
+      <div class="amt-lbl">${amtIcon} ${label}</div>
+      <div class="amt-val">${fmt(d.jumlah)}</div>
+    </div>
+    <div class="grid">
+      ${rows.map(([k,v])=>`<div class="cell"><div class="clabel">${k}</div><div class="cval">${v}</div></div>`).join('')}
+    </div>
+    <div class="bal-box">
+      <div class="bal-lbl">🏦 Deposit Balance</div>
+      <div class="bal-val">${fmt(balanceNow)}</div>
+    </div>
+    <div class="status" style="background:${badgeBg};border:1px solid ${badgeBd};color:${badgeCol}">
+      ${isRefund ? '✅ REFUND PROCESSED' : '✅ RECEIVED — HELD AS CREDIT'}
+    </div>
+    ${d.catatan?`<div class="note">Note: ${d.catatan}</div>`:''}
+    ${!isRefund ? `<div class="info-line">This deposit will be applied toward future tuition sessions.</div>` : ''}
+  </div>
+  <div style="background:linear-gradient(135deg,#fce7f3,#d1fae5);line-height:0">${scBot}</div>
+  <div class="footer">
+    <div class="fbrand"><span style="color:#ec4899">Little</span><span style="color:#0d9488">Lume</span> <span style="color:#ec4899">English</span><span style="color:#0d9488"> Course</span></div>
+    <div style="font-size:0.6rem;color:#0d9488;margin-top:2px">Thank you for your trust!</div>
+  </div>
+  </body></html>`;
+}
+
+// Preview version (rendered in-modal & in canvas render panel)
+function _buildDepositReceiptRenderHTML(d, siswa){
+  const { isRefund, rno, balanceNow } = _depositReceiptCore(d, siswa);
+  const initials = (d.namaSiswa||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+  const label    = isRefund ? 'DEPOSIT REFUND' : 'DEPOSIT RECEIVED';
+  const badgeBg  = isRefund ? '#fff7ed' : '#e0fdf4';
+  const badgeBd  = isRefund ? '#fed7aa' : '#5eead4';
+  const badgeCol = isRefund ? '#7c2d12' : '#0f4c4c';
+  const amtIcon  = isRefund ? '↩️' : '💰';
+  const rows = [
+    ['Date', tglFmt(d.tanggal)],
+    siswa?.namaOrtu ? ['Parent', siswa.namaOrtu] : null,
+    ['Method', d.metode||'-'],
+    ['Type', isRefund ? '↩️ Refund' : '📥 Top-Up'],
+  ].filter(Boolean);
+  const scTop = `<svg viewBox="0 0 300 16" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%"><path d="M0,0 Q15,16 30,0 Q45,16 60,0 Q75,16 90,0 Q105,16 120,0 Q135,16 150,0 Q165,16 180,0 Q195,16 210,0 Q225,16 240,0 Q255,16 270,0 Q285,16 300,0 L300,16 L0,16 Z" fill="#fef9ff"/></svg>`;
+  const scBot = `<svg viewBox="0 0 300 16" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%"><path d="M0,16 Q15,0 30,16 Q45,0 60,16 Q75,0 90,16 Q105,0 120,16 Q135,0 150,16 Q165,0 180,16 Q195,0 210,16 Q225,0 240,16 Q255,0 270,16 Q285,0 300,16 L300,0 L0,0 Z" fill="#fef9ff"/></svg>`;
+  return `<div style="background:linear-gradient(135deg,#fdf2f8,#f0fdfa);padding:16px;display:flex;align-items:center;gap:12px;color:#4a1942">
+    <div style="width:44px;height:44px;border-radius:12px;border:2px solid #f9a8d4;overflow:hidden;flex-shrink:0"><img src="https://raw.githubusercontent.com/reyhanlabs/bunrey-course/refs/heads/main/favicon.ico" style="width:100%;height:100%;object-fit:cover"></div>
+    <div>
+      <div style="font-size:0.92rem;font-weight:800;line-height:1.15"><span style="color:#ec4899">Little</span><span style="color:#0d9488">Lume</span></div>
+      <div style="font-size:0.92rem;font-weight:800;line-height:1.15"><span style="color:#ec4899">English</span><span style="color:#0d9488"> Course</span></div>
+      <div style="color:#0d9488;font-size:0.62rem;margin-top:2px">${isRefund ? 'Deposit Refund' : 'Deposit Receipt'}</div>
+    </div>
+    <div style="margin-left:auto;background:linear-gradient(135deg,#fce7f3,#d1fae5);border-radius:20px;padding:3px 10px;font-size:0.6rem;font-weight:800;color:#4a1942;font-family:monospace;white-space:nowrap;border:1px solid #f9a8d4">${rno}</div>
+  </div>
+  <div style="background:linear-gradient(135deg,#fdf2f8,#f0fdfa);line-height:0">${scTop}</div>
+  <div style="background:#fef9ff;padding:12px 16px;color:#4a1942">
+    <div style="display:flex;align-items:center;gap:10px;padding:10px;background:linear-gradient(135deg,#fce7f3,#d1fae5);border-radius:10px;margin-bottom:10px;border:1px solid #f9a8d4">
+      <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#ec4899,#0d9488);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;color:#fff;flex-shrink:0">${initials}</div>
+      <div><div style="font-size:0.85rem;font-weight:800;color:#4a1942;word-spacing:2px;letter-spacing:0.2px">${d.namaSiswa||'-'}</div><div style="font-size:0.68rem;color:#0d9488;margin-top:1px">Prepayment / Uang Muka</div></div>
+    </div>
+    <div style="background:linear-gradient(135deg,#db2777,#0d9488);border-radius:10px;padding:14px 12px;text-align:center;margin-bottom:10px">
+      <div style="font-size:0.65rem;color:rgba(255,255,255,0.9);text-transform:uppercase;letter-spacing:1px;font-weight:700">${amtIcon} ${label}</div>
+      <div style="font-size:1.6rem;font-weight:800;color:#fff;margin-top:4px">${fmt(d.jumlah)}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px">
+      ${rows.map(([k,v])=>`<div style="background:#fff;border:1px solid #f9a8d4;border-radius:8px;padding:8px 10px"><div style="font-size:0.6rem;color:#ec4899;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">${k}</div><div style="font-size:0.78rem;font-weight:700;color:#4a1942;margin-top:3px">${v}</div></div>`).join('')}
+    </div>
+    <div style="background:#fff;border:1.5px solid #0d9488;border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:0.7rem;color:#0d9488;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">🏦 Deposit Balance</div>
+      <div style="font-size:1rem;font-weight:800;color:#0d9488">${fmt(balanceNow)}</div>
+    </div>
+    <div style="text-align:center;padding:9px;border-radius:8px;font-size:0.75rem;font-weight:800;background:${badgeBg};border:1px solid ${badgeBd};color:${badgeCol}">
+      ${isRefund ? '✅ REFUND PROCESSED' : '✅ RECEIVED — HELD AS CREDIT'}
+    </div>
+    ${d.catatan?`<div style="font-size:0.72rem;color:#0d9488;text-align:center;margin-top:8px;font-style:italic;padding:6px 10px;background:rgba(13,148,136,0.08);border-radius:6px">Note: ${d.catatan}</div>`:''}
+    ${!isRefund?`<div style="font-size:0.65rem;color:#7a6470;text-align:center;margin-top:8px;line-height:1.4;padding:0 8px">This deposit will be applied toward future tuition sessions.</div>`:''}
+  </div>
+  <div style="background:linear-gradient(135deg,#fce7f3,#d1fae5);line-height:0">${scBot}</div>
+  <div style="background:linear-gradient(135deg,#fce7f3,#d1fae5);padding:10px 16px;text-align:center">
+    <div style="font-size:0.62rem;font-weight:700"><span style="color:#ec4899">Little</span><span style="color:#0d9488">Lume</span> <span style="color:#ec4899">English</span><span style="color:#0d9488"> Course</span></div>
+  </div>`;
 }
