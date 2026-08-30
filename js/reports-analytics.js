@@ -31,6 +31,8 @@ function renderReports(){
     if(attPct!==null) txt+=`📋 *Attendance:* ${attPct}% (${present}/${att.length})\n`;
     if(latEval){ txt+=`\n⭐ *Latest Eval (${tglFmt(latEval.tanggal)})*\nScore: ${latEval.nilai}/100  Participation: ${stars(latEval.rating)}\n`; if(latEval.progress) txt+=`Progress: ${latEval.progress}\n`; if(latEval.catatan) txt+=`Notes: ${latEval.catatan}\n`; }
     if(latPay){ txt+=`\n💰 *Payment — ${latPay.periode||'-'}*\nInvoice: ${fmt(latPay.tagihan)}\nPaid: ${fmt(latPay.jumlah)}\nStatus: ${latPay.status}\n`; }
+    const depBal = (typeof getDepositBalance === 'function') ? getDepositBalance(siswa.id) : 0;
+    if(depBal > 0) txt+=`\n🏦 *Deposit Balance:* ${fmt(depBal)}\n`;
     txt+=`\n${'━'.repeat(28)}\nThank you for your trust & support! 🌟\n— LittleLume English Course 🎓`;
     _reportTexts[key]=txt;
     html+=`<div class="card" style="padding:0;overflow:hidden;margin-bottom:20px">
@@ -48,6 +50,7 @@ function renderReports(){
         ${attPct!==null?`<div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Attendance Rate</div><div class="pbar-wrap" style="margin-bottom:16px"><div class="pbar-fill" style="width:${attPct}%"></div></div>`:''}
         ${latEval?`<div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">⭐ Latest Evaluation (${tglFmt(latEval.tanggal)})</div><div style="background:var(--bg3);border-radius:10px;padding:14px;font-size:0.87rem;margin-bottom:16px">${latEval.progress?`<div><strong>Progress:</strong> ${latEval.progress}</div>`:''} ${latEval.catatan?`<div style="margin-top:5px"><strong>Notes:</strong> ${latEval.catatan}</div>`:`<span style="color:var(--muted)">No details.</span>`}</div>`:''}
         ${latPay?`<div style="background:var(--bg3);border-radius:10px;padding:14px;font-size:0.87rem;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px"><span>Invoice: <strong>${fmt(latPay.tagihan)}</strong></span><span>Paid: <strong style="color:var(--green)">${fmt(latPay.jumlah)}</strong></span>${latPay.status==='Lunas'?chip('Paid','chip-green'):latPay.status==='Cicil'?chip('Partial','chip-yellow'):chip('Unpaid','chip-red')}</div>`:''}
+        ${depBal>0?`<div style="background:linear-gradient(135deg,rgba(0,214,143,0.1),rgba(56,189,248,0.08));border:1px solid var(--green);border-radius:10px;padding:12px 14px;font-size:0.87rem;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center"><span>🏦 Deposit Balance</span><strong style="color:var(--green);font-family:'Fredoka One',sans-serif;font-size:1rem">${fmt(depBal)}</strong></div>`:''}
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn wa" onclick="window.open('https://wa.me/?text='+encodeURIComponent(_reportTexts['${key}']),'_blank')">💬 Share via WhatsApp</button>
           <button class="btn" onclick="showReportPrint('${siswa.id}')">🖨️ Print Report</button>
@@ -336,6 +339,7 @@ function showReportPrint(siswaId){
   const pays  = bayarList.filter(b=>b.siswaId===siswaId);
   const latEval  = evals.sort((a,b)=>b.tanggal.localeCompare(a.tanggal))[0];
   const latPay   = pays.sort((a,b)=>b.tanggal.localeCompare(a.tanggal))[0];
+  const depBal   = (typeof getDepositBalance === 'function') ? getDepositBalance(siswaId) : 0;
   const avgScore = evals.length?Math.round(evals.reduce((s,e)=>s+Number(e.nilai||0),0)/evals.length):null;
   const present  = att.filter(a=>a.status==='Hadir').length;
   const attPct   = att.length?Math.round((present/att.length)*100):null;
@@ -365,6 +369,11 @@ function showReportPrint(siswaId){
     <div class="section">💰 Payment — ${latPay.periode||'-'}</div>
     <div class="block">
       Invoice: <strong>${fmt(latPay.tagihan)}</strong> &nbsp;|&nbsp; Paid: <strong>${fmt(latPay.jumlah)}</strong> &nbsp;|&nbsp; Status: <strong>${latPay.status}</strong>
+    </div>`:''}
+    ${depBal>0?`
+    <div class="section">🏦 Deposit Balance</div>
+    <div class="block">
+      Current balance: <strong>${fmt(depBal)}</strong>
     </div>`:''}
   `;
   const key='rpt_'+siswa.id;

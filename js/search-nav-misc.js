@@ -514,7 +514,14 @@ function renderAnalyticsKPIs(){
   const attRate = total ? Math.round((present/total)*100) : 0;
   const unpaidCount = siswaList.filter(s=>{
     const paidSesiIds = new Set(); bayarList.forEach(b=>{ if(b.sesiIds) b.sesiIds.forEach(id=>paidSesiIds.add(id)); });
-    return absensiList.some(a=>a.siswaId===s.id && a.status==='Hadir' && !paidSesiIds.has(a.id));
+    const unpaidSess = absensiList.filter(a=>a.siswaId===s.id && a.status==='Hadir' && !paidSesiIds.has(a.id));
+    if(!unpaidSess.length) return false;
+    // Kurangi dengan saldo deposit — kalau deposit sudah menutupi semuanya, jangan hitung sebagai unpaid
+    const fee = s.feePerSesi || 0;
+    if(!fee) return true;  // fee belum di-set → tidak bisa hitung; tetap flag sebagai unpaid
+    const gross = fee * unpaidSess.length;
+    const depBal = (typeof getDepositBalance === 'function') ? getDepositBalance(s.id) : 0;
+    return gross > depBal;
   }).length;
 
   const fmtCompact = n => {

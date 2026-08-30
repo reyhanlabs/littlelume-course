@@ -292,6 +292,7 @@ function _finishSaveStudent(id, finalId, data){
       absensiList.forEach(a=>{ if(a.siswaId===id) a.namaSiswa=data.nama; });
       evaluasiList.forEach(e=>{ if(e.siswaId===id) e.namaSiswa=data.nama; });
       bayarList.forEach(b=>{ if(b.siswaId===id) b.namaSiswa=data.nama; });
+      depositList.forEach(d=>{ if(d.siswaId===id) d.namaSiswa=data.nama; });
     }
   } else {
     siswaList.push({id:finalId,...data});
@@ -313,6 +314,8 @@ function deleteStudent(id){
   const attCount  = absensiList.filter(a=>a.siswaId===id).length;
   const payCount  = bayarList.filter(b=>b.siswaId===id).length;
   const evalCount = evaluasiList.filter(e=>e.siswaId===id).length;
+  const depCount  = depositList.filter(d=>d.siswaId===id).length;
+  const depBalance = (typeof getDepositBalance === 'function') ? getDepositBalance(id) : 0;
 
   // ── BLOKIR jika ada payment ──
   if(payCount > 0){
@@ -334,20 +337,33 @@ function deleteStudent(id){
     return;
   }
 
-  // ── Boleh hapus: hanya ada evaluasi dan/atau jadwal (tidak ada jejak finansial/kehadiran) ──
-  const extraInfo = evalCount ? `and ${evalCount} evaluation record(s) ` : '';
+  // ── BLOKIR jika masih ada saldo deposit ──
+  if(depBalance > 0){
+    infoModal(
+      '🚫 Cannot Delete Student',
+      `<strong>${s.nama}</strong> still has a deposit balance of <strong style="color:var(--yellow)">${fmt(depBalance)}</strong>.<br><br>` +
+      `Please refund the balance first (Deposits menu → click ↩️), then try again.`
+    );
+    return;
+  }
+
+  // ── Boleh hapus: hanya ada evaluasi, jadwal, dan/atau deposit history (balance=0) ──
+  const extras = [];
+  if(evalCount) extras.push(`${evalCount} evaluation record(s)`);
+  if(depCount)  extras.push(`${depCount} deposit history entry/entries`);
+  const extraInfo = extras.length ? `Their ${extras.join(' and ')} will also be removed.<br><br>` : '';
   dangerModal(
     '🗑️ Delete Student',
-    `Are you sure you want to delete <strong>${s.nama}</strong>? ` +
-    (extraInfo ? `Their evaluation records ${extraInfo}will also be removed.` : '') +
-    `<br><br>This action cannot be undone.`,
+    `Are you sure you want to delete <strong>${s.nama}</strong>?<br><br>${extraInfo}This action cannot be undone.`,
     ()=>{
       siswaList    = siswaList.filter(x=>x.id!==id);
       evaluasiList = evaluasiList.filter(e=>e.siswaId!==id);
       scheduleList = scheduleList.filter(sc=>sc.siswaId!==id);
+      depositList  = depositList.filter(d=>d.siswaId!==id);
       saveToFirestore();
       renderStudents(); updateSelects(); updateUnpaidBadge(); updateMbnBadge();
       if(document.getElementById('page-dashboard').classList.contains('active')) renderDashboard();
+      if(document.getElementById('page-deposits').classList.contains('active') && typeof renderDeposits === 'function') renderDeposits();
       showToast(`✅ ${s.nama} deleted.`, 'success');
     },
     { okText:'Delete', cancelText:'Cancel' }

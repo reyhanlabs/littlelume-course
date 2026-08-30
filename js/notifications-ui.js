@@ -417,15 +417,21 @@ function renderPaymentReminders(){
 
   const reminders = [];
   siswaList.forEach(siswa=>{
+    // Deposit tersedia untuk siswa ini — akan mengurangi jumlah yang perlu ditagih
+    const depBal = (typeof getDepositBalance === 'function') ? getDepositBalance(siswa.id) : 0;
+
     const isMonthly = siswa.billingType==='monthly';
     if(!isMonthly){
       const unpaid = absensiList.filter(a=>a.siswaId===siswa.id && a.status==='Hadir' && !paidSesiIds.has(a.id));
       if(!unpaid.length) return;
       const fee = siswa.feePerSesi || 0;
-      const total = fee * unpaid.length;
+      const grossTotal = fee * unpaid.length;
+      const netTotal   = Math.max(0, grossTotal - depBal);
+      // Skip reminder kalau deposit sudah cukup menutupi (parent tidak perlu bayar apa-apa)
+      if(fee>0 && netTotal===0 && depBal>0) return;
       const oldest = unpaid.sort((a,b)=>a.tanggal.localeCompare(b.tanggal))[0];
       const daysSince = oldest ? Math.round((Date.now()-new Date(oldest.tanggal))/86400000) : 0;
-      reminders.push({ siswa, unpaidCount:unpaid.length, total, daysSince, isMonthly:false });
+      reminders.push({ siswa, unpaidCount:unpaid.length, total:netTotal, grossTotal, depBal, daysSince, isMonthly:false });
     } else {
       // Check unpaid months
       const sessionMonths = {};
@@ -441,8 +447,10 @@ function renderPaymentReminders(){
       });
       const unpaidMonths = Object.keys(sessionMonths).filter(ym=>!paidMonths.has(ym));
       if(!unpaidMonths.length) return;
-      const total = unpaidMonths.length * (siswa.feeMonthly||0);
-      reminders.push({ siswa, unpaidCount:unpaidMonths.length, total, isMonthly:true });
+      const grossTotal = unpaidMonths.length * (siswa.feeMonthly||0);
+      const netTotal   = Math.max(0, grossTotal - depBal);
+      if((siswa.feeMonthly||0)>0 && netTotal===0 && depBal>0) return;
+      reminders.push({ siswa, unpaidCount:unpaidMonths.length, total:netTotal, grossTotal, depBal, isMonthly:true });
     }
   });
 
@@ -462,13 +470,19 @@ function renderPaymentReminders(){
     const cls = isUrgent ? 'critical' : r.unpaidCount >= 2 ? 'warn' : 'ok';
     const hp = (r.siswa.hp||'').replace(/\D/g,'');
     const waUrl = hp ? `https://wa.me/62${hp.replace(/^0/,'')}` : 'https://wa.me/';
+    // Jika deposit menutupi sebagian, tampilkan gross + note deposit
+    const totalDisplay = r.total ? `<strong style="color:var(--red)">${fmt(r.total)}</strong>` : '';
+    const depNote = r.depBal>0
+      ? `<div style="font-size:0.72rem;color:var(--yellow);margin-top:2px">💰 ${fmt(r.depBal)} deposit will cover ${fmt(Math.min(r.depBal, r.grossTotal||0))}</div>`
+      : '';
     return `<div class="reminder-card ${cls}">
       <div class="reminder-card-header">
         <div class="reminder-name">👤 ${r.siswa.nama}${r.siswa.nick?` (${r.siswa.nick})`:''}</div>
-        ${r.total ? `<strong style="color:var(--red)">${fmt(r.total)}</strong>` : ''}
+        ${totalDisplay}
       </div>
       <div class="reminder-detail">
         ${r.isMonthly ? `${r.unpaidCount} unpaid month(s)` : `${r.unpaidCount} unpaid session(s)${r.daysSince>0?' · '+r.daysSince+'d overdue':''}`}
+        ${depNote}
       </div>
       <div class="reminder-actions">
         <button class="btn wa sm" onclick="window.open('${waUrl}?text='+encodeURIComponent(buildPaymentReminderWA(siswaList.find(s=>s.id==='${r.siswa.id}'))),'_blank')">💬 Remind via WA</button>
@@ -484,9 +498,25 @@ function buildPaymentReminderWA(siswa){
   bayarList.forEach(b=>{ if(b.sesiIds) b.sesiIds.forEach(id=>paidSesiIds.add(id)); });
   const unpaid = absensiList.filter(a=>a.siswaId===siswa.id && a.status==='Hadir' && !paidSesiIds.has(a.id));
   const fee = siswa.feePerSesi||0;
-  const total = fee * unpaid.length;
+  const gross = fee * unpaid.length;
+  const depBal = (typeof getDepositBalance === 'function') ? getDepositBalance(siswa.id) : 0;
+  const net = Math.max(0, gross - depBal);
   const now = new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
-  return `Hello, ${siswa.namaOrtu||'Parent'}.\n\nWe would like to remind you that the English tutoring payment for *${siswa.nama}* has not been settled yet — *${unpaid.length} session(s)* are outstanding${total?` (total: *${fmt(total)}*)`:''}.
+
+  let amountLine = '';
+  if(gross > 0){
+    if(depBal > 0 && net === 0){
+      // Deposit menutupi seluruhnya — nada informatif, bukan tagihan
+      amountLine = ` (total: *${fmt(gross)}*, fully covered by your deposit balance of *${fmt(depBal)}* — no additional payment needed)`;
+    } else if(depBal > 0){
+      // Deposit menutupi sebagian
+      amountLine = ` (total: *${fmt(gross)}*; *${fmt(depBal)}* from your deposit balance, remaining *${fmt(net)}*)`;
+    } else {
+      amountLine = ` (total: *${fmt(gross)}*)`;
+    }
+  }
+
+  return `Hello, ${siswa.namaOrtu||'Parent'}.\n\nWe would like to remind you that the English tutoring payment for *${siswa.nama}* has not been settled yet — *${unpaid.length} session(s)* are outstanding${amountLine}.
 
 Please confirm at your earliest convenience. Thank you 🙏
 
