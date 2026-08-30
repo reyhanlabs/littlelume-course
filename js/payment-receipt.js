@@ -919,6 +919,11 @@ function _buildReceiptPrintHTML(b,siswa){
       ${rows.map(([k,v])=>`<div class="cell"><div class="clabel">${k}</div><div class="cval">${v}</div></div>`).join('')}
       <div class="cell-amt"><div class="amt-label">Amount Paid</div><div class="amt-val">${fmt(b.jumlah)}</div></div>
     </div>
+    ${(+b.depositUsed||0)>0?`<div style="background:linear-gradient(135deg,#fef3c7,#fef9c3);border:1px solid #fcd34d;border-radius:8px;padding:8px 12px;margin-bottom:10px">
+      <div style="font-size:0.6rem;color:#78350f;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:4px">💰 Payment Breakdown</div>
+      <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:#78350f"><span>From Deposit</span><strong>${fmt(b.depositUsed)}</strong></div>
+      ${b.jumlah>b.depositUsed?`<div style="display:flex;justify-content:space-between;font-size:0.72rem;color:#78350f;margin-top:2px"><span>Cash</span><strong>${fmt(b.jumlah-b.depositUsed)}</strong></div>`:''}
+    </div>`:''}
     ${b.status==='Cicil'?`<div class="prog-track"><div class="prog-fill" style="width:${paidPct}%"></div></div><div class="prog-text">${paidPct}% paid — ${fmt(b.tagihan-b.jumlah)} remaining</div>`:''}
     <div class="status" style="background:${stBg};border:1px solid ${stBorder};color:${stText}">${stl}</div>
     ${b.catatan?`<div class="note">Note: ${b.catatan}</div>`:''}
@@ -967,6 +972,11 @@ function _buildReceiptRenderHTML(b,siswa){
         <div style="font-size:0.85rem;font-weight:800;color:#fff;margin-top:3px">${fmt(b.jumlah)}</div>
       </div>
     </div>
+    ${(+b.depositUsed||0)>0?`<div style="background:linear-gradient(135deg,#fef3c7,#fef9c3);border:1px solid #fcd34d;border-radius:8px;padding:8px 12px;margin-bottom:10px">
+      <div style="font-size:0.6rem;color:#78350f;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:4px">💰 Payment Breakdown</div>
+      <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:#78350f"><span>From Deposit</span><strong>${fmt(b.depositUsed)}</strong></div>
+      ${b.jumlah>b.depositUsed?`<div style="display:flex;justify-content:space-between;font-size:0.72rem;color:#78350f;margin-top:2px"><span>Cash</span><strong>${fmt(b.jumlah-b.depositUsed)}</strong></div>`:''}
+    </div>`:''}
     ${b.status==='Cicil'?`<div style="background:#fce7f3;border-radius:6px;height:7px;margin-bottom:5px"><div style="background:linear-gradient(90deg,#ec4899,#0d9488);border-radius:6px;height:7px;width:${paidPct}%"></div></div><div style="font-size:0.65rem;color:#db2777;text-align:right;margin-bottom:10px;font-weight:600">${paidPct}% paid — ${fmt(b.tagihan-b.jumlah)} remaining</div>`:''}
     <div style="text-align:center;padding:9px;background:${stBg};border-radius:8px;border:1px solid ${stBorder}">
       <span style="font-size:0.72rem;font-weight:800;color:${stText}">${stl}</span>
