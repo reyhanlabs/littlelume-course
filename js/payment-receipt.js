@@ -831,10 +831,17 @@ function showReceipt(id){
         `</div>` +
       `</div>` +
       ((+b.depositUsed||0)>0
-        ? `<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:7px 10px;margin-bottom:10px;font-size:0.7rem;color:#78350f;text-align:center">` +
-            `💰 <strong>${fmt(b.depositUsed)}</strong> paid from deposit balance` +
-            (b.jumlah > b.depositUsed ? ` · Cash: <strong>${fmt(b.jumlah - b.depositUsed)}</strong>` : '') +
-          `</div>`
+        ? (function(){
+            const remBal = (typeof getDepositBalance === 'function') ? getDepositBalance(b.siswaId) : 0;
+            return `<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:0.7rem;color:#78350f">` +
+              `<div style="text-align:center;font-weight:700;margin-bottom:5px">💰 Payment Breakdown</div>` +
+              `<div style="display:flex;justify-content:space-between"><span>From Deposit</span><strong>${fmt(b.depositUsed)}</strong></div>` +
+              (b.jumlah > b.depositUsed
+                ? `<div style="display:flex;justify-content:space-between;margin-top:2px"><span>Cash</span><strong>${fmt(b.jumlah - b.depositUsed)}</strong></div>`
+                : '') +
+              `<div style="display:flex;justify-content:space-between;margin-top:6px;padding-top:5px;border-top:1px dashed #fcd34d"><span>Remaining Balance</span><strong style="color:#0d9488">${fmt(remBal)}</strong></div>` +
+            `</div>`;
+          })()
         : '') +
       (b.status==='Cicil'?
         `<div style="background:#fce7f3;border-radius:6px;height:7px;margin-bottom:5px"><div style="background:linear-gradient(90deg,#ec4899,#0d9488);border-radius:6px;height:7px;width:${paidPct}%"></div></div>` +
@@ -856,7 +863,7 @@ function showReceipt(id){
   modal.dataset.receiptId=id;
   modal.dataset.receiptType='payment';
   modal.dataset.receiptText=
-    `LITTLELUME ENGLISH COURSE\nPayment Receipt — ${rno}\n\n${rows.map(([k,v])=>k.padEnd(16)+': '+v).join('\n')}\n\nAmount Paid     : ${fmt(b.jumlah)}\n${(+b.depositUsed||0)>0?`From Deposit    : ${fmt(b.depositUsed)}\nCash            : ${fmt(b.jumlah-b.depositUsed)}\n`:''}Status          : ${b.status}\n${b.catatan?'Note            : '+b.catatan+'\n':''}\nThank you for your trust!`;
+    `LITTLELUME ENGLISH COURSE\nPayment Receipt — ${rno}\n\n${rows.map(([k,v])=>k.padEnd(16)+': '+v).join('\n')}\n\nAmount Paid     : ${fmt(b.jumlah)}\n${(+b.depositUsed||0)>0?`From Deposit    : ${fmt(b.depositUsed)}\nCash            : ${fmt(b.jumlah-b.depositUsed)}\nRemaining Bal   : ${fmt((typeof getDepositBalance==='function')?getDepositBalance(b.siswaId):0)}\n`:''}Status          : ${b.status}\n${b.catatan?'Note            : '+b.catatan+'\n':''}\nThank you for your trust!`;
   document.getElementById('wa-status').style.display='none';
   openModal('modal-receipt');
 }
@@ -923,6 +930,7 @@ function _buildReceiptPrintHTML(b,siswa){
       <div style="font-size:0.6rem;color:#78350f;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:4px">💰 Payment Breakdown</div>
       <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:#78350f"><span>From Deposit</span><strong>${fmt(b.depositUsed)}</strong></div>
       ${b.jumlah>b.depositUsed?`<div style="display:flex;justify-content:space-between;font-size:0.72rem;color:#78350f;margin-top:2px"><span>Cash</span><strong>${fmt(b.jumlah-b.depositUsed)}</strong></div>`:''}
+      <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:#78350f;margin-top:5px;padding-top:4px;border-top:1px dashed #fcd34d"><span>Remaining Balance</span><strong style="color:#0d9488">${fmt((typeof getDepositBalance==='function')?getDepositBalance(b.siswaId):0)}</strong></div>
     </div>`:''}
     ${b.status==='Cicil'?`<div class="prog-track"><div class="prog-fill" style="width:${paidPct}%"></div></div><div class="prog-text">${paidPct}% paid — ${fmt(b.tagihan-b.jumlah)} remaining</div>`:''}
     <div class="status" style="background:${stBg};border:1px solid ${stBorder};color:${stText}">${stl}</div>
@@ -976,6 +984,7 @@ function _buildReceiptRenderHTML(b,siswa){
       <div style="font-size:0.6rem;color:#78350f;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:4px">💰 Payment Breakdown</div>
       <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:#78350f"><span>From Deposit</span><strong>${fmt(b.depositUsed)}</strong></div>
       ${b.jumlah>b.depositUsed?`<div style="display:flex;justify-content:space-between;font-size:0.72rem;color:#78350f;margin-top:2px"><span>Cash</span><strong>${fmt(b.jumlah-b.depositUsed)}</strong></div>`:''}
+      <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:#78350f;margin-top:5px;padding-top:4px;border-top:1px dashed #fcd34d"><span>Remaining Balance</span><strong style="color:#0d9488">${fmt((typeof getDepositBalance==='function')?getDepositBalance(b.siswaId):0)}</strong></div>
     </div>`:''}
     ${b.status==='Cicil'?`<div style="background:#fce7f3;border-radius:6px;height:7px;margin-bottom:5px"><div style="background:linear-gradient(90deg,#ec4899,#0d9488);border-radius:6px;height:7px;width:${paidPct}%"></div></div><div style="font-size:0.65rem;color:#db2777;text-align:right;margin-bottom:10px;font-weight:600">${paidPct}% paid — ${fmt(b.tagihan-b.jumlah)} remaining</div>`:''}
     <div style="text-align:center;padding:9px;background:${stBg};border-radius:8px;border:1px solid ${stBorder}">
