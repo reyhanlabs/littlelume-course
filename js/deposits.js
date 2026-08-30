@@ -368,29 +368,31 @@ function openDepositDetail(siswaId){
       icon='📥'; label='Top-Up';
       detail = `${m.entry.metode||''}${m.entry.catatan?' · '+m.entry.catatan:''}`;
       actions = `
-        <button class="btn sm icon-only" onclick="closeModal('modal-deposit-detail');showDepositReceipt('${m.entry.id}')" title="Receipt">🧾</button>
+        <button class="btn sm" onclick="closeModal('modal-deposit-detail');showDepositReceipt('${m.entry.id}')" title="Receipt">🧾 Receipt</button>
         <button class="btn sm icon-only" onclick="closeModal('modal-deposit-detail');openDepositForm('${m.entry.id}')" title="Edit">✏️</button>
         <button class="btn danger sm icon-only" onclick="deleteDeposit('${m.entry.id}')" title="Delete">🗑️</button>`;
     } else if(m.type==='refund'){
       icon='↩️'; label='Refund';
       detail = `${m.entry.metode||''}${m.entry.catatan?' · '+m.entry.catatan:''}`;
       actions = `
-        <button class="btn sm icon-only" onclick="closeModal('modal-deposit-detail');showDepositReceipt('${m.entry.id}')" title="Receipt">🧾</button>
+        <button class="btn sm" onclick="closeModal('modal-deposit-detail');showDepositReceipt('${m.entry.id}')" title="Receipt">🧾 Receipt</button>
         <button class="btn danger sm icon-only" onclick="deleteDeposit('${m.entry.id}')" title="Delete">🗑️</button>`;
     } else {
       icon='💳'; label='Applied to Payment';
       detail = `${m.entry.periode||'Payment'} · Invoice ${fmt(m.entry.tagihan)}`;
-      actions = `<button class="btn sm" onclick="closeModal('modal-deposit-detail');navigate('payment');setTimeout(()=>openPaymentForm('${m.entry.id}'),100)">👁️ View</button>`;
+      actions = `<button class="btn sm" onclick="closeModal('modal-deposit-detail');navigate('payment');setTimeout(()=>openPaymentForm('${m.entry.id}'),100)">👁️ View Payment</button>`;
     }
     return `
-      <div style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--border)">
-        <div style="font-size:1.5rem">${icon}</div>
+      <div style="display:flex;align-items:flex-start;gap:12px;padding:14px 4px;border-bottom:1px solid var(--border)">
+        <div style="font-size:1.6rem;flex-shrink:0;line-height:1;padding-top:2px">${icon}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:0.9rem">${label}</div>
-          <div style="font-size:0.78rem;color:var(--muted)">${tglFmt(m.date)}${detail?' · '+detail:''}</div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:3px">
+            <div style="font-weight:800;font-size:0.9rem;color:var(--text)">${label}</div>
+            <div style="font-family:'Fredoka One',sans-serif;font-weight:800;color:${amtColor};white-space:nowrap;font-size:1rem">${amtSign}${fmt(amtAbs)}</div>
+          </div>
+          <div style="font-size:0.78rem;color:var(--muted);line-height:1.35;margin-bottom:10px;word-break:break-word">${tglFmt(m.date)}${detail?' · '+detail:''}</div>
+          <div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap">${actions}</div>
         </div>
-        <div style="font-family:'Fredoka One',sans-serif;font-weight:800;color:${amtColor};white-space:nowrap">${amtSign}${fmt(amtAbs)}</div>
-        <div style="display:flex;gap:4px">${actions}</div>
       </div>`;
   }).join('');
   openModal('modal-deposit-detail');
