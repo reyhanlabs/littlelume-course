@@ -81,6 +81,7 @@ body{font-family:'Fredoka One',sans-serif;background:var(--bg);color:var(--text)
 .nav-item[data-page="lessons"].active    { background:linear-gradient(135deg,#a78bfa,#8b5cf6);box-shadow:0 4px 14px rgba(167,139,250,0.4) }
 .nav-item[data-page="evaluation"].active { background:linear-gradient(135deg,#ffb347,#f59e0b);box-shadow:0 4px 14px rgba(255,179,71,0.4) }
 .nav-item[data-page="payment"].active    { background:linear-gradient(135deg,#ff6584,#f43f5e);box-shadow:0 4px 14px rgba(255,101,132,0.4) }
+.nav-item[data-page="deposits"].active   { background:linear-gradient(135deg,#0d9488,#0f766e);box-shadow:0 4px 14px rgba(13,148,136,0.4) }
 .nav-item[data-page="reports"].active    { background:linear-gradient(135deg,#00c9a7,#059669);box-shadow:0 4px 14px rgba(0,201,167,0.4) }
 .nav-item[data-page="analytics"].active  { background:linear-gradient(135deg,#ff8c42,#ea580c);box-shadow:0 4px 14px rgba(255,140,66,0.4) }
 .nav-item[data-page="backup"].active     { background:linear-gradient(135deg,#6b7498,#4b5563);box-shadow:0 4px 14px rgba(107,116,152,0.3) }
@@ -92,6 +93,7 @@ body{font-family:'Fredoka One',sans-serif;background:var(--bg);color:var(--text)
 .nav-item[data-page="lessons"]:hover    { color:#a78bfa;background:rgba(167,139,250,0.1) }
 .nav-item[data-page="evaluation"]:hover { color:#ffb347;background:rgba(255,179,71,0.1) }
 .nav-item[data-page="payment"]:hover    { color:#ff6584;background:rgba(255,101,132,0.1) }
+.nav-item[data-page="deposits"]:hover   { color:#0d9488;background:rgba(13,148,136,0.1) }
 .nav-item[data-page="reports"]:hover    { color:#00c9a7;background:rgba(0,201,167,0.1) }
 .nav-item[data-page="analytics"]:hover  { color:#ff8c42;background:rgba(255,140,66,0.1) }
 .nav-item[data-page="backup"]:hover     { color:var(--muted);background:var(--bg3) }
