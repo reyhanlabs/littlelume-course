@@ -139,6 +139,7 @@ function updateSesiCount(){
     document.getElementById('b-jumlah').value  = '';
     if(countEl) countEl.textContent = '';
   }
+  if(typeof refreshDepositPanel === 'function') refreshDepositPanel();
 }
 
 function selectAllSesi(select){
@@ -184,7 +185,16 @@ function openPaymentForm(id){
   document.getElementById('b-tagihan').value=b?.tagihan||'';
   document.getElementById('b-status').value=b?.status||'Lunas';
   document.getElementById('b-catatan').value=b?.catatan||'';
-  
+
+  // Deposit-used field: prime with existing value when editing, otherwise clear
+  // and let refreshDepositPanel() auto-suggest.
+  if(typeof resetDepositPanelState === 'function') resetDepositPanelState();
+  const depEl = document.getElementById('b-depositUsed');
+  if(depEl && b && (+b.depositUsed||0) > 0){
+    depEl.value = 'Rp ' + (+b.depositUsed).toLocaleString('id-ID');
+    depEl.dataset.touched = '1';   // treat existing value as user-set → don't overwrite
+  }
+
   // ✨ Format number inputs + track manual edit
   formatNumberInput('b-jumlah');
   formatNumberInput('b-tagihan');
@@ -256,6 +266,20 @@ function savePayment(){
     sesiIds = getSelectedSesiIds();
   }
 
+  // Deposit-used validation: cannot exceed available balance (excluding self on edit)
+  const depositUsed = getNumberValue('b-depositUsed');
+  if(depositUsed > 0){
+    const availBal = (typeof getDepositBalance === 'function')
+      ? getDepositBalance(siswaId, id || null) : 0;
+    if(depositUsed > availBal){
+      showToast(`Deposit used (${fmt(depositUsed)}) exceeds available balance (${fmt(availBal)})`,'warn',5000);
+      return;
+    }
+    if(depositUsed > jumlah){
+      showToast(`Deposit used cannot exceed amount paid (${fmt(jumlah)})`,'warn'); return;
+    }
+  }
+
   const data={
     siswaId, namaSiswa:s?.nama||'-',
     periode,
@@ -265,6 +289,7 @@ function savePayment(){
     status:document.getElementById('b-status').value,
     catatan:document.getElementById('b-catatan').value.trim(),
     sesiIds,
+    depositUsed,
     billingType: isMonthly ? 'monthly' : 'per_session',
   };
   if(id){ const i=bayarList.findIndex(b=>b.id===id); if(i>-1) bayarList[i]={...bayarList[i],...data}; }
@@ -336,6 +361,8 @@ function onPaymentStudentChange(){
   } else {
     loadSesiForPayment();
   }
+  // Refresh deposit auto-suggest panel (visible only if student has balance)
+  if(typeof refreshDepositPanel === 'function') refreshDepositPanel();
 }
 
 function refreshMonthlyPanel(){
@@ -384,18 +411,26 @@ function applyMonthlyBilling(){
     document.getElementById('b-periode').value=now.toLocaleString('en',{month:'long'})+' '+now.getFullYear();
     refreshMonthlyPanel();
   }
+  if(typeof refreshDepositPanel === 'function') refreshDepositPanel();
   showToast(`✅ Invoice & Amount auto-filled: ${fmt(s.feeMonthly)}. Review then click Save.`,'success');
 }
 function deletePayment(id){
   const payment = bayarList.find(b => b.id === id);
   if(!payment) return;
   
+  const depReturn = +payment.depositUsed || 0;
+  const depNote = depReturn > 0
+    ? `<div style="margin-top:10px;padding:10px 12px;background:rgba(255,179,71,0.12);border:1px solid rgba(255,179,71,0.3);border-radius:8px;font-size:0.85rem;color:var(--yellow)">
+        💰 <strong>${fmt(depReturn)}</strong> will be returned to ${payment.namaSiswa}'s deposit balance.
+      </div>`
+    : '';
+
   dangerModal(
     '🗑️ Delete Payment?',
     `Are you sure you want to delete this payment?<br><br>` +
     `<strong>Student:</strong> ${payment.namaSiswa}<br>` +
     `<strong>Amount:</strong> ${fmt(payment.jumlah)}<br>` +
-    `<strong>Status:</strong> ${payment.status}<br><br>` +
+    `<strong>Status:</strong> ${payment.status}${depNote}<br><br>` +
     `This action cannot be undone.`,
     () => {
       bayarList = bayarList.filter(b => b.id !== id);
@@ -404,7 +439,9 @@ function deletePayment(id){
       updateUnpaidBadge(); updateMbnBadge();
       if(document.getElementById('ptab-hutang')?.classList.contains('active')) renderHutangSesi();
       if(document.getElementById('page-dashboard').classList.contains('active')) renderDashboard();
-      showToast('✅ Payment deleted', 'success');
+      // Kalau menghapus payment yg pakai deposit, saldo siswa berubah — refresh Deposits juga
+      if(depReturn > 0 && typeof renderDeposits === 'function') renderDeposits();
+      showToast(depReturn>0 ? `✅ Payment deleted · ${fmt(depReturn)} returned to deposit` : '✅ Payment deleted', 'success');
     },
     { okText: 'Delete', cancelText: 'Cancel' }
   );
@@ -543,7 +580,7 @@ function renderPayment(){
       <td style="color:var(--muted);font-size:0.83rem">${b.periode||'-'}</td>
       <td style="max-width:200px">${sesiHtml}</td>
       <td class="r" style="font-weight:800;color:var(--green);font-size:0.87rem;white-space:nowrap">${fmt(b.tagihan)}</td>
-      <td class="r" style="font-weight:800;color:var(--green);font-size:0.87rem;white-space:nowrap">${fmt(b.jumlah)}</td>
+      <td class="r" style="font-weight:800;color:var(--green);font-size:0.87rem;white-space:nowrap">${fmt(b.jumlah)}${(+b.depositUsed||0)>0?`<div style="font-size:0.68rem;font-weight:600;color:var(--yellow);white-space:nowrap;margin-top:2px">💰 ${fmt(b.depositUsed)} from deposit</div>`:''}</td>
       <td>${chip(sl,sc)}</td>
       <td style="font-size:0.82rem;color:var(--muted)">${b.catatan||'-'}</td>
       <td class="nowrap">
@@ -793,6 +830,12 @@ function showReceipt(id){
           `<div style="font-size:0.85rem;font-weight:800;color:#fff;margin-top:3px">${fmt(b.jumlah)}</div>` +
         `</div>` +
       `</div>` +
+      ((+b.depositUsed||0)>0
+        ? `<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:7px 10px;margin-bottom:10px;font-size:0.7rem;color:#78350f;text-align:center">` +
+            `💰 <strong>${fmt(b.depositUsed)}</strong> paid from deposit balance` +
+            (b.jumlah > b.depositUsed ? ` · Cash: <strong>${fmt(b.jumlah - b.depositUsed)}</strong>` : '') +
+          `</div>`
+        : '') +
       (b.status==='Cicil'?
         `<div style="background:#fce7f3;border-radius:6px;height:7px;margin-bottom:5px"><div style="background:linear-gradient(90deg,#ec4899,#0d9488);border-radius:6px;height:7px;width:${paidPct}%"></div></div>` +
         `<div style="font-size:0.65rem;color:#db2777;text-align:right;margin-bottom:10px;font-weight:600">${paidPct}% paid — ${fmt(b.tagihan-b.jumlah)} remaining</div>`
@@ -811,7 +854,7 @@ function showReceipt(id){
   document.getElementById('receipt-content').innerHTML=html;
   document.getElementById('modal-receipt').dataset.receiptId=id;
   document.getElementById('modal-receipt').dataset.receiptText=
-    `LITTLELUME ENGLISH COURSE\nPayment Receipt — ${rno}\n\n${rows.map(([k,v])=>k.padEnd(16)+': '+v).join('\n')}\n\nAmount Paid     : ${fmt(b.jumlah)}\nStatus          : ${b.status}\n${b.catatan?'Note            : '+b.catatan+'\n':''}\nThank you for your trust!`;
+    `LITTLELUME ENGLISH COURSE\nPayment Receipt — ${rno}\n\n${rows.map(([k,v])=>k.padEnd(16)+': '+v).join('\n')}\n\nAmount Paid     : ${fmt(b.jumlah)}\n${(+b.depositUsed||0)>0?`From Deposit    : ${fmt(b.depositUsed)}\nCash            : ${fmt(b.jumlah-b.depositUsed)}\n`:''}Status          : ${b.status}\n${b.catatan?'Note            : '+b.catatan+'\n':''}\nThank you for your trust!`;
   document.getElementById('wa-status').style.display='none';
   openModal('modal-receipt');
 }

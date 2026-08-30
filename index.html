@@ -67,6 +67,7 @@
     <div class="nav-item" data-page="evaluation"><span class="ico">⭐</span> Evaluation</div>
     <div class="nav-section">Finance</div>
     <div class="nav-item" data-page="payment"><span class="ico">💰</span> Payment <span class="badge-count" id="unpaid-badge" style="display:none">!</span></div>
+    <div class="nav-item" data-page="deposits"><span class="ico">🏦</span> Deposits</div>
     <div class="nav-section">Reports</div>
     <div class="nav-item" data-page="reports"><span class="ico">📤</span> Parent Reports</div>
     <div class="nav-item" data-page="analytics"><span class="ico">📊</span> Analytics</div>
@@ -634,6 +635,37 @@
 
     </div>
 
+    <!-- ══════════════════ DEPOSITS ══════════════════ -->
+    <div class="page" id="page-deposits">
+      <div class="sec-hd">
+        <div><h2>🏦 Deposits</h2><div class="sub">Student wallet — prepayment before sessions</div></div>
+      </div>
+      <div class="card-grid card-grid-4" id="deposit-stats" style="margin-bottom:20px"></div>
+      <div class="card">
+        <div class="filter-bar">
+          <div class="form-group"><label>🔍 Student</label><input type="text" id="dep-f-nama" placeholder="Search name…" oninput="renderDeposits()"></div>
+          <div class="form-group" style="justify-content:flex-end">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.82rem;text-transform:none;letter-spacing:0">
+              <input type="checkbox" id="dep-f-showzero" onchange="renderDeposits()" style="width:auto;margin:0">
+              Show students with no deposit history
+            </label>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table><thead><tr>
+            <th>Student</th>
+            <th class="r">Total Top-Up</th>
+            <th class="r">Used</th>
+            <th class="r">Refunded</th>
+            <th class="r">Balance</th>
+            <th>Actions</th>
+          </tr></thead>
+          <tbody id="tbody-deposits"></tbody></table>
+        </div>
+        <div class="empty" id="empty-deposits"><div class="ei">🏦</div><p>No deposit records yet. Click "Top Up Deposit" to add one.</p></div>
+      </div>
+    </div>
+
     <!-- ══════════════════ REPORTS ══════════════════ -->
     <div class="page" id="page-reports">
       <div class="sec-hd"><div><h2>📤 Parent Reports</h2><div class="sub">Generate & share progress reports</div></div></div>
@@ -751,6 +783,7 @@
             <div style="font-size:0.85rem;color:var(--muted);margin-bottom:12px">Export payment data to a spreadsheet-friendly format.</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn success" onclick="exportCSV('bayar')">💰 Payments CSV</button>
+              <button class="btn success" onclick="exportCSV('deposits')">🏦 Deposits CSV</button>
               <button class="btn success" onclick="exportCSV('absensi')">📋 Attendance CSV</button>
               <button class="btn success" onclick="exportCSV('evaluasi')">⭐ Evaluation CSV</button>
             </div>
@@ -1003,6 +1036,20 @@
       <div class="form-group"><label>Total Invoice (Rp)</label><input type="text" inputmode="numeric" id="b-tagihan" placeholder="e.g. Rp 150.000" style="text-align:right"></div>
       <div class="form-group"><label>Amount Paid (Rp)</label><input type="text" inputmode="numeric" id="b-jumlah" placeholder="e.g. Rp 150.000" style="text-align:right"></div>
     </div>
+
+    <!-- ── DEPOSIT AUTO-SUGGEST PANEL (visible only if student has balance) ── -->
+    <div id="deposit-pay-panel" style="display:none;background:linear-gradient(135deg,rgba(0,214,143,0.08),rgba(56,189,248,0.08));border:1.5px solid var(--green);border-radius:14px;padding:12px 14px;margin-top:8px">
+      <div style="font-weight:800;color:var(--green);margin-bottom:8px;display:flex;align-items:center;gap:8px;font-size:0.88rem">
+        💰 Use Deposit Balance
+        <span style="font-size:0.65rem;font-weight:600;background:var(--green);color:#fff;border-radius:20px;padding:2px 8px">Auto-suggested</span>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label style="font-size:0.72rem">From Deposit (Rp)</label>
+        <input type="text" inputmode="numeric" id="b-depositUsed" placeholder="Rp 0" style="text-align:right" oninput="onDepositUsedInput()">
+      </div>
+      <div id="deposit-pay-info" style="margin-top:8px"></div>
+    </div>
+
     <div class="form-row">
       <div class="form-group"><label>Payment Date</label><input type="date" id="b-tanggal"></div>
       <div class="form-group"><label>Status</label>
@@ -1020,6 +1067,53 @@
     </div>
   </div>
 </div>
+<!-- ══ MODAL: DEPOSIT FORM (top-up / edit / refund) ══ -->
+<div class="overlay" id="modal-deposit">
+  <div class="modal" style="max-width:480px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div class="modal-title" style="margin-bottom:0" id="form-deposit-title">💰 Top Up Deposit</div>
+      <button class="btn sm icon-only" onclick="closeDepositForm()" style="font-size:1rem;flex-shrink:0">✕</button>
+    </div>
+    <input type="hidden" id="dep-id">
+    <div class="form-group" style="margin-top:0">
+      <label>Student *</label>
+      <select id="dep-siswa"><option value="">-- Select Student --</option></select>
+      <div id="dep-balance-hint"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Date *</label><input type="date" id="dep-tanggal"></div>
+      <div class="form-group"><label>Amount (Rp) *</label><input type="text" inputmode="numeric" id="dep-jumlah" placeholder="e.g. Rp 500.000" style="text-align:right"></div>
+    </div>
+    <div class="form-group">
+      <label>Payment Method</label>
+      <select id="dep-metode">
+        <option value="Transfer">🏦 Transfer</option>
+        <option value="Cash">💵 Cash</option>
+        <option value="QRIS">📱 QRIS</option>
+        <option value="E-Wallet">📲 E-Wallet</option>
+        <option value="Other">📋 Other</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Notes</label><input type="text" id="dep-catatan" placeholder="e.g. Advance payment for July"></div>
+    <div class="modal-footer" id="deposit-form-footer">
+      <button class="btn secondary" onclick="closeDepositForm()">Cancel</button>
+      <button class="btn primary" onclick="saveDeposit()">💾 Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: DEPOSIT DETAIL / MUTATION HISTORY ══ -->
+<div class="overlay" id="modal-deposit-detail">
+  <div class="modal" style="max-width:540px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div class="modal-title" style="margin-bottom:0" id="dep-detail-title">Deposit History</div>
+      <button class="btn sm icon-only" onclick="closeModal('modal-deposit-detail')" style="font-size:1rem;flex-shrink:0">✕</button>
+    </div>
+    <div id="dep-detail-balance"></div>
+    <div id="dep-detail-body" style="max-height:400px;overflow-y:auto"></div>
+  </div>
+</div>
+
 <!-- ══ MODAL: EDIT ATTENDANCE ══ -->
 <div class="overlay" id="modal-att-edit">
   <div class="modal modal-sm">
@@ -1123,6 +1217,7 @@
 <script src="js/dashboard-students.js"></script>
 <script src="js/attendance-eval.js"></script>
 <script src="js/payment-receipt.js"></script>
+<script src="js/deposits.js"></script>
 <script src="js/reports-analytics.js"></script>
 <script src="js/notifications-ui.js"></script>
 <script src="js/search-nav-misc.js"></script>

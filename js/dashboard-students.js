@@ -83,15 +83,31 @@ function renderDashboard(){
   const presentFiltered = filteredAtt.filter(a=>a.status==='Hadir').length;
   const filterLabel   = isFiltered ? ' <span style="font-size:0.65rem;color:var(--yellow)">(filtered)</span>' : '';
 
+  // Total deposit balance across all students (unaffected by date filter — it's a live pool)
+  let totalDepositBalance = 0, studentsWithDeposit = 0;
+  if(typeof getDepositBalance === 'function'){
+    siswaList.forEach(s=>{
+      const bal = getDepositBalance(s.id);
+      if(bal>0){ totalDepositBalance += bal; studentsWithDeposit++; }
+    });
+  }
+
   document.getElementById('dash-stats').innerHTML = `
     <div class="stat-card s-purple"><div class="ico">👤</div><div class="val">${totalStudents}</div><div class="lbl">Total Students</div></div>
     <div class="stat-card s-green"><div class="ico">💰</div><div class="val" style="font-size:${totalRevenue>9999999?'1rem':'1.3rem'}">${fmt(totalRevenue)}</div><div class="lbl">Revenue${filterLabel}</div></div>
     <div class="stat-card s-red"><div class="ico">⚠️</div><div class="val">${unpaid}</div><div class="lbl">Unpaid Bills${filterLabel}</div><div class="trend ${unpaid>0?'trend-dn':'trend-up'}">${unpaid>0?'Needs attention':'All clear!'}</div></div>
     <div class="stat-card s-blue"><div class="ico">📋</div><div class="val">${isFiltered?presentFiltered+'/'+filteredAtt.length:presentToday+'/'+(todayAtt.length||totalStudents)}</div><div class="lbl">${isFiltered?'Present (filtered)':'Present Today'}</div></div>
+    <div class="stat-card s-yellow" style="cursor:pointer" onclick="navigate('deposits')" title="Go to Deposits">
+      <div class="ico">🏦</div>
+      <div class="val" style="font-size:${totalDepositBalance>9999999?'1rem':'1.3rem'}">${fmt(totalDepositBalance)}</div>
+      <div class="lbl">Deposit Balance</div>
+      ${studentsWithDeposit>0?`<div class="trend trend-neu" style="font-size:0.68rem">Across ${studentsWithDeposit} student(s)</div>`:''}
+    </div>
   `;
 
   const alerts=[];
   if(unpaid>0) alerts.push(`<div class="alert-card alert-danger">⚠️ <span>${unpaid} student(s) have unpaid bills${isFiltered?' in selected period':''}.  <a href="#" onclick="navigate('payment');return false" style="color:inherit;text-decoration:underline">View Payment</a></span></div>`);
+  if(studentsWithDeposit>0) alerts.push(`<div class="alert-card alert-warn">🏦 <span>${studentsWithDeposit} student(s) have deposit balance totaling <strong>${fmt(totalDepositBalance)}</strong>.  <a href="#" onclick="navigate('deposits');return false" style="color:inherit;text-decoration:underline">View Deposits</a></span></div>`);
   const noEvalThisWeek = siswaList.filter(s=>{
     const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-7);
     return !evaluasiList.find(e=>e.siswaId===s.id && new Date(e.tanggal)>=weekAgo);

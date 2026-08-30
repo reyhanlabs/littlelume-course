@@ -413,7 +413,7 @@ async function renderAccessPanel(){
 // ════════════════════════════════════════════════
 //  FIRESTORE DATA LAYER — CLASS-SCOPED
 // ════════════════════════════════════════════════
-const COLS = ['siswa','absensi','materi','evaluasi','bayar','schedules'];
+const COLS = ['siswa','absensi','materi','evaluasi','bayar','schedules','deposits'];
 
 async function loadFromFirestore(){
   if(!userDocRef){ return; }  // not logged in yet — silent
@@ -428,15 +428,16 @@ async function loadFromFirestore(){
       evaluasiList = d.evaluasi || [];
       bayarList    = d.bayar    || [];
       scheduleList = d.schedules|| [];
+      depositList  = d.deposits || [];
     } else {
-      siswaList=[];absensiList=[];materiList=[];evaluasiList=[];bayarList=[];scheduleList=[];
+      siswaList=[];absensiList=[];materiList=[];evaluasiList=[];bayarList=[];scheduleList=[];depositList=[];
     }
     setSynced();
     renderAll(); setCurrentMonthDashFilter(); loadAbsensi();
   } catch(e){
     setSyncErr(e.code || e.message);
     console.error('Load error', e);
-    siswaList=[];absensiList=[];materiList=[];evaluasiList=[];bayarList=[];scheduleList=[];
+    siswaList=[];absensiList=[];materiList=[];evaluasiList=[];bayarList=[];scheduleList=[];depositList=[];
     renderAll(); setCurrentMonthDashFilter(); loadAbsensi();
   }
 }
@@ -489,6 +490,7 @@ function subscribeToClassUpdates(){
     evaluasiList = d.evaluasi || [];
     bayarList    = d.bayar    || [];
     scheduleList = d.schedules|| [];
+    depositList  = d.deposits || [];
     renderAll(); setCurrentMonthDashFilter(); loadAbsensi();
     showToast('🔄 Data diperbarui dari device lain', 'info', 3500);
   }, err => {
@@ -511,6 +513,7 @@ async function _flushToFirestore(){
     await userDocRef.set({
       siswa:siswaList, absensi:absensiList, materi:materiList,
       evaluasi:evaluasiList, bayar:bayarList, schedules:scheduleList,
+      deposits:depositList,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       _sid: _sessionId,   // ← tandai write ini milik session kita
     },{merge:true});
@@ -534,6 +537,7 @@ async function migrateLocalStorage(){
   if(snap.exists && (snap.data().siswa||[]).length > 0) return;
   siswaList=lsSiswa; absensiList=lsGet('absensi'); materiList=lsGet('materi');
   evaluasiList=lsGet('evaluasi'); bayarList=lsGet('bayar'); scheduleList=lsGet('schedules');
+  depositList=lsGet('deposits');
   await _flushToFirestore();
   COLS.forEach(k => localStorage.removeItem(k));
   renderAll(); setCurrentMonthDashFilter();
@@ -551,6 +555,7 @@ const DB = {
     if(k==='evaluasi')  evaluasiList = v;
     if(k==='bayar')     bayarList    = v;
     if(k==='schedules') scheduleList = v;
+    if(k==='deposits')  depositList  = v;
     saveToFirestore();
   }
 };
@@ -564,6 +569,7 @@ let materiList   = [];
 let evaluasiList = [];
 let bayarList    = [];
 let scheduleList = [];  // { id, siswaId, days:['Monday','Wednesday'], jam:'15:00', durasi:60 }
+let depositList  = [];  // { id, siswaId, namaSiswa, tanggal, jumlah, tipe:'topup'|'refund', metode, catatan }
 
 // ════════════════════════════════════════════════
 //  HELPERS
@@ -644,6 +650,7 @@ function closePanel(id){
 const pageNames = {
   dashboard:'Dashboard', students:'Students', attendance:'Attendance',
   lessons:'Lessons', evaluation:'Evaluation', payment:'Payment',
+  deposits:'Deposits',
   reports:'Parent Reports', analytics:'Analytics', backup:'Backup & Restore'
 };
 const pageActions = {
@@ -651,6 +658,7 @@ const pageActions = {
   lessons:  `<button class="btn-topbar primary" onclick="resetLessonForm();openPanel('form-lesson','700px')">＋ Add Lesson</button>`,
   evaluation:`<button class="btn-topbar primary" onclick="resetEvalForm();switchEvalTab('single')">＋ Add Evaluation</button>`,
   payment:  `<button class="btn-topbar primary" onclick="openPaymentForm()">＋ Record Payment</button>`,
+  deposits: `<button class="btn-topbar primary" onclick="openDepositForm()">＋ Top Up Deposit</button>`,
 };
 
 function _navigateRaw(page){
@@ -688,6 +696,7 @@ function navigate(page){
   if(page==='backup')  { renderBackupSummary(); renderAccessPanel(); }
   if(page==='payment') { setCurrentMonthFilter(); }
   if(page==='attendance') { setCurrentMonthAttFilter(); }
+  if(page==='deposits')   { renderDeposits(); }
   if(window.innerWidth<=768) closeSidebar();
   // Sync mobile bottom nav
   document.querySelectorAll('.mbn-item').forEach(el=>{

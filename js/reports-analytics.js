@@ -95,6 +95,7 @@ function exportBackup(){
     classId:   currentClassId,
     siswa:siswaList, absensi:absensiList, materi:materiList,
     evaluasi:evaluasiList, bayar:bayarList, schedules:scheduleList,
+    deposits:depositList,
     exportedAt:new Date().toISOString()
   };
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
@@ -148,6 +149,7 @@ function importBackup(e){
           if(data.evaluasi)  { evaluasiList = data.evaluasi.map(n=>({...n})); }
           if(data.bayar)     { bayarList    = data.bayar.map(n=>({...n})); }
           if(data.schedules) { scheduleList = data.schedules.map(n=>({...n})); }
+          if(data.deposits)  { depositList  = data.deposits.map(n=>({...n})); }
           statusEl.innerHTML='<span style="color:var(--yellow)">⏳ Saving to cloud… <strong>do not refresh!</strong></span>';
           await _flushToFirestore();
           statusEl.innerHTML=`<span style="color:var(--green)">✅ <strong>Import complete!</strong> ${siswaList.length} students, ${bayarList.length} payments saved to cloud.<br><span style="font-size:0.8rem;opacity:0.8">You can now refresh safely.</span></span>`;
@@ -164,9 +166,10 @@ function importBackup(e){
 }
 function exportCSV(key){
   let rows=[],headers=[];
-  if(key==='bayar'){ headers=['Date','Student','Period','Invoice','Paid','Status','Notes']; rows=bayarList.map(b=>[tglFmt(b.tanggal),b.namaSiswa,b.periode||'',b.tagihan,b.jumlah,b.status,b.catatan||'']); }
+  if(key==='bayar'){ headers=['Date','Student','Period','Invoice','Paid','From Deposit','Cash','Status','Notes']; rows=bayarList.map(b=>[tglFmt(b.tanggal),b.namaSiswa,b.periode||'',b.tagihan,b.jumlah,(+b.depositUsed||0),(b.jumlah-(+b.depositUsed||0)),b.status,b.catatan||'']); }
   else if(key==='absensi'){ headers=['Date','Student','Status','Note']; rows=absensiList.map(a=>[tglFmt(a.tanggal),a.namaSiswa,a.status,a.keterangan||'']); }
   else if(key==='evaluasi'){ headers=['Date','Student','Score','Rating','Progress','Notes']; rows=evaluasiList.map(e=>[tglFmt(e.tanggal),e.namaSiswa,e.nilai,e.rating,e.progress||'',e.catatan||'']); }
+  else if(key==='deposits'){ headers=['Date','Student','Type','Amount','Method','Notes']; rows=depositList.map(d=>[tglFmt(d.tanggal),d.namaSiswa,d.tipe==='refund'?'Refund':'Top-Up',d.jumlah,d.metode||'',d.catatan||'']); }
   const csv=[headers,...rows].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
   const blob=new Blob([csv],{type:'text/csv'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='LittleLume-'+key+'-'+new Date().toISOString().slice(0,10)+'.csv'; a.click();
@@ -180,7 +183,7 @@ function clearAllData(){
         '⚠️ Final Confirmation',
         `Last chance! You are about to erase all data in <strong>${currentClassName||'this class'}</strong>. Click Delete to confirm.`,
         ()=>{
-          siswaList=[];absensiList=[];materiList=[];evaluasiList=[];bayarList=[];scheduleList=[];
+          siswaList=[];absensiList=[];materiList=[];evaluasiList=[];bayarList=[];scheduleList=[];depositList=[];
           saveToFirestore();
           renderAll(); renderBackupSummary(); showToast('✅ All data cleared.','success');
         },
@@ -202,6 +205,7 @@ function renderBackupSummary(){
       <div class="stat-card s-green"><div class="val">${materiList.length}</div><div class="lbl">Lessons</div></div>
       <div class="stat-card s-yellow"><div class="val">${evaluasiList.length}</div><div class="lbl">Evaluations</div></div>
       <div class="stat-card s-red"><div class="val">${bayarList.length}</div><div class="lbl">Payments</div></div>
+      <div class="stat-card s-green"><div class="val">${depositList.length}</div><div class="lbl">Deposit Entries</div></div>
     </div>`;
 }
 
@@ -231,6 +235,7 @@ function updateSelects(){
 function renderAll(){
   renderStudents(); renderLessons();
   renderEval(); updateSelects(); updateUnpaidBadge();
+  if(typeof renderDeposits === 'function') renderDeposits();
   // Auto-set current month filters on first load
   const attDari = document.getElementById('att-f-dari');
   if(attDari && !attDari.value) setCurrentMonthAttFilter();

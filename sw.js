@@ -1,5 +1,5 @@
 // BunRey English Course — Service Worker
-const CACHE_NAME = 'bunrey-v1';
+const CACHE_NAME = 'bunrey-v2-deposits';
 
 // Resources to cache on install
 const PRECACHE = [
