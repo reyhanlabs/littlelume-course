@@ -964,7 +964,7 @@ function showReceipt(id){
   const html=
     `<div style="background:linear-gradient(135deg,#fdf2f8,#f0fdfa);padding:14px 16px;display:flex;align-items:center;gap:10px">` +
       `<div style="width:44px;height:44px;border-radius:12px;overflow:hidden;flex-shrink:0;border:2px solid #f9a8d4">` +
-        `<img src="https://raw.githubusercontent.com/reyhanlabs/bunrey-course/refs/heads/main/favicon.ico" crossorigin="anonymous" style="width:44px;height:44px;object-fit:cover">` +
+        `<img src="${APP_LOGO_URL}" crossorigin="anonymous" style="width:44px;height:44px;object-fit:cover">` +
       `</div>` +
       `<div style="flex:1;min-width:0">` +
         `<div style="font-size:0.85rem;font-weight:800;line-height:1.2"><span style="color:#ec4899">Little</span><span style="color:#0d9488">Lume</span></div>` +
@@ -1069,7 +1069,7 @@ function _buildReceiptPrintHTML(b,siswa){
     .prog-text{font-size:0.65rem;color:#db2777;text-align:right;margin-bottom:10px;font-weight:600}
   </style></head><body>
   <div class="hdr">
-    <div class="logo-img"><img src="https://raw.githubusercontent.com/reyhanlabs/bunrey-course/refs/heads/main/favicon.ico"></div>
+    <div class="logo-img"><img src="${APP_LOGO_URL}"></div>
     <div>
       <div class="brand1"><span style="color:#ec4899">Little</span><span style="color:#0d9488">Lume</span></div>
       <div class="brand2"><span style="color:#ec4899">English</span><span style="color:#0d9488"> Course</span></div>
@@ -1115,7 +1115,7 @@ function _buildReceiptRenderHTML(b,siswa){
   const scBot=`<svg viewBox="0 0 380 18" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%"><path d="M0,18 Q19,0 38,18 Q57,0 76,18 Q95,0 114,18 Q133,0 152,18 Q171,0 190,18 Q209,0 228,18 Q247,0 266,18 Q285,0 304,18 Q323,0 342,18 Q361,0 380,18 L380,0 L0,0 Z" fill="#fef9ff"/></svg>`;
   return `<div style="background:linear-gradient(135deg,#fdf2f8,#f0fdfa);padding:16px;display:flex;align-items:center;gap:12px">
     <div style="width:44px;height:44px;border-radius:12px;overflow:hidden;flex-shrink:0;border:2px solid #f9a8d4">
-      <img src="https://raw.githubusercontent.com/reyhanlabs/bunrey-course/refs/heads/main/favicon.ico" crossorigin="anonymous" style="width:44px;height:44px;object-fit:cover">
+      <img src="${APP_LOGO_URL}" crossorigin="anonymous" style="width:44px;height:44px;object-fit:cover">
     </div>
     <div style="flex:1">
       <div style="font-size:0.95rem;font-weight:800;line-height:1.2">

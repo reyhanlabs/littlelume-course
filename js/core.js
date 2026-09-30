@@ -11,6 +11,10 @@ const firebaseConfig = {
   measurementId: "G-VHBE747MSE"
 };
 firebase.initializeApp(firebaseConfig);
+
+// Logo aplikasi (file lokal, bukan URL repo GitHub lama).
+// Absolut karena dipakai juga di jendela print (about:blank) yang tidak punya base URL.
+const APP_LOGO_URL = new URL('favicon-256x256.png', location.href).href;
 const auth = firebase.auth();
 const db   = firebase.firestore();
 
@@ -50,11 +54,9 @@ function classDataRef(classId){
 // ════════════════════════════════════════════════
 //  WHITELIST
 // ════════════════════════════════════════════════
-const ALLOWED_EMAILS = [];
-function isEmailAllowed(email){
-  if(!email) return false;
-  return ALLOWED_EMAILS.some(e => e.toLowerCase() === email.toLowerCase());
-}
+// Daftar akses disimpan di Firestore: workspace/access { owner, allowed_emails[] }.
+// Penegakan sebenarnya ada di Firestore Security Rules (firestore.rules);
+// pengecekan di client hanya untuk UX (menampilkan pesan & sign-out).
 
 // ════════════════════════════════════════════════
 //  SYNC INDICATOR
@@ -114,11 +116,19 @@ function signOutUser(){
 auth.onAuthStateChanged(async user => {
   document.getElementById('loading-screen').style.display = 'none';
   if(user){
-    const allowed = await checkAccess(user);
-    if(!allowed){
+    const access = await checkAccess(user);
+    if(access === 'denied'){
       await auth.signOut();
       document.getElementById('login-screen').style.display = 'flex';
       document.getElementById('login-err').textContent = '⛔ Access denied. Email ' + user.email + ' is not authorized.';
+      return;
+    }
+    if(access === 'error'){
+      // Tetap login (sesi Google tersimpan), cukup muat ulang saat koneksi kembali
+      document.getElementById('login-screen').style.display = 'flex';
+      document.getElementById('login-err').innerHTML =
+        '⚠️ Tidak bisa memverifikasi akses — periksa koneksi internet. ' +
+        '<button class="btn sm primary" style="margin-top:8px" onclick="location.reload()">🔄 Coba lagi</button>';
       return;
     }
     currentUser = user;
@@ -148,24 +158,22 @@ auth.onAuthStateChanged(async user => {
   }
 });
 
+// Return: 'allowed' | 'denied' | 'error'  — FAIL-CLOSED (error ≠ allowed)
 async function checkAccess(user){
-  if(isEmailAllowed(user.email)) return true;
+  const em = (user.email||'').toLowerCase();
   try{
-    const accessDoc = await db.collection('workspace').doc('access').get();
-    if(accessDoc.exists){
-      const data = accessDoc.data();
-      if(data.owner === user.email) return true;
-      const allowed = data.allowed_emails || [];
-      return allowed.some(e => e.toLowerCase() === user.email.toLowerCase());
-    } else {
-      await db.collection('workspace').doc('access').set({
-        owner: user.email,
-        allowed_emails: [user.email],
-        created_at: firebase.firestore.FieldValue.serverTimestamp(),
-      });
-      return true;
-    }
-  } catch(e){ console.error('Access check error:', e); return true; }
+    const accessDoc = await db.collection('workspace').doc('access').get({ source:'server' });
+    // Tidak ada lagi auto-create owner: dokumen access dibuat manual oleh admin di Firebase Console
+    if(!accessDoc.exists) return 'denied';
+    const data = accessDoc.data() || {};
+    if((data.owner||'').toLowerCase() === em) return 'allowed';
+    return (data.allowed_emails||[]).some(e => String(e).toLowerCase() === em) ? 'allowed' : 'denied';
+  } catch(e){
+    // Dengan Security Rules aktif, email yang tidak terdaftar ditolak server → permission-denied
+    if(e.code === 'permission-denied') return 'denied';
+    console.error('Access check error:', e);
+    return 'error';   // offline / timeout → jangan diizinkan, tapi juga jangan paksa login ulang
+  }
 }
 
 // ════════════════════════════════════════════════

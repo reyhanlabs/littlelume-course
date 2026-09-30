@@ -1,0 +1,52 @@
+rules_version = '2';
+
+// ═══════════════════════════════════════════════════════════════════
+//  LittleLume English Course — Firestore Security Rules
+//  Struktur data:
+//    workspace/access      { owner, allowed_emails[], created_at }  ← daftar akses
+//    workspace/classes     { list[] }                               ← daftar kelas
+//    workspace/class_xxx   { siswa[], absensi[], bayar[], ... }     ← data per kelas
+//    workspace/shared      (data lama, sebelum multi-kelas)
+//  Semua email di allowed_emails harus huruf kecil.
+// ═══════════════════════════════════════════════════════════════════
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null
+          && request.auth.token.email != null
+          && request.auth.token.email_verified == true;
+    }
+    function myEmail() {
+      return request.auth.token.email.lower();
+    }
+    function accessData() {
+      return get(/databases/$(database)/documents/workspace/access).data;
+    }
+    function isOwner() {
+      return signedIn() && accessData().owner.lower() == myEmail();
+    }
+    function isMember() {
+      return signedIn() && (isOwner() || myEmail() in accessData().allowed_emails);
+    }
+
+    // ── Daftar akses ──────────────────────────────────────────────
+    match /workspace/access {
+      allow read: if isMember();
+      // Hanya owner yang boleh mengubah, dan hanya field allowed_emails.
+      // Owner tidak bisa dipindah dari aplikasi (ubah manual di Console).
+      allow update: if isOwner()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['allowed_emails'])
+        && request.resource.data.allowed_emails is list
+        && request.resource.data.allowed_emails.size() <= 50;
+      allow create, delete: if false;
+    }
+
+    // ── Data kelas, daftar kelas, data lama ───────────────────────
+    match /workspace/{docId} {
+      allow read, write: if docId != 'access' && isMember();
+    }
+
+    // Semua path lain otomatis ditolak.
+  }
+}

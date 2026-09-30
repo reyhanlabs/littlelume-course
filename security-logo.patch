@@ -1,0 +1,235 @@
+diff --git a/firestore.rules b/firestore.rules
+new file mode 100644
+index 0000000..1bfda48
+--- /dev/null
++++ b/firestore.rules
+@@ -0,0 +1,52 @@
++rules_version = '2';
++
++// ═══════════════════════════════════════════════════════════════════
++//  LittleLume English Course — Firestore Security Rules
++//  Struktur data:
++//    workspace/access      { owner, allowed_emails[], created_at }  ← daftar akses
++//    workspace/classes     { list[] }                               ← daftar kelas
++//    workspace/class_xxx   { siswa[], absensi[], bayar[], ... }     ← data per kelas
++//    workspace/shared      (data lama, sebelum multi-kelas)
++//  Semua email di allowed_emails harus huruf kecil.
++// ═══════════════════════════════════════════════════════════════════
++service cloud.firestore {
++  match /databases/{database}/documents {
++
++    function signedIn() {
++      return request.auth != null
++          && request.auth.token.email != null
++          && request.auth.token.email_verified == true;
++    }
++    function myEmail() {
++      return request.auth.token.email.lower();
++    }
++    function accessData() {
++      return get(/databases/$(database)/documents/workspace/access).data;
++    }
++    function isOwner() {
++      return signedIn() && accessData().owner.lower() == myEmail();
++    }
++    function isMember() {
++      return signedIn() && (isOwner() || myEmail() in accessData().allowed_emails);
++    }
++
++    // ── Daftar akses ──────────────────────────────────────────────
++    match /workspace/access {
++      allow read: if isMember();
++      // Hanya owner yang boleh mengubah, dan hanya field allowed_emails.
++      // Owner tidak bisa dipindah dari aplikasi (ubah manual di Console).
++      allow update: if isOwner()
++        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['allowed_emails'])
++        && request.resource.data.allowed_emails is list
++        && request.resource.data.allowed_emails.size() <= 50;
++      allow create, delete: if false;
++    }
++
++    // ── Data kelas, daftar kelas, data lama ───────────────────────
++    match /workspace/{docId} {
++      allow read, write: if docId != 'access' && isMember();
++    }
++
++    // Semua path lain otomatis ditolak.
++  }
++}
+diff --git a/index.html b/index.html
+index f32c09a..363adb9 100644
+--- a/index.html
++++ b/index.html
+@@ -29,7 +29,7 @@
+ 
+ <!-- ══ LOADING SCREEN ══ -->
+ <div id="loading-screen">
+-  <img src="https://raw.githubusercontent.com/reyhanlabs/bunrey-course/refs/heads/main/favicon.ico" style="width:72px;height:72px;border-radius:20px;object-fit:cover;box-shadow:0 8px 30px rgba(108,99,255,0.4)">
++  <img src="favicon-256x256.png" style="width:72px;height:72px;border-radius:20px;object-fit:cover;box-shadow:0 8px 30px rgba(108,99,255,0.4)">
+   <div class="spin"></div>
+   <p>Loading LittleLume English Course…</p>
+ </div>
+@@ -37,7 +37,7 @@
+ <!-- ══ LOGIN SCREEN ══ -->
+ <div id="login-screen">
+   <div class="login-box">
+-    <div class="login-mark" style="background:none;padding:0;overflow:hidden"><img src="https://raw.githubusercontent.com/reyhanlabs/bunrey-course/refs/heads/main/favicon.ico" style="width:72px;height:72px;object-fit:cover;border-radius:20px"></div>
++    <div class="login-mark" style="background:none;padding:0;overflow:hidden"><img src="favicon-256x256.png" style="width:72px;height:72px;object-fit:cover;border-radius:20px"></div>
+     <div class="login-title">LittleLume English Course</div>
+     <div class="login-sub">Sign in with your Google account<br>to access your teaching dashboard</div>
+     <button class="btn-google" onclick="signInGoogle()">
+@@ -54,7 +54,7 @@
+ <!-- SIDEBAR -->
+ <nav id="sidebar">
+   <div class="sb-logo">
+-    <div class="mark" style="background:none;padding:0;overflow:hidden"><img src="https://raw.githubusercontent.com/reyhanlabs/bunrey-course/refs/heads/main/favicon.ico" style="width:38px;height:38px;object-fit:cover;border-radius:12px"></div>
++    <div class="mark" style="background:none;padding:0;overflow:hidden"><img src="favicon-256x256.png" style="width:38px;height:38px;object-fit:cover;border-radius:12px"></div>
+     <div class="brand"><span class="brand-gradient">LittleLume</span><span>English Course</span></div>
+   </div>
+   <div class="sb-nav">
+diff --git a/js/core.js b/js/core.js
+index be78fb7..82042c1 100644
+--- a/js/core.js
++++ b/js/core.js
+@@ -11,6 +11,10 @@ const firebaseConfig = {
+   measurementId: "G-VHBE747MSE"
+ };
+ firebase.initializeApp(firebaseConfig);
++
++// Logo aplikasi (file lokal, bukan URL repo GitHub lama).
++// Absolut karena dipakai juga di jendela print (about:blank) yang tidak punya base URL.
++const APP_LOGO_URL = new URL('favicon-256x256.png', location.href).href;
+ const auth = firebase.auth();
+ const db   = firebase.firestore();
+ 
+@@ -50,11 +54,9 @@ function classDataRef(classId){
+ // ════════════════════════════════════════════════
+ //  WHITELIST
+ // ════════════════════════════════════════════════
+-const ALLOWED_EMAILS = [];
+-function isEmailAllowed(email){
+-  if(!email) return false;
+-  return ALLOWED_EMAILS.some(e => e.toLowerCase() === email.toLowerCase());
+-}
++// Daftar akses disimpan di Firestore: workspace/access { owner, allowed_emails[] }.
++// Penegakan sebenarnya ada di Firestore Security Rules (firestore.rules);
++// pengecekan di client hanya untuk UX (menampilkan pesan & sign-out).
+ 
+ // ════════════════════════════════════════════════
+ //  SYNC INDICATOR
+@@ -114,13 +116,21 @@ function signOutUser(){
+ auth.onAuthStateChanged(async user => {
+   document.getElementById('loading-screen').style.display = 'none';
+   if(user){
+-    const allowed = await checkAccess(user);
+-    if(!allowed){
++    const access = await checkAccess(user);
++    if(access === 'denied'){
+       await auth.signOut();
+       document.getElementById('login-screen').style.display = 'flex';
+       document.getElementById('login-err').textContent = '⛔ Access denied. Email ' + user.email + ' is not authorized.';
+       return;
+     }
++    if(access === 'error'){
++      // Tetap login (sesi Google tersimpan), cukup muat ulang saat koneksi kembali
++      document.getElementById('login-screen').style.display = 'flex';
++      document.getElementById('login-err').innerHTML =
++        '⚠️ Tidak bisa memverifikasi akses — periksa koneksi internet. ' +
++        '<button class="btn sm primary" style="margin-top:8px" onclick="location.reload()">🔄 Coba lagi</button>';
++      return;
++    }
+     currentUser = user;
+     document.getElementById('login-screen').style.display = 'none';
+     document.getElementById('sync-status').style.display = 'flex';
+@@ -148,24 +158,22 @@ auth.onAuthStateChanged(async user => {
+   }
+ });
+ 
++// Return: 'allowed' | 'denied' | 'error'  — FAIL-CLOSED (error ≠ allowed)
+ async function checkAccess(user){
+-  if(isEmailAllowed(user.email)) return true;
++  const em = (user.email||'').toLowerCase();
+   try{
+-    const accessDoc = await db.collection('workspace').doc('access').get();
+-    if(accessDoc.exists){
+-      const data = accessDoc.data();
+-      if(data.owner === user.email) return true;
+-      const allowed = data.allowed_emails || [];
+-      return allowed.some(e => e.toLowerCase() === user.email.toLowerCase());
+-    } else {
+-      await db.collection('workspace').doc('access').set({
+-        owner: user.email,
+-        allowed_emails: [user.email],
+-        created_at: firebase.firestore.FieldValue.serverTimestamp(),
+-      });
+-      return true;
+-    }
+-  } catch(e){ console.error('Access check error:', e); return true; }
++    const accessDoc = await db.collection('workspace').doc('access').get({ source:'server' });
++    // Tidak ada lagi auto-create owner: dokumen access dibuat manual oleh admin di Firebase Console
++    if(!accessDoc.exists) return 'denied';
++    const data = accessDoc.data() || {};
++    if((data.owner||'').toLowerCase() === em) return 'allowed';
++    return (data.allowed_emails||[]).some(e => String(e).toLowerCase() === em) ? 'allowed' : 'denied';
++  } catch(e){
++    // Dengan Security Rules aktif, email yang tidak terdaftar ditolak server → permission-denied
++    if(e.code === 'permission-denied') return 'denied';
++    console.error('Access check error:', e);
++    return 'error';   // offline / timeout → jangan diizinkan, tapi juga jangan paksa login ulang
++  }
+ }
+ 
+ // ════════════════════════════════════════════════
+diff --git a/js/deposits.js b/js/deposits.js
+index ec96025..478243f 100644
+--- a/js/deposits.js
++++ b/js/deposits.js
+@@ -612,7 +612,7 @@ function _buildDepositReceiptPrintHTML(d, siswa){
+     .fbrand{font-size:0.65rem;font-weight:700}
+   </style></head><body>
+   <div class="hdr">
+-    <div class="logo-img"><img src="https://raw.githubusercontent.com/reyhanlabs/bunrey-course/refs/heads/main/favicon.ico"></div>
++    <div class="logo-img"><img src="${APP_LOGO_URL}"></div>
+     <div>
+       <div class="brand1"><span style="color:#ec4899">Little</span><span style="color:#0d9488">Lume</span></div>
+       <div class="brand2"><span style="color:#ec4899">English</span><span style="color:#0d9488"> Course</span></div>
+@@ -669,7 +669,7 @@ function _buildDepositReceiptRenderHTML(d, siswa){
+   const scTop = `<svg viewBox="0 0 300 16" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%"><path d="M0,0 Q15,16 30,0 Q45,16 60,0 Q75,16 90,0 Q105,16 120,0 Q135,16 150,0 Q165,16 180,0 Q195,16 210,0 Q225,16 240,0 Q255,16 270,0 Q285,16 300,0 L300,16 L0,16 Z" fill="#fef9ff"/></svg>`;
+   const scBot = `<svg viewBox="0 0 300 16" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%"><path d="M0,16 Q15,0 30,16 Q45,0 60,16 Q75,0 90,16 Q105,0 120,16 Q135,0 150,16 Q165,0 180,16 Q195,0 210,16 Q225,0 240,16 Q255,0 270,16 Q285,0 300,16 L300,0 L0,0 Z" fill="#fef9ff"/></svg>`;
+   return `<div style="background:linear-gradient(135deg,#fdf2f8,#f0fdfa);padding:16px;display:flex;align-items:center;gap:12px;color:#4a1942">
+-    <div style="width:44px;height:44px;border-radius:12px;border:2px solid #f9a8d4;overflow:hidden;flex-shrink:0"><img src="https://raw.githubusercontent.com/reyhanlabs/bunrey-course/refs/heads/main/favicon.ico" style="width:100%;height:100%;object-fit:cover"></div>
++    <div style="width:44px;height:44px;border-radius:12px;border:2px solid #f9a8d4;overflow:hidden;flex-shrink:0"><img src="${APP_LOGO_URL}" style="width:100%;height:100%;object-fit:cover"></div>
+     <div>
+       <div style="font-size:0.92rem;font-weight:800;line-height:1.15"><span style="color:#ec4899">Little</span><span style="color:#0d9488">Lume</span></div>
+       <div style="font-size:0.92rem;font-weight:800;line-height:1.15"><span style="color:#ec4899">English</span><span style="color:#0d9488"> Course</span></div>
+diff --git a/js/payment-receipt.js b/js/payment-receipt.js
+index 595f398..569a80d 100644
+--- a/js/payment-receipt.js
++++ b/js/payment-receipt.js
+@@ -964,7 +964,7 @@ function showReceipt(id){
+   const html=
+     `<div style="background:linear-gradient(135deg,#fdf2f8,#f0fdfa);padding:14px 16px;display:flex;align-items:center;gap:10px">` +
+       `<div style="width:44px;height:44px;border-radius:12px;overflow:hidden;flex-shrink:0;border:2px solid #f9a8d4">` +
+-        `<img src="https://raw.githubusercontent.com/reyhanlabs/bunrey-course/refs/heads/main/favicon.ico" crossorigin="anonymous" style="width:44px;height:44px;object-fit:cover">` +
++        `<img src="${APP_LOGO_URL}" crossorigin="anonymous" style="width:44px;height:44px;object-fit:cover">` +
+       `</div>` +
+       `<div style="flex:1;min-width:0">` +
+         `<div style="font-size:0.85rem;font-weight:800;line-height:1.2"><span style="color:#ec4899">Little</span><span style="color:#0d9488">Lume</span></div>` +
+@@ -1069,7 +1069,7 @@ function _buildReceiptPrintHTML(b,siswa){
+     .prog-text{font-size:0.65rem;color:#db2777;text-align:right;margin-bottom:10px;font-weight:600}
+   </style></head><body>
+   <div class="hdr">
+-    <div class="logo-img"><img src="https://raw.githubusercontent.com/reyhanlabs/bunrey-course/refs/heads/main/favicon.ico"></div>
++    <div class="logo-img"><img src="${APP_LOGO_URL}"></div>
+     <div>
+       <div class="brand1"><span style="color:#ec4899">Little</span><span style="color:#0d9488">Lume</span></div>
+       <div class="brand2"><span style="color:#ec4899">English</span><span style="color:#0d9488"> Course</span></div>
+@@ -1115,7 +1115,7 @@ function _buildReceiptRenderHTML(b,siswa){
+   const scBot=`<svg viewBox="0 0 380 18" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%"><path d="M0,18 Q19,0 38,18 Q57,0 76,18 Q95,0 114,18 Q133,0 152,18 Q171,0 190,18 Q209,0 228,18 Q247,0 266,18 Q285,0 304,18 Q323,0 342,18 Q361,0 380,18 L380,0 L0,0 Z" fill="#fef9ff"/></svg>`;
+   return `<div style="background:linear-gradient(135deg,#fdf2f8,#f0fdfa);padding:16px;display:flex;align-items:center;gap:12px">
+     <div style="width:44px;height:44px;border-radius:12px;overflow:hidden;flex-shrink:0;border:2px solid #f9a8d4">
+-      <img src="https://raw.githubusercontent.com/reyhanlabs/bunrey-course/refs/heads/main/favicon.ico" crossorigin="anonymous" style="width:44px;height:44px;object-fit:cover">
++      <img src="${APP_LOGO_URL}" crossorigin="anonymous" style="width:44px;height:44px;object-fit:cover">
+     </div>
+     <div style="flex:1">
+       <div style="font-size:0.95rem;font-weight:800;line-height:1.2">
