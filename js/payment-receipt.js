@@ -53,6 +53,8 @@ function loadSesiForPayment(){
     if(editBayar?.sesiIds) editBayar.sesiIds.forEach(id=>paidSesiIds.delete(id));
   }
 
+  _sesiLinkedCurrent = linkedInCurrentPayment;
+
   if(!sesiSiswa.length){
     wrap.innerHTML='<div style="color:var(--muted);font-size:0.83rem">No attendance records found for this student yet.</div>';
     return;
@@ -65,6 +67,7 @@ function loadSesiForPayment(){
     const label  = tglFmt(a.tanggal) + (a.keterangan ? ' · '+a.keterangan : '');
     
     let statusHtml = '';
+    const kind = isPaid ? 'paid-other' : isInvalid ? 'invalid' : 'normal';
     if(isPaid){
       statusHtml = '<div style="font-size:0.72rem;color:var(--green)">✅ Already paid in another payment</div>';
     } else if(isInvalid){
@@ -73,6 +76,7 @@ function loadSesiForPayment(){
     } else {
       statusHtml = '<div style="font-size:0.72rem;color:var(--muted)">Not yet paid</div>';
     }
+    statusHtml = `<div id="sstat-${a.id}" data-kind="${kind}">${statusHtml}</div>`;
     
     return `<div class="sesi-row" onclick="toggleSesiCheck('${a.id}')" ${isInvalid ? 'style="opacity:0.7"' : ''}>
       <div class="sesi-check ${isPaid?'checked disabled':''}" id="scheck-${a.id}" title="${isPaid?'Already paid in another transaction':''}">
@@ -88,6 +92,26 @@ function loadSesiForPayment(){
   updateSesiCount();
 }
 
+// Sesi yang sudah terhubung ke payment yang sedang diedit
+let _sesiLinkedCurrent = new Set();
+
+// Perbarui label status tiap sesi sesuai centang saat ini
+function _refreshSesiStatusLabels(){
+  document.querySelectorAll('#sesi-picker-wrap [id^="sstat-"]').forEach(box=>{
+    const kind = box.dataset.kind;
+    if(kind!=='normal') return;                      // "paid in another payment" / status berubah: biarkan
+    const id = box.id.slice(6);
+    const checked = document.getElementById('scheck-'+id)?.classList.contains('checked');
+    const linked  = _sesiLinkedCurrent.has(id);
+    let color, txt;
+    if(checked && linked)      { color='var(--green)';  txt='✅ Paid in this payment'; }
+    else if(checked)           { color='var(--accent)'; txt='💳 Will be paid in this payment'; }
+    else if(linked)            { color='var(--yellow)'; txt='↩️ Will be removed from this payment'; }
+    else                       { color='var(--muted)';  txt='Not yet paid'; }
+    box.innerHTML = `<div style="font-size:0.72rem;color:${color}">${txt}</div>`;
+  });
+}
+
 function toggleSesiCheck(sesiId){
   const el = document.getElementById('scheck-'+sesiId);
   if(!el || el.classList.contains('disabled')) return;
@@ -101,6 +125,7 @@ function toggleSesiCheck(sesiId){
 let _paymentAmountManuallyEdited = false;
 
 function updateSesiCount(){
+  _refreshSesiStatusLabels();
   const checked = document.querySelectorAll('#sesi-picker-wrap .sesi-check.checked:not(.disabled)').length;
   const countEl = document.getElementById('sesi-selected-count');
 
