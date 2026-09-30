@@ -27,6 +27,14 @@ auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
 let currentUser = null;
 let userDocRef  = null;
 
+// ── Guard penyimpanan ──
+// _loadOk     : true hanya jika data kelas aktif BERHASIL dimuat dari Firestore.
+//               Selama false, semua save diblok → list kosong hasil load gagal
+//               tidak akan pernah menimpa data asli di cloud.
+// _dataClassId: kelas pemilik data yang sedang ada di memori.
+let _loadOk      = false;
+let _dataClassId = null;
+
 // ════════════════════════════════════════════════
 //  CLASS STATE
 // ════════════════════════════════════════════════
@@ -76,7 +84,12 @@ async function retrySync(){
   document.getElementById('sync-label').textContent='Retrying…';
   try {
     await db.enableNetwork();
-    await loadClasses();
+    if(currentClassId && classesList.some(c=>c.id===currentClassId)){
+      await loadFromFirestore();
+      if(_loadOk) subscribeToClassUpdates();
+    } else {
+      await loadClasses();
+    }
   } catch(e) {
     setSyncErr(e.code || e.message);
   }
@@ -233,6 +246,12 @@ function closeAllFormsAndModals(){
 async function switchClass(classId){
   const cls = classesList.find(c=>c.id===classId);
   if(!cls) return;
+  // 1) Simpan dulu edit yang masih tertunda di kelas lama (ke ref kelas lama)
+  if(_savePending){ await _flushToFirestore(); }
+  // 2) Putus listener kelas lama agar snapshot-nya tidak masuk ke kelas baru
+  if(_unsubscribeSnapshot){ _unsubscribeSnapshot(); _unsubscribeSnapshot=null; }
+  // 3) Kunci penyimpanan sampai data kelas baru berhasil dimuat
+  _loadOk = false; _dataClassId = null;
   currentClassId   = classId;
   currentClassName = cls.name;
   userDocRef = db.collection('workspace').doc(classId);
@@ -417,9 +436,12 @@ const COLS = ['siswa','absensi','materi','evaluasi','bayar','schedules','deposit
 
 async function loadFromFirestore(){
   if(!userDocRef){ return; }  // not logged in yet — silent
+  const loadingClassId = currentClassId;
+  _loadOk = false;
   try{
     setSyncing();
-    const snap = await userDocRef.get();
+    const snap = await userDocRef.get({ source:'server' });
+    if(currentClassId !== loadingClassId) return;   // user sudah pindah kelas saat menunggu
     if(snap.exists){
       const d = snap.data();
       siswaList    = d.siswa    || [];
@@ -432,10 +454,13 @@ async function loadFromFirestore(){
     } else {
       siswaList=[];absensiList=[];materiList=[];evaluasiList=[];bayarList=[];scheduleList=[];depositList=[];
     }
+    _loadOk = true; _dataClassId = loadingClassId;
     setSynced();
     renderAll(); setCurrentMonthDashFilter(); loadAbsensi();
   } catch(e){
+    _loadOk = false;   // ← penting: blok semua save sampai load berhasil
     setSyncErr(e.code || e.message);
+    showToast('⚠️ Gagal memuat data kelas. Perubahan TIDAK akan disimpan sampai koneksi pulih — tekan Retry.', 'warn', 8000);
     console.error('Load error', e);
     siswaList=[];absensiList=[];materiList=[];evaluasiList=[];bayarList=[];scheduleList=[];depositList=[];
     renderAll(); setCurrentMonthDashFilter(); loadAbsensi();
@@ -467,7 +492,13 @@ function subscribeToClassUpdates(){
 
   _unsubscribeSnapshot = userDocRef.onSnapshot(snap => {
     // Snapshot pertama: abaikan, hanya set flag ready
-    if(_isFirstSnapshot){ _isFirstSnapshot = false; return; }
+    if(_isFirstSnapshot){
+      _isFirstSnapshot = false;
+      // Load awal sukses → snapshot pertama = duplikat, abaikan.
+      // Load awal gagal → snapshot pertama dari server dipakai untuk memulihkan data.
+      if(_loadOk || snap.metadata.fromCache) return;
+    }
+    if(!_loadOk && snap.metadata.fromCache) return;   // jangan pulih dari cache kosong
 
     // Abaikan selama ada pending write milik kita (local echo)
     if(snap.metadata.hasPendingWrites) return;
@@ -478,7 +509,7 @@ function subscribeToClassUpdates(){
     if(d._sid === _sessionId) return;
 
     // Jika form input sedang terbuka, warning saja tanpa overwrite
-    if(_isEditFormOpen()){
+    if(_loadOk && _isEditFormOpen()){
       showToast('⚠️ Data diperbarui dari device lain. Selesaikan/tutup form ini lalu refresh halaman.', 'warn', 8000);
       return;
     }
@@ -491,37 +522,60 @@ function subscribeToClassUpdates(){
     bayarList    = d.bayar    || [];
     scheduleList = d.schedules|| [];
     depositList  = d.deposits || [];
+    const recovered = !_loadOk;
+    _loadOk = true; _dataClassId = currentClassId;
     renderAll(); setCurrentMonthDashFilter(); loadAbsensi();
-    showToast('🔄 Data diperbarui dari device lain', 'info', 3500);
+    if(recovered){ setSynced(); showToast('✅ Koneksi pulih, data kelas berhasil dimuat', 'success', 3500); }
+    else showToast('🔄 Data diperbarui dari device lain', 'info', 3500);
   }, err => {
     console.error('[Snapshot listener error]', err);
   });
 }
 
-let _saveTimer = null;
+let _saveTimer   = null;
+let _savePending = false;   // ada perubahan yang belum terkirim (debounce / sedang menulis)
+function _saveBlocked(){
+  // true = jangan tulis ke Firestore
+  if(!userDocRef) return true;
+  if(!_loadOk || _dataClassId !== currentClassId){
+    setSyncErr('data not loaded');
+    showToast('⛔ Perubahan tidak disimpan: data kelas belum berhasil dimuat. Tekan Retry lalu ulangi.', 'error', 7000);
+    return true;
+  }
+  return false;
+}
 function saveToFirestore(){
-  if(!userDocRef){ return; }
+  if(_saveBlocked()) return;
   clearTimeout(_saveTimer);
+  _savePending = true;
   setSyncing();
   _saveTimer = setTimeout(()=>{ _flushToFirestore(); }, 400);
 }
-async function _flushToFirestore(){
-  if(!userDocRef) return;
-  clearTimeout(_saveTimer);
+// opts.force = true → dipakai Restore Backup (sengaja menimpa walau load gagal)
+async function _flushToFirestore(opts={}){
+  clearTimeout(_saveTimer); _saveTimer = null;
+  if(!opts.force && _saveBlocked()){ _savePending = false; return; }
+  if(!userDocRef){ _savePending = false; return; }
+  // Tangkap ref + kelas SEKARANG (sinkron) supaya tidak ikut berubah kalau user pindah kelas
+  const ref = userDocRef;
   setSyncing();
   try{
-    await userDocRef.set({
+    await ref.set({
       siswa:siswaList, absensi:absensiList, materi:materiList,
       evaluasi:evaluasiList, bayar:bayarList, schedules:scheduleList,
       deposits:depositList,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       _sid: _sessionId,   // ← tandai write ini milik session kita
     },{merge:true});
+    if(opts.force){ _loadOk = true; _dataClassId = currentClassId; }
+    _savePending = false;
     setSynced();
     console.log('✅ Saved → '+currentClassName+' | students:'+siswaList.length);
   } catch(e){
+    _savePending = false;
     setSyncErr(e.code || e.message);
     console.error('❌ Save failed:', e.code, e.message);
+    if(opts.force) throw e;   // biar Restore Backup bisa menampilkan error
   }
 }
 
@@ -725,3 +779,14 @@ function toggleTheme(){ darkMode=!darkMode; applyTheme(); }
 applyTheme();
 
 // ════════════════════════════════════════════════
+
+
+// ════════════════════════════════════════════════
+//  JANGAN TUTUP TAB SAAT MASIH MENYIMPAN
+// ════════════════════════════════════════════════
+window.addEventListener('beforeunload', e=>{
+  if(_savePending){
+    _flushToFirestore();          // coba kirim sekarang
+    e.preventDefault(); e.returnValue = '';
+  }
+});

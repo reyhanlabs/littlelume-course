@@ -36,6 +36,35 @@ function getDepositBalance(siswaId, excludeBayarId=null){
        - getDepositUsed(siswaId, excludeBayarId);
 }
 
+/**
+ * Saldo deposit SETELAH transaksi tertentu (bukan saldo hari ini).
+ * Dipakai di receipt supaya receipt lama yang dikirim ulang tetap menampilkan
+ * saldo pada saat transaksi itu terjadi.
+ * Urutan: tanggal (YYYY-MM-DD), lalu waktu pembuatan dari prefix ID (uid()).
+ */
+function _idTime(id){
+  const t = parseInt(String(id||'').slice(0,8), 36);
+  return (t > 1.5e12 && t < 4e12) ? t : 0;   // ID lama/format lain → 0
+}
+function _isOnOrBefore(date, id, refDate, refId){
+  if(id === refId) return true;
+  if((date||'') !== (refDate||'')) return (date||'') < (refDate||'');
+  return _idTime(id) <= _idTime(refId);       // tanggal sama → urut waktu input
+}
+function getDepositBalanceAt(siswaId, refDate, refId){
+  let bal = 0;
+  depositList.forEach(d=>{
+    if(d.siswaId!==siswaId || !_isOnOrBefore(d.tanggal, d.id, refDate, refId)) return;
+    bal += d.tipe==='refund' ? -(+d.jumlah||0) : (+d.jumlah||0);
+  });
+  bayarList.forEach(b=>{
+    if(b.siswaId!==siswaId || !(+b.depositUsed>0)) return;
+    if(!_isOnOrBefore(b.tanggal, b.id, refDate, refId)) return;
+    bal -= +b.depositUsed;
+  });
+  return bal;
+}
+
 // ─── Main page render ───────────────────────────────────────────────
 function renderDeposits(){
   // Stats
@@ -488,7 +517,7 @@ function _depositReceiptCore(d, siswa){
   const isRefund = d.tipe === 'refund';
   const rno = (isRefund ? 'BREF-' : 'BDEP-') + d.id.slice(-6).toUpperCase();
   // Saldo setelah entry ini (histori sampai tanggal ini + entry ini)
-  const balanceNow = getDepositBalance(d.siswaId);
+  const balanceNow = getDepositBalanceAt(d.siswaId, d.tanggal, d.id);
   return { isRefund, rno, balanceNow };
 }
 

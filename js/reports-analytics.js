@@ -154,7 +154,7 @@ function importBackup(e){
           if(data.schedules) { scheduleList = data.schedules.map(n=>({...n})); }
           if(data.deposits)  { depositList  = data.deposits.map(n=>({...n})); }
           statusEl.innerHTML='<span style="color:var(--yellow)">⏳ Saving to cloud… <strong>do not refresh!</strong></span>';
-          await _flushToFirestore();
+          await _flushToFirestore({ force:true });
           statusEl.innerHTML=`<span style="color:var(--green)">✅ <strong>Import complete!</strong> ${siswaList.length} students, ${bayarList.length} payments saved to cloud.<br><span style="font-size:0.8rem;opacity:0.8">You can now refresh safely.</span></span>`;
           renderAll(); renderBackupSummary();
         } catch(err2){
