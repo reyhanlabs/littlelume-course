@@ -159,12 +159,12 @@ saveAbsensi = function(){
       <div style="background:var(--bg3);padding:12px;border-radius:8px;margin:8px 0;border-left:4px solid var(--yellow)">
         <div style="font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:8px">
           <span style="background:var(--accent);color:white;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.8rem">${idx+1}</span>
-          👤 ${c.nama}
+          👤 ${esc(c.nama)}
         </div>
         <div style="font-size:0.9rem;color:var(--muted);margin-left:32px">
           <div>📅 Date: <strong>${tglFmt(c.tanggal)}</strong></div>
           <div>Status: <strong>${c.oldStatus}</strong> → <strong style="color:var(--red)">${c.newStatus}</strong></div>
-          <div>💰 Payment: <strong>${fmt(c.payment.jumlah)}</strong> (${c.payment.status})</div>
+          <div>💰 Payment: <strong>${fmt(c.payment.jumlah)}</strong> (${esc(c.payment.status)})</div>
         </div>
       </div>`).join('');
     dangerModal(
@@ -247,7 +247,7 @@ function renderNotifPanel(){
     <div class="notif-item ${!n.read?'unread':''}">
       <div class="ni-icon">${n.icon}</div>
       <div class="ni-body">
-        <div class="ni-title">${n.title}</div>
+        <div class="ni-title">${esc(n.title)}</div>
         <div class="ni-sub">${n.sub} · ${rel(n.ts)}</div>
       </div>
     </div>`).join('');
@@ -375,7 +375,7 @@ function renderCalendar(){
       infoEl.innerHTML = monthHolidays.map(h=>`
         <div class="cal-holiday-item">
           <div class="chi-date ${h.type}">${h.date}</div>
-          <div class="chi-label">${h.name}</div>
+          <div class="chi-label">${esc(h.name)}</div>
           <div class="chi-type ${h.type}">${h.type==='libur'?'Libur':'Cuti'}</div>
         </div>`).join('');
     } else {
@@ -474,7 +474,7 @@ function renderPaymentReminders(){
       : '';
     return `<div class="reminder-card ${cls}">
       <div class="reminder-card-header">
-        <div class="reminder-name">👤 ${r.siswa.nama}${r.siswa.nick?` (${r.siswa.nick})`:''}</div>
+        <div class="reminder-name">👤 ${esc(r.siswa.nama)}${r.siswa.nick?` (${esc(r.siswa.nick)})`:''}</div>
         ${totalDisplay}
       </div>
       <div class="reminder-detail">

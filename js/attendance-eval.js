@@ -45,14 +45,14 @@ function loadAbsensi(){
     const sc = scheduleList.find(x=>x.siswaId===s.id && x.days.includes(dayName));
     return `
     <div class="absen-card" ${isScheduled?'':'style="opacity:0.65"'}>
-      <div class="a-name">👤 ${s.nama}${isScheduled?` <span style="font-size:0.65rem;background:rgba(108,99,255,0.15);color:var(--accent);border-radius:4px;padding:1px 5px;font-weight:700">📅 ${sc?.jam||'Scheduled'}</span>`:''}</div>
-      ${s.nick?`<div class="a-nick">${s.nick}</div>`:''}
+      <div class="a-name">👤 ${esc(s.nama)}${isScheduled?` <span style="font-size:0.65rem;background:rgba(108,99,255,0.15);color:var(--accent);border-radius:4px;padding:1px 5px;font-weight:700">📅 ${esc(sc?.jam)||'Scheduled'}</span>`:''}</div>
+      ${s.nick?`<div class="a-nick">${esc(s.nick)}</div>`:''}
       <select id="att-${s.id}">
         <option value="Hadir" ${existing[s.id]?.status==='Hadir'?'selected':''}>✅ Present</option>
         <option value="Izin"  ${existing[s.id]?.status==='Izin'?'selected':''}>📝 Excused</option>
         <option value="Alpha" ${existing[s.id]?.status==='Alpha'?'selected':''}>❌ Absent</option>
       </select>
-      <input type="text" placeholder="Note (optional)" id="att-ket-${s.id}" value="${existing[s.id]?.keterangan||''}">
+      <input type="text" placeholder="Note (optional)" id="att-ket-${s.id}" value="${esc(existing[s.id]?.keterangan)||''}">
     </div>`;
   }).join('');
 }
@@ -95,7 +95,7 @@ function setAttMode(mode){
   if(!isAll){
     // Isi dropdown siswa
     const sel = document.getElementById('single-att-siswa');
-    const opts = siswaList.map(s=>`<option value="${s.id}">${s.nama}${s.nick?' ('+s.nick+')':''}</option>`).join('');
+    const opts = siswaList.map(s=>`<option value="${s.id}">${esc(s.nama)}${s.nick?' ('+esc(s.nick)+')':''}</option>`).join('');
     sel.innerHTML = '<option value="">-- Pilih Siswa --</option>' + opts;
     // Default tanggal = hari ini
     if(!document.getElementById('single-att-tanggal').value){
@@ -113,7 +113,7 @@ function onSingleAttSiswaChange(){
 
   const existing = absensiList.find(a=>a.siswaId===siswaId && a.tanggal===tanggal);
   if(existing){
-    infoEl.innerHTML = `<span style="color:var(--yellow)">⚠️ Sudah ada record untuk tanggal ini: <strong>${existing.status}</strong>${existing.keterangan?' · '+existing.keterangan:''}. Akan ditimpa jika disimpan.</span>`;
+    infoEl.innerHTML = `<span style="color:var(--yellow)">⚠️ Sudah ada record untuk tanggal ini: <strong>${esc(existing.status)}</strong>${existing.keterangan?' · '+esc(existing.keterangan):''}. Akan ditimpa jika disimpan.</span>`;
     document.getElementById('single-att-status').value = existing.status;
     document.getElementById('single-att-ket').value    = existing.keterangan||'';
   } else {
@@ -143,7 +143,7 @@ function saveSingleAtt(){
     const existingId = absensiList[existingIdx].id;
     const linkedPayment = bayarList.find(b=>b.sesiIds && b.sesiIds.includes(existingId));
     if(linkedPayment && absensiList[existingIdx].status === 'Hadir'){
-      showToast(`⚠️ Status tidak bisa diubah — sesi ini sudah terhubung ke payment (${linkedPayment.namaSiswa}).`,'warn');
+      showToast(`⚠️ Status tidak bisa diubah — sesi ini sudah terhubung ke payment (${esc(linkedPayment.namaSiswa)}).`,'warn');
       return;
     }
   }
@@ -237,20 +237,22 @@ function renderAttendance(){
   if(!absensiList.length){ empty.style.display='block'; return; }
   empty.style.display = list.length ? 'none' : 'block';
 
+  let __html0='';  // buffer: satu kali tulis ke DOM, bukan per baris
   list.forEach(a=>{
     const c=a.status==='Hadir'?'chip-green':a.status==='Izin'?'chip-yellow':'chip-red';
     const l=a.status==='Hadir'?'Present':a.status==='Izin'?'Excused':'Absent';
-    tbody.innerHTML+=`<tr>
+    __html0+=`<tr>
       <td>${tglFmt(a.tanggal)}</td>
-      <td><strong>${a.namaSiswa}</strong></td>
+      <td><strong>${esc(a.namaSiswa)}</strong></td>
       <td>${chip(l,c)}</td>
-      <td style="color:var(--muted);font-size:0.83rem">${a.keterangan||'-'}</td>
+      <td style="color:var(--muted);font-size:0.83rem">${esc(a.keterangan)||'-'}</td>
       <td class="nowrap">
         <button class="btn sm icon-only" title="Edit" onclick="editAttendance('${a.id}')" style="margin-right:4px">✏️</button>
         <button class="btn danger sm icon-only" title="Delete" onclick="deleteAttendance('${a.id}')">🗑️</button>
       </td>
     </tr>`;
   });
+  tbody.innerHTML += __html0;
 }
 
 function editAttendance(id){
@@ -284,9 +286,9 @@ function saveAttEdit(){
           <p>❌ Cannot change status.</p>
           <p>Payment record exists for this session:</p>
           <div style="background: var(--bg3); padding: 12px; border-radius: 8px; margin: 12px 0; border-left: 4px solid var(--yellow)">
-            <div>👤 <strong>${paymentWithThisSesi.namaSiswa || 'N/A'}</strong></div>
+            <div>👤 <strong>${esc(paymentWithThisSesi.namaSiswa) || 'N/A'}</strong></div>
             <div>📅 ${tglFmt(paymentWithThisSesi.tanggal)}</div>
-            <div>💰 ${fmt(paymentWithThisSesi.jumlah)} (${paymentWithThisSesi.status})</div>
+            <div>💰 ${fmt(paymentWithThisSesi.jumlah)} (${esc(paymentWithThisSesi.status)})</div>
           </div>
           <p>💡 Delete the payment first, then try again.</p>
         </div>`,
@@ -324,8 +326,8 @@ function deleteAttendance(id){
     dangerModal(
       '❌ Cannot Delete',
       `This attendance has an associated payment:<br><br>` +
-      `<strong>Student:</strong> ${paymentWithThisAttendance.namaSiswa}<br>` +
-      `<strong>Status:</strong> ${paymentWithThisAttendance.status}<br>` +
+      `<strong>Student:</strong> ${esc(paymentWithThisAttendance.namaSiswa)}<br>` +
+      `<strong>Status:</strong> ${esc(paymentWithThisAttendance.status)}<br>` +
       `<strong>Amount:</strong> ${fmt(paymentWithThisAttendance.jumlah)}<br><br>` +
       `Please delete the payment record first, then you can delete this attendance.`,
       null,
@@ -394,7 +396,7 @@ function saveLesson(){
 }
 function deleteLesson(id){
   const m = materiList.find(x=>x.id===id);
-  dangerModal('🗑️ Delete Lesson', `Delete lesson <strong>${m?.topik||'this lesson'}</strong>?`,
+  dangerModal('🗑️ Delete Lesson', `Delete lesson <strong>${esc(m?.topik)||'this lesson'}</strong>?`,
     ()=>{ materiList=materiList.filter(m=>m.id!==id); DB.set('materi',materiList); renderLessons(); },
     { okText:'Delete', cancelText:'Keep' }
   );
@@ -406,9 +408,9 @@ function renderLessons(){
     <div class="lesson-card">
       <div class="lesson-dot ${m.status==='Rencana'?'planned':'done'}"></div>
       <div style="flex:1">
-        <div style="font-weight:700;font-size:0.92rem">${m.topik}</div>
+        <div style="font-weight:700;font-size:0.92rem">${esc(m.topik)}</div>
         <div style="font-size:0.77rem;color:var(--muted);margin-top:3px">${tglFmt(m.tanggal)} · ${m.target==='Semua'?'All Students':m.target||'All'}</div>
-        ${m.deskripsi?`<div style="font-size:0.85rem;color:var(--muted);margin-top:8px">${m.deskripsi}</div>`:''}
+        ${m.deskripsi?`<div style="font-size:0.85rem;color:var(--muted);margin-top:8px">${esc(m.deskripsi)}</div>`:''}
         ${m.sumber?`<div style="font-size:0.77rem;color:var(--accent);margin-top:5px">📎 ${m.sumber}</div>`:''}
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0">
@@ -485,13 +487,13 @@ function renderEval(){
     <div class="eval-card">
       <div class="eval-score-badge" style="background:${bg}">${e.nilai||'—'}</div>
       <div class="eval-meta">
-        <div class="eval-student">${e.namaSiswa}</div>
+        <div class="eval-student">${esc(e.namaSiswa)}</div>
         <div class="eval-date-row">
           <span>${tglFmt(e.tanggal)}</span>
           ${e.rating?`<span style="font-size:0.9rem">${starRow}</span><span style="color:var(--accent);font-weight:700">${ratingLabel[Number(e.rating)]||''}</span>`:''}
         </div>
-        ${e.progress?`<div class="eval-text"><strong>Progress:</strong> ${e.progress}</div>`:''}
-        ${e.catatan?`<div class="eval-text"><strong>Notes:</strong> ${e.catatan}</div>`:''}
+        ${e.progress?`<div class="eval-text"><strong>Progress:</strong> ${esc(e.progress)}</div>`:''}
+        ${e.catatan?`<div class="eval-text"><strong>Notes:</strong> ${esc(e.catatan)}</div>`:''}
       </div>
       <div class="eval-actions">
         <button class="btn sm" title="Print" onclick="showEvalPrint('${e.id}')">🖨️</button>
@@ -588,7 +590,7 @@ function _buildAttReportHTML(monthStr){
       <td style="font-size:10px;text-align:center;padding:12px 2px;border-bottom:1px solid rgba(58,53,96,0.05);color:#b3aecb;font-weight:700">${idx+1}</td>
       <td style="font-size:10.5px;font-weight:700;text-align:left;padding:12px 2px 12px 14px;border-bottom:1px solid rgba(58,53,96,0.05)">
         <span style="display:inline-flex;width:21px;height:21px;border-radius:50%;background:linear-gradient(135deg,${grad});color:#fff;align-items:center;justify-content:center;font-size:8.5px;font-weight:800;font-family:'Fredoka One',sans-serif;box-shadow:0 2px 5px rgba(108,99,255,0.3);vertical-align:middle">${initials}</span>
-        <span style="vertical-align:middle;margin-left:3px">${s.nama}</span>
+        <span style="vertical-align:middle;margin-left:3px">${esc(s.nama)}</span>
       </td>
       ${marks}
       <td style="font-size:10.5px;text-align:center;padding:12px 2px;border-bottom:1px solid rgba(58,53,96,0.05);color:#00c9a7;font-weight:800;font-family:'Fredoka One',sans-serif">${p}</td>

@@ -69,7 +69,7 @@ function loadSesiForPayment(){
       statusHtml = '<div style="font-size:0.72rem;color:var(--green)">✅ Already paid in another payment</div>';
     } else if(isInvalid){
       // ✅ NEW: Visual warning if attendance status changed
-      statusHtml = `<div style="font-size:0.72rem;color:var(--yellow)">⚠️ Status changed to ${a.status} - still linked to this payment</div>`;
+      statusHtml = `<div style="font-size:0.72rem;color:var(--yellow)">⚠️ Status changed to ${esc(a.status)} - still linked to this payment</div>`;
     } else {
       statusHtml = '<div style="font-size:0.72rem;color:var(--muted)">Not yet paid</div>';
     }
@@ -212,7 +212,7 @@ function openPaymentForm(id){
   if(b){
     // Edit mode — kunci dropdown siswa agar tidak bisa diganti
     // (mengganti siswa akan memindahkan sesiIds ke siswa lain → data rusak)
-    const opts=siswaList.map(s=>`<option value="${s.id}"${s.id===b.siswaId?' selected':''}>${s.nama}</option>`).join('');
+    const opts=siswaList.map(s=>`<option value="${s.id}"${s.id===b.siswaId?' selected':''}>${esc(s.nama)}</option>`).join('');
     siswaEl.innerHTML='<option value="">-- Select --</option>'+opts;
     siswaEl.disabled = true;
     siswaEl.style.opacity = '0.65';
@@ -548,7 +548,7 @@ function refreshMonthlyPanel(){
     sesiInfo=periodeText?`<span style="color:var(--yellow)">⚠️ Unrecognized period format (try: "June 2026")</span>`:`<span style="color:var(--muted)">— Enter a period first (e.g. June 2026)</span>`;
   }
   body.innerHTML=`
-    <div>👤 <strong>${s.nama}</strong></div>
+    <div>👤 <strong>${esc(s.nama)}</strong></div>
     <div>💰 Monthly Fee: <strong style="color:var(--green)">${fmt(feeMonthly)}</strong>${months.length>1?` × ${months.length} months = <strong style="color:var(--green)">${fmt(feeMonthly*months.length)}</strong>`:''}</div>
     <div>📅 Periode: <strong>${periodeText||'-'}</strong></div>
     <div>${sesiInfo}</div>
@@ -588,16 +588,16 @@ function deletePayment(id){
   const depReturn = +payment.depositUsed || 0;
   const depNote = depReturn > 0
     ? `<div style="margin-top:10px;padding:10px 12px;background:rgba(255,179,71,0.12);border:1px solid rgba(255,179,71,0.3);border-radius:8px;font-size:0.85rem;color:var(--yellow)">
-        💰 <strong>${fmt(depReturn)}</strong> will be returned to ${payment.namaSiswa}'s deposit balance.
+        💰 <strong>${fmt(depReturn)}</strong> will be returned to ${esc(payment.namaSiswa)}'s deposit balance.
       </div>`
     : '';
 
   dangerModal(
     '🗑️ Delete Payment?',
     `Are you sure you want to delete this payment?<br><br>` +
-    `<strong>Student:</strong> ${payment.namaSiswa}<br>` +
+    `<strong>Student:</strong> ${esc(payment.namaSiswa)}<br>` +
     `<strong>Amount:</strong> ${fmt(payment.jumlah)}<br>` +
-    `<strong>Status:</strong> ${payment.status}${depNote}<br><br>` +
+    `<strong>Status:</strong> ${esc(payment.status)}${depNote}<br><br>` +
     `This action cannot be undone.`,
     () => {
       bayarList = bayarList.filter(b => b.id !== id);
@@ -710,6 +710,7 @@ function renderPayment(){
   const total=list.reduce((s,b)=>s+b.jumlah,0);
   document.getElementById('payment-total-val').textContent=fmt(total);
   document.getElementById('payment-filter-tag').textContent=isF?'(filtered)':'';
+  let __html0='';  // buffer: satu kali tulis ke DOM, bukan per baris
   list.forEach(b=>{
     const sc=b.status==='Lunas'?'chip-green':b.status==='Cicil'?'chip-yellow':'chip-red';
     const sl=b.status==='Lunas'?'Paid':b.status==='Cicil'?'Partial':'Unpaid';
@@ -739,15 +740,15 @@ function renderPayment(){
         sesiHtml = `<span style="color:var(--muted);font-size:0.78rem">${allCount} session(s) — outside filter range</span>`;
       }
     }
-    tbody.innerHTML+=`<tr>
+    __html0+=`<tr>
       <td style="color:var(--muted);font-size:0.83rem">${tglFmt(b.tanggal)}</td>
-      <td><strong>${b.namaSiswa}</strong></td>
-      <td style="color:var(--muted);font-size:0.83rem">${b.periode||'-'}</td>
+      <td><strong>${esc(b.namaSiswa)}</strong></td>
+      <td style="color:var(--muted);font-size:0.83rem">${esc(b.periode)||'-'}</td>
       <td style="max-width:200px">${sesiHtml}</td>
       <td class="r" style="font-weight:800;color:var(--green);font-size:0.87rem;white-space:nowrap">${fmt(b.tagihan)}</td>
       <td class="r" style="font-weight:800;color:var(--green);font-size:0.87rem;white-space:nowrap">${fmt(b.jumlah)}${(+b.depositUsed||0)>0?`<div style="font-size:0.68rem;font-weight:600;color:var(--yellow);white-space:nowrap;margin-top:2px">💰 ${fmt(b.depositUsed)} from deposit</div>`:''}</td>
       <td>${chip(sl,sc)}</td>
-      <td style="font-size:0.82rem;color:var(--muted)">${b.catatan||'-'}</td>
+      <td style="font-size:0.82rem;color:var(--muted)">${esc(b.catatan)||'-'}</td>
       <td class="nowrap">
         <button class="btn sm" onclick="openPaymentForm('${b.id}')" style="margin-right:4px">✏️</button>
         <button class="btn sm" onclick="showReceipt('${b.id}')" style="margin-right:4px">🧾</button>
@@ -756,6 +757,7 @@ function renderPayment(){
       </td>
     </tr>`;
   });
+  tbody.innerHTML += __html0;
 }
 function updateUnpaidBadge(){
   const paidSesiIds = new Set();
@@ -793,6 +795,7 @@ function renderHutangSesi(){
   bayarList.forEach(b=>{ if(b.sesiIds) b.sesiIds.forEach(id=>paidSesiIds.add(id)); });
 
   let anyUnpaid = false;
+  let __html1='';  // buffer: satu kali tulis ke DOM, bukan per baris
   siswaList
     .filter(s => !fNama || s.nama.toLowerCase().includes(fNama) || (s.nick||'').toLowerCase().includes(fNama))
     .forEach(siswa => {
@@ -822,11 +825,11 @@ function renderHutangSesi(){
           const part=Math.round(_mpi.paidAmount[ym]||0);
           return `<span class="session-chip unpaid" title="${sesiCount} sesi${part?' · paid '+fmt(part):''}">📅 ${label} (${sesiCount}x)${part?' · partial':''}</span>`;
         }).join('');
-        listEl.innerHTML += `
+        __html1 += `
           <div class="sesi-tracker-card">
             <div class="st-header">
               <div>
-                <div class="st-name">👤 ${siswa.nama}${siswa.nick?` <span style="color:var(--muted);font-weight:500;font-size:0.8rem">(${siswa.nick})</span>`:''} <span class="chip chip-purple" style="font-size:0.7rem;vertical-align:middle">📅 Monthly</span></div>
+                <div class="st-name">👤 ${esc(siswa.nama)}${siswa.nick?` <span style="color:var(--muted);font-weight:500;font-size:0.8rem">(${esc(siswa.nick)})</span>`:''} <span class="chip chip-purple" style="font-size:0.7rem;vertical-align:middle">📅 Monthly</span></div>
                 <div style="font-size:0.75rem;color:var(--muted);margin-top:2px">${unpaidMonths.length} unpaid month(s) · ${pctPaid}% months paid</div>
                 <div style="margin-top:4px;font-size:0.8rem">${feeMonthly?`<span style="color:var(--red);font-weight:700">Total: ${fmt(totalHutang)}</span>`:`<span style="color:var(--muted);font-size:0.75rem">⚠️ Set Monthly Fee di profil siswa</span>`}</div>
               </div>
@@ -849,11 +852,11 @@ function renderHutangSesi(){
         const feeInfo = fee
           ? `<span style="color:var(--red);font-weight:700">Total: ${fmt(totalHutang)}</span>`
           : `<span style="color:var(--muted);font-size:0.75rem">⚠️ Set fee/session in student profile</span>`;
-        listEl.innerHTML += `
+        __html1 += `
           <div class="sesi-tracker-card">
             <div class="st-header">
               <div>
-                <div class="st-name">👤 ${siswa.nama}${siswa.nick ? ` <span style="color:var(--muted);font-weight:500;font-size:0.8rem">(${siswa.nick})</span>` : ''}</div>
+                <div class="st-name">👤 ${esc(siswa.nama)}${siswa.nick ? ` <span style="color:var(--muted);font-weight:500;font-size:0.8rem">(${esc(siswa.nick)})</span>` : ''}</div>
                 <div style="font-size:0.75rem;color:var(--muted);margin-top:2px">${unpaidSesi.length} unpaid session(s) · ${sesiHadir.length} total present · ${pctPaid}% paid</div>
                 <div style="margin-top:4px;font-size:0.8rem">${feeInfo}</div>
               </div>
@@ -866,6 +869,7 @@ function renderHutangSesi(){
           </div>`;
       }
     });
+  listEl.innerHTML += __html1;
   emptyEl.style.display = anyUnpaid ? 'none' : 'block';
 }
 
@@ -879,7 +883,7 @@ function openPaymentFormForStudent(siswaId){
   document.getElementById('b-tagihan').value='';
   document.getElementById('b-status').value='Lunas';
   document.getElementById('b-catatan').value='';
-  const opts = siswaList.map(s=>`<option value="${s.id}"${s.id===siswaId?' selected':''}>${s.nama}</option>`).join('');
+  const opts = siswaList.map(s=>`<option value="${s.id}"${s.id===siswaId?' selected':''}>${esc(s.nama)}</option>`).join('');
   const siswaEl = document.getElementById('b-siswa');
   siswaEl.innerHTML='<option value="">-- Select --</option>'+opts;
   siswaEl.disabled=false; siswaEl.style.opacity=''; siswaEl.style.cursor='';
@@ -980,8 +984,8 @@ function showReceipt(id){
       `<div style="display:flex;align-items:center;gap:10px;padding:9px 10px;background:linear-gradient(135deg,#fce7f3,#d1fae5);border-radius:10px;margin-bottom:10px;border:1px solid #f9a8d4">` +
         `<div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#ec4899,#0d9488);display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:800;color:#fff;flex-shrink:0">${initials}</div>` +
         `<div style="min-width:0">` +
-          `<div style="font-size:0.85rem;font-weight:800;color:#4a1942">${b.namaSiswa||'-'}</div>` +
-          `<div style="font-size:0.68rem;color:#0d9488;margin-top:1px">${billingLabel}${b.periode?' · '+b.periode:''}</div>` +
+          `<div style="font-size:0.85rem;font-weight:800;color:#4a1942">${esc(b.namaSiswa)||'-'}</div>` +
+          `<div style="font-size:0.68rem;color:#0d9488;margin-top:1px">${billingLabel}${b.periode?' · '+esc(b.periode):''}</div>` +
         `</div>` +
       `</div>` +
       `<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px">` +
@@ -1011,7 +1015,7 @@ function showReceipt(id){
       `<div style="text-align:center;padding:9px;background:${stBg};border-radius:8px;border:1px solid ${stBorder}">` +
         `<span style="font-size:0.72rem;font-weight:800;color:${stText}">${stl}</span>` +
       `</div>` +
-      (b.catatan?`<div style="font-size:0.72rem;color:#0d9488;text-align:center;margin-top:8px;font-style:italic">Note: ${b.catatan}</div>`:'') +
+      (b.catatan?`<div style="font-size:0.72rem;color:#0d9488;text-align:center;margin-top:8px;font-style:italic">Note: ${esc(b.catatan)}</div>`:'') +
     `</div>` +
     `<div style="background:linear-gradient(135deg,#fce7f3,#d1fae5);line-height:0">` +
       `<svg viewBox="0 0 300 16" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%"><path d="M0,16 Q15,0 30,16 Q45,0 60,16 Q75,0 90,16 Q105,0 120,16 Q135,0 150,16 Q165,0 180,16 Q195,0 210,16 Q225,0 240,16 Q255,0 270,16 Q285,0 300,16 L300,0 L0,0 Z" fill="#fef9ff"/></svg>` +
@@ -1081,7 +1085,7 @@ function _buildReceiptPrintHTML(b,siswa){
   <div class="body">
     <div class="student">
       <div class="avatar">${initials}</div>
-      <div><div class="sname" style="word-spacing:2px;letter-spacing:0.2px">${b.namaSiswa||'-'}</div><div class="smeta">${billingLabel}${b.periode ? ' · ' + b.periode : ''}</div></div>
+      <div><div class="sname" style="word-spacing:2px;letter-spacing:0.2px">${esc(b.namaSiswa)||'-'}</div><div class="smeta">${billingLabel}${b.periode ? ' · ' + esc(b.periode) : ''}</div></div>
     </div>
     <div class="grid">
       ${rows.map(([k,v])=>`<div class="cell"><div class="clabel">${k}</div><div class="cval">${v}</div></div>`).join('')}
@@ -1095,7 +1099,7 @@ function _buildReceiptPrintHTML(b,siswa){
     </div>`:''}
     ${b.status==='Cicil'?`<div class="prog-track"><div class="prog-fill" style="width:${paidPct}%"></div></div><div class="prog-text">${paidPct}% paid — ${fmt(getPaymentProgress(b).remaining)} remaining</div>`:''}
     <div class="status" style="background:${stBg};border:1px solid ${stBorder};color:${stText}">${stl}</div>
-    ${b.catatan?`<div class="note">Note: ${b.catatan}</div>`:''}
+    ${b.catatan?`<div class="note">Note: ${esc(b.catatan)}</div>`:''}
   </div>
   <div style="background:linear-gradient(135deg,#fce7f3,#d1fae5);line-height:0">${scBot}</div>
   <div class="footer">
@@ -1130,8 +1134,8 @@ function _buildReceiptRenderHTML(b,siswa){
     <div style="display:flex;align-items:center;gap:10px;padding:10px;background:linear-gradient(135deg,#fce7f3,#d1fae5);border-radius:10px;margin-bottom:10px;border:1px solid #f9a8d4">
       <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#ec4899,#0d9488);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;color:#fff;flex-shrink:0">${initials}</div>
       <div>
-        <div style="font-size:0.85rem;font-weight:800;color:#4a1942;word-spacing:2px;letter-spacing:0.2px">${b.namaSiswa||'-'}</div>
-        <div style="font-size:0.68rem;color:#0d9488;margin-top:1px">${billingLabel}${b.periode ? ' · ' + b.periode : ''}</div>
+        <div style="font-size:0.85rem;font-weight:800;color:#4a1942;word-spacing:2px;letter-spacing:0.2px">${esc(b.namaSiswa)||'-'}</div>
+        <div style="font-size:0.68rem;color:#0d9488;margin-top:1px">${billingLabel}${b.periode ? ' · ' + esc(b.periode) : ''}</div>
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px">
@@ -1151,7 +1155,7 @@ function _buildReceiptRenderHTML(b,siswa){
     <div style="text-align:center;padding:9px;background:${stBg};border-radius:8px;border:1px solid ${stBorder}">
       <span style="font-size:0.72rem;font-weight:800;color:${stText}">${stl}</span>
     </div>
-    ${b.catatan?`<div style="font-size:0.72rem;color:#0d9488;text-align:center;margin-top:8px;font-style:italic">Note: ${b.catatan}</div>`:''}
+    ${b.catatan?`<div style="font-size:0.72rem;color:#0d9488;text-align:center;margin-top:8px;font-style:italic">Note: ${esc(b.catatan)}</div>`:''}
   </div>
   <div style="background:linear-gradient(135deg,#fce7f3,#d1fae5);line-height:0">${scBot}</div>
   <div style="background:linear-gradient(135deg,#fce7f3,#d1fae5);padding:10px 16px;text-align:center">

@@ -122,7 +122,7 @@ function renderDashboard(){
   } else {
     payEl.innerHTML = recentPay.map(b=>`
       <div class="schedule-row">
-        <div><div style="font-weight:700;font-size:0.87rem">${b.namaSiswa}</div><div style="font-size:0.75rem;color:var(--muted)">${tglFmt(b.tanggal)} · ${b.periode||'-'}</div></div>
+        <div><div style="font-weight:700;font-size:0.87rem">${esc(b.namaSiswa)}</div><div style="font-size:0.75rem;color:var(--muted)">${tglFmt(b.tanggal)} · ${esc(b.periode)||'-'}</div></div>
         <div style="margin-left:auto;text-align:right">
           <div style="font-weight:800;font-size:0.9rem;color:var(--green)">${fmt(b.jumlah)}</div>
           ${b.status==='Lunas'?chip('Paid','chip-green'):b.status==='Cicil'?chip('Partial','chip-yellow'):chip('Unpaid','chip-red')}
@@ -258,7 +258,7 @@ function saveStudent(){
         const newLabel = billingType === 'monthly' ? 'Monthly' : 'Per Session';
         infoModal(
           '🚫 Cannot Change Billing Type',
-          `<strong>${nama}</strong> still has <strong style="color:var(--red)">${affectedPayments.length} payment record(s)</strong> with billing type <em>${oldLabel}</em>.<br><br>` +
+          `<strong>${esc(nama)}</strong> still has <strong style="color:var(--red)">${affectedPayments.length} payment record(s)</strong> with billing type <em>${oldLabel}</em>.<br><br>` +
           `To switch to <em>${newLabel}</em>:<br>` +
           `<ol style="margin:10px 0 0 18px;line-height:2">` +
           `<li>Go to <strong>Payment</strong> page</li>` +
@@ -318,7 +318,7 @@ function deleteStudent(id){
   if(payCount > 0){
     infoModal(
       '🚫 Cannot Delete Student',
-      `<strong>${s.nama}</strong> has <strong style="color:var(--red)">${payCount} payment record(s)</strong> on file.<br><br>` +
+      `<strong>${esc(s.nama)}</strong> has <strong style="color:var(--red)">${payCount} payment record(s)</strong> on file.<br><br>` +
       `Please delete all payment records for this student first, then try again.`
     );
     return;
@@ -328,7 +328,7 @@ function deleteStudent(id){
   if(attCount > 0){
     infoModal(
       '🚫 Cannot Delete Student',
-      `<strong>${s.nama}</strong> has <strong style="color:var(--yellow)">${attCount} attendance record(s)</strong> on file.<br><br>` +
+      `<strong>${esc(s.nama)}</strong> has <strong style="color:var(--yellow)">${attCount} attendance record(s)</strong> on file.<br><br>` +
       `Please delete all attendance records for this student first, then try again.`
     );
     return;
@@ -338,7 +338,7 @@ function deleteStudent(id){
   if(depBalance > 0){
     infoModal(
       '🚫 Cannot Delete Student',
-      `<strong>${s.nama}</strong> still has a deposit balance of <strong style="color:var(--yellow)">${fmt(depBalance)}</strong>.<br><br>` +
+      `<strong>${esc(s.nama)}</strong> still has a deposit balance of <strong style="color:var(--yellow)">${fmt(depBalance)}</strong>.<br><br>` +
       `Please refund the balance first (Deposits menu → click ↩️), then try again.`
     );
     return;
@@ -351,7 +351,7 @@ function deleteStudent(id){
   const extraInfo = extras.length ? `Their ${extras.join(' and ')} will also be removed.<br><br>` : '';
   dangerModal(
     '🗑️ Delete Student',
-    `Are you sure you want to delete <strong>${s.nama}</strong>?<br><br>${extraInfo}This action cannot be undone.`,
+    `Are you sure you want to delete <strong>${esc(s.nama)}</strong>?<br><br>${extraInfo}This action cannot be undone.`,
     ()=>{
       siswaList    = siswaList.filter(x=>x.id!==id);
       evaluasiList = evaluasiList.filter(e=>e.siswaId!==id);
@@ -361,7 +361,7 @@ function deleteStudent(id){
       renderStudents(); updateSelects(); updateUnpaidBadge(); updateMbnBadge();
       if(document.getElementById('page-dashboard').classList.contains('active')) renderDashboard();
       if(document.getElementById('page-deposits').classList.contains('active') && typeof renderDeposits === 'function') renderDeposits();
-      showToast(`✅ ${s.nama} deleted.`, 'success');
+      showToast(`✅ ${esc(s.nama)} deleted.`, 'success');
     },
     { okText:'Delete', cancelText:'Cancel' }
   );
@@ -386,7 +386,7 @@ function renderSchedEntries(entries, siswaId){
     <div class="sched-entry">
       <div class="sched-entry-info">
         <div class="sched-entry-days">${sc.days.map(d=>dayAbbr[d]||d).join(' & ')}</div>
-        <div class="sched-entry-time">${sc.jam||'—'} · ${sc.durasi||60} min</div>
+        <div class="sched-entry-time">${esc(sc.jam)||'—'} · ${sc.durasi||60} min</div>
       </div>
       <button class="btn sm" style="color:var(--red);border-color:var(--red)" onclick="removeSchedEntry(${i})">✕</button>
     </div>`).join('');
@@ -473,8 +473,8 @@ function renderWeekGrid(){
     const students = getStudentsForDay(day);
     const slots = students.length
       ? students.map(s=>`
-          <div class="week-slot" onclick="openStudentProfile('${s.id}')" title="${s.nama}${s.schedJam?' · '+s.schedJam:''}">
-            <div class="week-slot-name">${s.nick||s.nama.split(' ')[0]}</div>
+          <div class="week-slot" onclick="openStudentProfile('${s.id}')" title="${esc(s.nama)}${s.schedJam?' · '+s.schedJam:''}">
+            <div class="week-slot-name">${esc(s.nick)||s.nama.split(' ')[0]}</div>
             ${s.schedJam?`<div class="week-slot-time">${s.schedJam}</div>`:''}
           </div>`).join('')
       : `<div class="week-empty">—</div>`;
@@ -512,6 +512,7 @@ function renderStudents(){
     <div class="stat-card s-purple"><div class="ico">👤</div><div class="val">${siswaList.length}</div><div class="lbl">Total Students</div></div>
     ${Object.entries(levels).map(([l,n])=>`<div class="stat-card s-blue"><div class="val">${n}</div><div class="lbl">${l}</div></div>`).join('')}
   `;
+  let __html0='';  // buffer: satu kali tulis ke DOM, bukan per baris
   siswaList.forEach((s,i)=>{
     const isMonthly = s.billingType==='monthly';
     const feeDisplay = isMonthly
@@ -520,11 +521,11 @@ function renderStudents(){
     const billingChip = isMonthly
       ? `<span class="chip chip-purple" style="font-size:0.72rem">📅 Monthly</span>`
       : `<span class="chip chip-muted" style="font-size:0.72rem">💳 Per Session</span>`;
-    tbody.innerHTML+=`<tr>
+    __html0+=`<tr>
       <td style="color:var(--muted)">${i+1}</td>
-      <td><strong>${s.nama}</strong></td>
-      <td>${s.nick?`<span class="chip chip-yellow">${s.nick}</span>`:'-'}</td>
-      <td style="color:var(--muted);font-size:0.83rem">${s.kelas||'-'}</td>
+      <td><strong>${esc(s.nama)}</strong></td>
+      <td>${s.nick?`<span class="chip chip-yellow">${esc(s.nick)}</span>`:'-'}</td>
+      <td style="color:var(--muted);font-size:0.83rem">${esc(s.kelas)||'-'}</td>
       <td>${levelChip(s.level)}</td>
       <td style="font-size:0.83rem;color:var(--muted)">${
         (()=>{
@@ -536,14 +537,15 @@ function renderStudents(){
       }</td>
       <td>${billingChip}</td>
       <td>${feeDisplay}</td>
-      <td style="font-size:0.83rem">${s.namaOrtu||'-'}</td>
-      <td style="font-size:0.83rem;color:var(--muted)">${s.hp||'-'}</td>
+      <td style="font-size:0.83rem">${esc(s.namaOrtu)||'-'}</td>
+      <td style="font-size:0.83rem;color:var(--muted)">${esc(s.hp)||'-'}</td>
       <td class="nowrap">
         <button class="btn sm" onclick="openEditStudent('${s.id}')" style="margin-right:4px">✏️</button>
         <button class="btn danger sm" onclick="deleteStudent('${s.id}')">🗑️</button>
       </td>
     </tr>`;
   });
+  tbody.innerHTML += __html0;
 }
 
 // ════════════════════════════════════════════════

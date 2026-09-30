@@ -121,10 +121,11 @@ function renderDeposits(){
   }
   empty.style.display = 'none';
 
+  let __html0='';  // buffer: satu kali tulis ke DOM, bukan per baris
   rows.forEach(({s, topups, refunds, used, balance})=>{
     const balColor = balance>0 ? 'var(--green)' : (balance<0 ? 'var(--red)' : 'var(--muted)');
-    tbody.innerHTML += `<tr>
-      <td><strong>${s.nama}</strong>${s.nick?` <span style="color:var(--muted);font-size:0.78rem">(${s.nick})</span>`:''}</td>
+    __html0 += `<tr>
+      <td><strong>${esc(s.nama)}</strong>${s.nick?` <span style="color:var(--muted);font-size:0.78rem">(${esc(s.nick)})</span>`:''}</td>
       <td class="r" style="color:var(--muted);font-size:0.85rem;white-space:nowrap">${fmt(topups)}</td>
       <td class="r" style="color:var(--muted);font-size:0.85rem;white-space:nowrap">${fmt(used)}</td>
       <td class="r" style="color:var(--muted);font-size:0.85rem;white-space:nowrap">${refunds>0?fmt(refunds):'-'}</td>
@@ -136,6 +137,7 @@ function renderDeposits(){
       </td>
     </tr>`;
   });
+  tbody.innerHTML += __html0;
 }
 
 // ─── Top-up form ────────────────────────────────────────────────────
@@ -163,7 +165,7 @@ function openDepositForm(id, presetSiswaId){
   // Populate siswa dropdown
   const sel = document.getElementById('dep-siswa');
   const selId = d?.siswaId || presetSiswaId || '';
-  const opts = siswaList.map(s=>`<option value="${s.id}"${s.id===selId?' selected':''}>${s.nama}</option>`).join('');
+  const opts = siswaList.map(s=>`<option value="${s.id}"${s.id===selId?' selected':''}>${esc(s.nama)}</option>`).join('');
   sel.innerHTML = '<option value="">-- Select Student --</option>' + opts;
   // Kunci dropdown saat edit: ubah siswa akan membuat saldo dua siswa jadi rusak
   sel.disabled = !!d;
@@ -254,19 +256,19 @@ function deleteDeposit(id){
     const usageHtml = usingPays.length
       ? `<div style="margin-top:10px;padding:10px;background:var(--bg3);border-radius:8px;font-size:0.82rem;text-align:left;max-height:160px;overflow-y:auto">
           <div style="font-weight:700;margin-bottom:6px;color:var(--muted)">Payments using this student's deposit:</div>
-          ${usingPays.map(b=>`<div style="padding:3px 0;border-bottom:1px dashed var(--border)">• ${tglFmt(b.tanggal)} — ${b.periode||'—'} · <strong style="color:var(--yellow)">${fmt(b.depositUsed)}</strong> drawn</div>`).join('')}
+          ${usingPays.map(b=>`<div style="padding:3px 0;border-bottom:1px dashed var(--border)">• ${tglFmt(b.tanggal)} — ${esc(b.periode)||'—'} · <strong style="color:var(--yellow)">${fmt(b.depositUsed)}</strong> drawn</div>`).join('')}
         </div>`
       : '';
     warningModal(
       '⚠️ Cannot Delete',
-      `Deleting this top-up of <strong>${fmt(d.jumlah)}</strong> would leave <strong>${d.namaSiswa}</strong> with a negative balance of <strong style="color:var(--red)">${fmt(balAfter)}</strong>.<br><br>Reduce or delete payments that used this deposit first.${usageHtml}`,
+      `Deleting this top-up of <strong>${fmt(d.jumlah)}</strong> would leave <strong>${esc(d.namaSiswa)}</strong> with a negative balance of <strong style="color:var(--red)">${fmt(balAfter)}</strong>.<br><br>Reduce or delete payments that used this deposit first.${usageHtml}`,
       ()=>{}, { okText:'OK', cancelText:null }
     );
     return;
   }
   dangerModal(
     `Delete ${label}?`,
-    `Are you sure you want to delete this ${label} of <strong>${fmt(d.jumlah)}</strong> for <strong>${d.namaSiswa}</strong>?<br><br>` +
+    `Are you sure you want to delete this ${label} of <strong>${fmt(d.jumlah)}</strong> for <strong>${esc(d.namaSiswa)}</strong>?<br><br>` +
     (d.tipe==='refund'
       ? `The refunded amount will return to their deposit balance.`
       : `New balance will be <strong>${fmt(balAfter)}</strong>.`) +
@@ -300,7 +302,7 @@ function openRefundForm(siswaId){
   document.getElementById('dep-catatan').value = '';
 
   const sel = document.getElementById('dep-siswa');
-  sel.innerHTML = `<option value="${siswaId}" selected>${s.nama}</option>`;
+  sel.innerHTML = `<option value="${siswaId}" selected>${esc(s.nama)}</option>`;
   sel.disabled = true;
   sel.style.opacity = '0.65';
   sel.style.cursor = 'not-allowed';
@@ -371,7 +373,7 @@ function openDepositDetail(siswaId){
     ...usedIn.map(b=>({date:b.tanggal, type:'used',   amount:-(+b.depositUsed), entry:b, ref:b.id}))
   ].sort((a,b)=> new Date(b.date) - new Date(a.date));
 
-  document.getElementById('dep-detail-title').innerHTML = `📖 ${s.nama} — Deposit History`;
+  document.getElementById('dep-detail-title').innerHTML = `📖 ${esc(s.nama)} — Deposit History`;
   document.getElementById('dep-detail-balance').innerHTML = `
     <div style="text-align:center;padding:16px;background:linear-gradient(135deg,var(--bg3),var(--bg2));border-radius:12px;margin-bottom:16px">
       <div style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:700">Current Balance</div>
@@ -395,7 +397,7 @@ function openDepositDetail(siswaId){
     let icon='', label='', actions='', detail='';
     if(m.type==='topup'){
       icon='📥'; label='Top-Up';
-      detail = `${m.entry.metode||''}${m.entry.catatan?' · '+m.entry.catatan:''}`;
+      detail = `${esc(m.entry.metode||'')}${m.entry.catatan?' · '+esc(m.entry.catatan):''}`;
       actions = `
         <button class="btn sm" onclick="closeModal('modal-deposit-detail');showDepositReceipt('${m.entry.id}')" title="Receipt">🧾 Receipt</button>
         <button class="btn wa sm" onclick="waReceiptQuick('deposit','${m.entry.id}',this)" title="Send receipt to WhatsApp">💬 WA</button>
@@ -403,14 +405,14 @@ function openDepositDetail(siswaId){
         <button class="btn danger sm icon-only" onclick="deleteDeposit('${m.entry.id}')" title="Delete">🗑️</button>`;
     } else if(m.type==='refund'){
       icon='↩️'; label='Refund';
-      detail = `${m.entry.metode||''}${m.entry.catatan?' · '+m.entry.catatan:''}`;
+      detail = `${esc(m.entry.metode||'')}${m.entry.catatan?' · '+esc(m.entry.catatan):''}`;
       actions = `
         <button class="btn sm" onclick="closeModal('modal-deposit-detail');showDepositReceipt('${m.entry.id}')" title="Receipt">🧾 Receipt</button>
         <button class="btn wa sm" onclick="waReceiptQuick('deposit','${m.entry.id}',this)" title="Send receipt to WhatsApp">💬 WA</button>
         <button class="btn danger sm icon-only" onclick="deleteDeposit('${m.entry.id}')" title="Delete">🗑️</button>`;
     } else {
       icon='💳'; label='Applied to Payment';
-      detail = `${m.entry.periode||'Payment'} · Invoice ${fmt(m.entry.tagihan)}`;
+      detail = `${esc(m.entry.periode||'Payment')} · Invoice ${fmt(m.entry.tagihan)}`;
       actions = `<button class="btn sm" onclick="closeModal('modal-deposit-detail');navigate('payment');setTimeout(()=>openPaymentForm('${m.entry.id}'),100)">👁️ View Payment</button>
         <button class="btn wa sm" onclick="waReceiptQuick('payment','${m.entry.id}',this)" title="Send payment receipt to WhatsApp">💬 WA</button>`;
     }
@@ -624,7 +626,7 @@ function _buildDepositReceiptPrintHTML(d, siswa){
   <div class="body">
     <div class="student">
       <div class="avatar">${initials}</div>
-      <div><div class="sname">${d.namaSiswa||'-'}</div><div class="smeta">Prepayment / Uang Muka</div></div>
+      <div><div class="sname">${esc(d.namaSiswa)||'-'}</div><div class="smeta">Prepayment / Uang Muka</div></div>
     </div>
     <div class="amt-box">
       <div class="amt-lbl">${amtIcon} ${label}</div>
@@ -640,7 +642,7 @@ function _buildDepositReceiptPrintHTML(d, siswa){
     <div class="status" style="background:${badgeBg};border:1px solid ${badgeBd};color:${badgeCol}">
       ${isRefund ? '✅ REFUND PROCESSED' : '✅ RECEIVED — HELD AS CREDIT'}
     </div>
-    ${d.catatan?`<div class="note">Note: ${d.catatan}</div>`:''}
+    ${d.catatan?`<div class="note">Note: ${esc(d.catatan)}</div>`:''}
     ${!isRefund ? `<div class="info-line">This deposit will be applied toward future tuition sessions.</div>` : ''}
   </div>
   <div style="background:linear-gradient(135deg,#fce7f3,#d1fae5);line-height:0">${scBot}</div>
@@ -681,7 +683,7 @@ function _buildDepositReceiptRenderHTML(d, siswa){
   <div style="background:#fef9ff;padding:12px 16px;color:#4a1942">
     <div style="display:flex;align-items:center;gap:10px;padding:10px;background:linear-gradient(135deg,#fce7f3,#d1fae5);border-radius:10px;margin-bottom:10px;border:1px solid #f9a8d4">
       <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#ec4899,#0d9488);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;color:#fff;flex-shrink:0">${initials}</div>
-      <div><div style="font-size:0.85rem;font-weight:800;color:#4a1942;word-spacing:2px;letter-spacing:0.2px">${d.namaSiswa||'-'}</div><div style="font-size:0.68rem;color:#0d9488;margin-top:1px">Prepayment / Uang Muka</div></div>
+      <div><div style="font-size:0.85rem;font-weight:800;color:#4a1942;word-spacing:2px;letter-spacing:0.2px">${esc(d.namaSiswa)||'-'}</div><div style="font-size:0.68rem;color:#0d9488;margin-top:1px">Prepayment / Uang Muka</div></div>
     </div>
     <div style="background:linear-gradient(135deg,#db2777,#0d9488);border-radius:10px;padding:14px 12px;text-align:center;margin-bottom:10px">
       <div style="font-size:0.65rem;color:rgba(255,255,255,0.9);text-transform:uppercase;letter-spacing:1px;font-weight:700">${amtIcon} ${label}</div>
@@ -697,7 +699,7 @@ function _buildDepositReceiptRenderHTML(d, siswa){
     <div style="text-align:center;padding:9px;border-radius:8px;font-size:0.75rem;font-weight:800;background:${badgeBg};border:1px solid ${badgeBd};color:${badgeCol}">
       ${isRefund ? '✅ REFUND PROCESSED' : '✅ RECEIVED — HELD AS CREDIT'}
     </div>
-    ${d.catatan?`<div style="font-size:0.72rem;color:#0d9488;text-align:center;margin-top:8px;font-style:italic;padding:6px 10px;background:rgba(13,148,136,0.08);border-radius:6px">Note: ${d.catatan}</div>`:''}
+    ${d.catatan?`<div style="font-size:0.72rem;color:#0d9488;text-align:center;margin-top:8px;font-style:italic;padding:6px 10px;background:rgba(13,148,136,0.08);border-radius:6px">Note: ${esc(d.catatan)}</div>`:''}
     ${!isRefund?`<div style="font-size:0.65rem;color:#7a6470;text-align:center;margin-top:8px;line-height:1.4;padding:0 8px">This deposit will be applied toward future tuition sessions.</div>`:''}
   </div>
   <div style="background:linear-gradient(135deg,#fce7f3,#d1fae5);line-height:0">${scBot}</div>

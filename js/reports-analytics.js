@@ -37,8 +37,8 @@ function renderReports(){
     _reportTexts[key]=txt;
     html+=`<div class="card" style="padding:0;overflow:hidden;margin-bottom:20px">
       <div style="background:linear-gradient(135deg,var(--accent),var(--accent2));padding:20px 24px">
-        <div style="font-family:'Fredoka One',sans-serif;font-size:1.3rem;font-weight:800;color:#fff">👤 ${siswa.nama}${siswa.nick?` <span style="opacity:0.75;font-size:1rem">(${siswa.nick})</span>`:''}</div>
-        <div style="font-size:0.82rem;color:rgba(255,255,255,0.8);margin-top:3px">${siswa.kelas||''} · ${siswa.level} · ${siswa.hari||''}</div>
+        <div style="font-family:'Fredoka One',sans-serif;font-size:1.3rem;font-weight:800;color:#fff">👤 ${esc(siswa.nama)}${siswa.nick?` <span style="opacity:0.75;font-size:1rem">(${esc(siswa.nick)})</span>`:''}</div>
+        <div style="font-size:0.82rem;color:rgba(255,255,255,0.8);margin-top:3px">${esc(siswa.kelas)||''} · ${esc(siswa.level)} · ${esc(siswa.hari)||''}</div>
       </div>
       <div style="padding:20px 24px">
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-bottom:18px">
@@ -48,7 +48,7 @@ function renderReports(){
           ${latEval?`<div class="stat-card"><div class="val" style="font-size:1.1rem">${stars(latEval.rating)}</div><div class="lbl">Participation</div></div>`:''}
         </div>
         ${attPct!==null?`<div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Attendance Rate</div><div class="pbar-wrap" style="margin-bottom:16px"><div class="pbar-fill" style="width:${attPct}%"></div></div>`:''}
-        ${latEval?`<div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">⭐ Latest Evaluation (${tglFmt(latEval.tanggal)})</div><div style="background:var(--bg3);border-radius:10px;padding:14px;font-size:0.87rem;margin-bottom:16px">${latEval.progress?`<div><strong>Progress:</strong> ${latEval.progress}</div>`:''} ${latEval.catatan?`<div style="margin-top:5px"><strong>Notes:</strong> ${latEval.catatan}</div>`:`<span style="color:var(--muted)">No details.</span>`}</div>`:''}
+        ${latEval?`<div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">⭐ Latest Evaluation (${tglFmt(latEval.tanggal)})</div><div style="background:var(--bg3);border-radius:10px;padding:14px;font-size:0.87rem;margin-bottom:16px">${latEval.progress?`<div><strong>Progress:</strong> ${esc(latEval.progress)}</div>`:''} ${latEval.catatan?`<div style="margin-top:5px"><strong>Notes:</strong> ${esc(latEval.catatan)}</div>`:`<span style="color:var(--muted)">No details.</span>`}</div>`:''}
         ${latPay?`<div style="background:var(--bg3);border-radius:10px;padding:14px;font-size:0.87rem;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px"><span>Invoice: <strong>${fmt(latPay.tagihan)}</strong></span><span>Paid: <strong style="color:var(--green)">${fmt(latPay.jumlah)}</strong></span>${latPay.status==='Lunas'?chip('Paid','chip-green'):latPay.status==='Cicil'?chip('Partial','chip-yellow'):chip('Unpaid','chip-red')}</div>`:''}
         ${depBal>0?`<div style="background:linear-gradient(135deg,rgba(0,214,143,0.1),rgba(56,189,248,0.08));border:1px solid var(--green);border-radius:10px;padding:12px 14px;font-size:0.87rem;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center"><span>🏦 Deposit Balance</span><strong style="color:var(--green);font-family:'Fredoka One',sans-serif;font-size:1rem">${fmt(depBal)}</strong></div>`:''}
         <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -92,7 +92,32 @@ function renderAnalytics(){
 // ════════════════════════════════════════════════
 //  BACKUP & RESTORE
 // ════════════════════════════════════════════════
-function exportBackup(){
+// Validasi file backup sebelum restore
+function _validateBackup(data){
+  const errors=[], warnings=[];
+  const KEYS=['siswa','absensi','materi','evaluasi','bayar','schedules','deposits'];
+  const LABEL={siswa:'students',absensi:'attendance',materi:'lessons',evaluasi:'evaluations',bayar:'payments',schedules:'schedules',deposits:'deposits'};
+  if(!data || typeof data!=='object' || Array.isArray(data)){ errors.push('not a LittleLume backup'); return {errors,warnings}; }
+  if(!Array.isArray(data.siswa)){ errors.push('missing "siswa" (students) list — not a LittleLume class backup'); return {errors,warnings}; }
+  KEYS.forEach(k=>{
+    if(data[k]===undefined){ if(k!=='siswa') warnings.push(`File has no ${LABEL[k]} data → ${LABEL[k]} in this class will be emptied.`); return; }
+    if(!Array.isArray(data[k])){ errors.push(`"${k}" is not a list`); return; }
+    const bad=data[k].filter(r=>!r||typeof r!=='object'||r.id===undefined||r.id===null||r.id==='').length;
+    if(bad) errors.push(`${bad} ${LABEL[k]} record(s) have no id`);
+    const ids=new Set(), dup=data[k].filter(r=>r&&r.id!=null&&(ids.has(r.id)||!ids.add(r.id))).length;
+    if(dup) warnings.push(`${dup} duplicate ${LABEL[k]} id(s).`);
+  });
+  if(errors.length) return {errors,warnings};
+  const sIds=new Set(data.siswa.map(x=>x.id));
+  ['absensi','evaluasi','bayar','schedules','deposits'].forEach(k=>{
+    const orphan=(data[k]||[]).filter(r=>r.siswaId && !sIds.has(r.siswaId)).length;
+    if(orphan) warnings.push(`${orphan} ${LABEL[k]} record(s) refer to students not in this backup.`);
+  });
+  if(data.classId && currentClassId && data.classId!==currentClassId)
+    warnings.push(`This backup comes from another class${data.className?' ("'+esc(data.className)+'")':''}, not "${esc(currentClassName)}".`);
+  return {errors,warnings};
+}
+function exportBackup(tag){
   const data={
     className: currentClassName,
     classId:   currentClassId,
@@ -105,7 +130,7 @@ function exportBackup(){
   const a=document.createElement('a');
   const safeName = (currentClassName||'class').replace(/\s+/g,'-');
   a.href=URL.createObjectURL(blob);
-  a.download='LittleLume-'+safeName+'-Backup-'+todayISO()+'.json';
+  a.download='LittleLume-'+safeName+'-'+(typeof tag==='string'&&tag?tag:'Backup')+'-'+todayISO()+'.json';
   a.click();
 }
 function importBackup(e){
@@ -120,24 +145,32 @@ function importBackup(e){
     let data, preview = '';
     try{
       data = JSON.parse(ev.target.result);
-      const s   = (data.siswa||[]).length;
+      const v = _validateBackup(data);
+      if(v.errors.length) throw new Error(v.errors.join(' · '));
+      const s   = data.siswa.length;
       const ab  = (data.absensi||[]).length;
       const pay = (data.bayar||[]).length;
       const ev2 = (data.evaluasi||[]).length;
-      const cls = data.className ? `<strong>${data.className}</strong>` : 'unknown class';
+      const dep = (data.deposits||[]).length;
+      const cls = data.className ? `<strong>${esc(data.className)}</strong>` : 'unknown class';
       const exp = data.exportedAt ? new Date(data.exportedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : 'unknown date';
+      const warnHtml = v.warnings.length
+        ? `<div style="background:rgba(255,179,71,0.12);border:1px solid rgba(255,179,71,0.35);color:var(--yellow);border-radius:8px;padding:10px 12px;margin:8px 0;text-align:left;font-size:0.82rem;line-height:1.5">${v.warnings.map(w=>'⚠️ '+w).join('<br>')}</div>`
+        : '';
       preview = `
         <div style="background:var(--bg3);border-radius:8px;padding:12px 16px;margin:12px 0;text-align:left;line-height:2">
-          <div>📁 File: <strong>${file.name}</strong></div>
+          <div>📁 File: <strong>${esc(file.name)}</strong></div>
           <div>🏫 Class: ${cls}</div>
           <div>📅 Exported: ${exp}</div>
           <div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
-            👤 ${s} students &nbsp;·&nbsp; 📋 ${ab} attendance &nbsp;·&nbsp; 💰 ${pay} payments &nbsp;·&nbsp; ⭐ ${ev2} evaluations
+            👤 ${s} students &nbsp;·&nbsp; 📋 ${ab} attendance &nbsp;·&nbsp; 💰 ${pay} payments &nbsp;·&nbsp; ⭐ ${ev2} evaluations &nbsp;·&nbsp; 🏦 ${dep} deposits
           </div>
         </div>
-        <p style="color:var(--red);font-weight:700">⚠️ This will REPLACE all current data in <strong>${currentClassName||'this class'}</strong>.</p>`;
+        ${warnHtml}
+        <p style="color:var(--red);font-weight:700">⚠️ This will REPLACE all current data in <strong>${esc(currentClassName||'this class')}</strong>.</p>
+        <p style="font-size:0.8rem;color:var(--muted)">A safety backup of the current data will be downloaded first.</p>`;
     } catch(err){
-      statusEl.innerHTML='<span style="color:var(--red)">❌ Invalid backup file: '+err.message+'</span>';
+      statusEl.innerHTML='<span style="color:var(--red)">❌ Invalid backup file: '+esc(err.message)+'</span>';
       return;
     }
     dangerModal(
@@ -146,13 +179,18 @@ function importBackup(e){
       async ()=>{
         statusEl.innerHTML='<span style="color:var(--yellow)">⏳ Reading file…</span>';
         try{
-          if(data.siswa)     { siswaList    = data.siswa.map(n=>({...n})); }
-          if(data.absensi)   { absensiList  = data.absensi.map(n=>({...n})); }
-          if(data.materi)    { materiList   = data.materi.map(n=>({...n})); }
-          if(data.evaluasi)  { evaluasiList = data.evaluasi.map(n=>({...n})); }
-          if(data.bayar)     { bayarList    = data.bayar.map(n=>({...n})); }
-          if(data.schedules) { scheduleList = data.schedules.map(n=>({...n})); }
-          if(data.deposits)  { depositList  = data.deposits.map(n=>({...n})); }
+          // Cadangan pengaman: unduh data kelas saat ini sebelum ditimpa
+          if(_loadOk) exportBackup('BeforeRestore');
+          // Ganti SEMUA koleksi; yang tidak ada di file backup dikosongkan
+          // (sebelumnya dipertahankan → data lama bisa merujuk siswa yang sudah tidak ada)
+          const pick = k => Array.isArray(data[k]) ? data[k].map(n=>({...n})) : [];
+          siswaList    = pick('siswa');
+          absensiList  = pick('absensi');
+          materiList   = pick('materi');
+          evaluasiList = pick('evaluasi');
+          bayarList    = pick('bayar');
+          scheduleList = pick('schedules');
+          depositList  = pick('deposits');
           statusEl.innerHTML='<span style="color:var(--yellow)">⏳ Saving to cloud… <strong>do not refresh!</strong></span>';
           await _flushToFirestore({ force:true });
           statusEl.innerHTML=`<span style="color:var(--green)">✅ <strong>Import complete!</strong> ${siswaList.length} students, ${bayarList.length} payments saved to cloud.<br><span style="font-size:0.8rem;opacity:0.8">You can now refresh safely.</span></span>`;
@@ -173,8 +211,12 @@ function exportCSV(key){
   else if(key==='absensi'){ headers=['Date','Student','Status','Note']; rows=absensiList.map(a=>[tglFmt(a.tanggal),a.namaSiswa,a.status,a.keterangan||'']); }
   else if(key==='evaluasi'){ headers=['Date','Student','Score','Rating','Progress','Notes']; rows=evaluasiList.map(e=>[tglFmt(e.tanggal),e.namaSiswa,e.nilai,e.rating,e.progress||'',e.catatan||'']); }
   else if(key==='deposits'){ headers=['Date','Student','Type','Amount','Method','Notes']; rows=depositList.map(d=>[tglFmt(d.tanggal),d.namaSiswa,d.tipe==='refund'?'Refund':'Top-Up',d.jumlah,d.metode||'',d.catatan||'']); }
-  const csv=[headers,...rows].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
-  const blob=new Blob([csv],{type:'text/csv'});
+  // Excel dengan setelan regional Indonesia memakai ';' sebagai pemisah kolom (koma = desimal)
+  const sep = (1.5).toLocaleString().includes(',') ? ';' : ',';
+  // Cegah formula injection: teks yang diawali = + - @ dianggap rumus oleh Excel
+  const cell = v => { let t = String(v ?? ''); if(typeof v==='string' && /^[=+\-@\t\r]/.test(t)) t = "'"+t; return '"'+t.replace(/"/g,'""')+'"'; };
+  const csv='\uFEFF'+[headers,...rows].map(r=>r.map(cell).join(sep)).join('\r\n');   // BOM → UTF-8 terbaca benar di Excel
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='LittleLume-'+key+'-'+todayISO()+'.csv'; a.click();
 }
 function clearAllData(){
@@ -216,7 +258,7 @@ function renderBackupSummary(){
 //  SELECT SYNC
 // ════════════════════════════════════════════════
 function updateSelects(){
-  const opts=siswaList.map(s=>`<option value="${s.id}">${s.nama}${s.nick?' ('+s.nick+')':''}</option>`).join('');
+  const opts=siswaList.map(s=>`<option value="${s.id}">${esc(s.nama)}${s.nick?' ('+esc(s.nick)+')':''}</option>`).join('');
   document.getElementById('e-siswa').innerHTML='<option value="">-- Select --</option>'+opts;
   document.getElementById('b-siswa').innerHTML='<option value="">-- Select --</option>'+opts;
   document.getElementById('m-target').innerHTML='<option value="Semua">All Students</option>'+opts;
@@ -257,7 +299,7 @@ const _docStore = { eval:{html:'',text:'',title:''}, lesson:{html:'',text:'',tit
 
 // ── Shared print HTML wrapper ──
 function _docPrintHTML(bodyHTML, title){
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${esc(title)}</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:Arial,sans-serif;padding:28px;max-width:600px;margin:auto;color:#1a1f36;background:#fff}
@@ -289,19 +331,19 @@ function showEvalPrint(id){
   const bodyHTML=`
     <h1>⭐ Evaluation Report</h1>
     <div class="sub">LittleLume English Course · ${tglFmt(e.tanggal)}</div>
-    <div class="row"><span>Student</span><strong>${e.namaSiswa}</strong></div>
-    ${s?.nick?`<div class="row"><span>Nickname</span><strong>${s.nick}</strong></div>`:''}
-    ${s?.kelas?`<div class="row"><span>School / Class</span><strong>${s.kelas}</strong></div>`:''}
-    ${s?.namaOrtu?`<div class="row"><span>Parent</span><strong>${s.namaOrtu}</strong></div>`:''}
+    <div class="row"><span>Student</span><strong>${esc(e.namaSiswa)}</strong></div>
+    ${s?.nick?`<div class="row"><span>Nickname</span><strong>${esc(s.nick)}</strong></div>`:''}
+    ${s?.kelas?`<div class="row"><span>School / Class</span><strong>${esc(s.kelas)}</strong></div>`:''}
+    ${s?.namaOrtu?`<div class="row"><span>Parent</span><strong>${esc(s.namaOrtu)}</strong></div>`:''}
     <div class="row"><span>Date</span><strong>${tglFmt(e.tanggal)}</strong></div>
-    <div class="row"><span>Level</span><strong>${s?.level||'-'}</strong></div>
+    <div class="row"><span>Level</span><strong>${esc(s?.level)||'-'}</strong></div>
     <div style="text-align:center;margin:16px 0 10px">
       <div class="score" style="color:${nc}">${e.nilai||'-'}</div>
       <div style="font-size:0.75rem;color:#888;margin-top:2px">Score / 100</div>
     </div>
     <div class="row"><span>Participation</span><strong><span class="stars">${stars(e.rating)}</span> ${ratingLabels[e.rating]||''}</strong></div>
-    ${e.progress?`<div class="section">Progress / Achievement</div><div class="block">${e.progress}</div>`:''}
-    ${e.catatan?`<div class="section">Notes & Recommendations</div><div class="block">${e.catatan}</div>`:''}
+    ${e.progress?`<div class="section">Progress / Achievement</div><div class="block">${esc(e.progress)}</div>`:''}
+    ${e.catatan?`<div class="section">Notes & Recommendations</div><div class="block">${esc(e.catatan)}</div>`:''}
   `;
   const txt=`⭐ EVALUATION REPORT — LITTLELUME ENGLISH COURSE\n${'─'.repeat(36)}\nStudent  : ${e.namaSiswa}${s?.nick?' ('+s.nick+')':''}\n${s?.kelas?'School   : '+s.kelas+'\n':''}${s?.namaOrtu?'Parent   : '+s.namaOrtu+'\n':''}Date     : ${tglFmt(e.tanggal)}\nLevel    : ${s?.level||'-'}\nScore    : ${e.nilai||'-'}/100\nRating   : ${stars(e.rating)} ${ratingLabels[e.rating]||''}\n${e.progress?'\n📈 Progress:\n'+e.progress+'\n':''}${e.catatan?'\n📝 Notes:\n'+e.catatan+'\n':''}\n${'─'.repeat(36)}\nLittleLume English Course 🎓`;
   _docStore.eval = { html:bodyHTML, text:txt, title:'Evaluation-'+e.namaSiswa+'-'+e.tanggal };
@@ -317,12 +359,12 @@ function showLessonPrint(id){
   const bodyHTML=`
     <h1>📚 Lesson Plan</h1>
     <div class="sub">LittleLume English Course · ${tglFmt(m.tanggal)}</div>
-    <div class="row"><span>Topic</span><strong>${m.topik}</strong></div>
+    <div class="row"><span>Topic</span><strong>${esc(m.topik)}</strong></div>
     <div class="row"><span>Date</span><strong>${tglFmt(m.tanggal)}</strong></div>
     <div class="row"><span>Status</span><strong>${statusLabel}</strong></div>
     <div class="row"><span>Target</span><strong>${m.target==='Semua'?'All Students':m.target||'All Students'}</strong></div>
     ${m.sumber?`<div class="row"><span>Reference</span><strong>${m.sumber}</strong></div>`:''}
-    ${m.deskripsi?`<div class="section">Description & Activities</div><div class="block">${m.deskripsi}</div>`:''}
+    ${m.deskripsi?`<div class="section">Description & Activities</div><div class="block">${esc(m.deskripsi)}</div>`:''}
   `;
   const txt=`📚 LESSON PLAN — LITTLELUME ENGLISH COURSE\n${'─'.repeat(36)}\nTopic    : ${m.topik}\nDate     : ${tglFmt(m.tanggal)}\nStatus   : ${m.status}\nTarget   : ${m.target==='Semua'?'All Students':m.target||'All Students'}\n${m.sumber?'Ref      : '+m.sumber+'\n':''}${m.deskripsi?'\n📝 Description:\n'+m.deskripsi+'\n':''}\n${'─'.repeat(36)}\nLittleLume English Course 🎓`;
   _docStore.lesson = { html:bodyHTML, text:txt, title:'Lesson-'+m.topik.replace(/\s+/g,'-').slice(0,30) };
@@ -350,11 +392,11 @@ function showReportPrint(siswaId){
   const bodyHTML=`
     <h1>📤 Student Progress Report</h1>
     <div class="sub">LittleLume English Course · ${now}</div>
-    <div class="row"><span>Student</span><strong>${siswa.nama}${siswa.nick?' ('+siswa.nick+')':''}</strong></div>
-    ${siswa.kelas?`<div class="row"><span>School / Class</span><strong>${siswa.kelas}</strong></div>`:''}
-    ${siswa.namaOrtu?`<div class="row"><span>Parent</span><strong>${siswa.namaOrtu}</strong></div>`:''}
-    <div class="row"><span>Level</span><strong><span class="chip">${siswa.level}</span></strong></div>
-    ${siswa.hari?`<div class="row"><span>Class Days</span><strong>${siswa.hari}</strong></div>`:''}
+    <div class="row"><span>Student</span><strong>${esc(siswa.nama)}${siswa.nick?' ('+esc(siswa.nick)+')':''}</strong></div>
+    ${siswa.kelas?`<div class="row"><span>School / Class</span><strong>${esc(siswa.kelas)}</strong></div>`:''}
+    ${siswa.namaOrtu?`<div class="row"><span>Parent</span><strong>${esc(siswa.namaOrtu)}</strong></div>`:''}
+    <div class="row"><span>Level</span><strong><span class="chip">${esc(siswa.level)}</span></strong></div>
+    ${siswa.hari?`<div class="row"><span>Class Days</span><strong>${esc(siswa.hari)}</strong></div>`:''}
     ${avgScore!==null?`<div style="text-align:center;margin:16px 0 10px"><div class="score" style="color:${sc}">${avgScore}</div><div style="font-size:0.75rem;color:#888">Average Score / 100</div></div>`:''}
     ${attPct!==null?`<div class="row"><span>Attendance</span><strong>${attPct}% (${present}/${att.length} sessions)</strong></div>`:''}
     ${evals.length?`<div class="row"><span>Total Evaluations</span><strong>${evals.length}</strong></div>`:''}
@@ -362,13 +404,13 @@ function showReportPrint(siswaId){
     <div class="section">⭐ Latest Evaluation (${tglFmt(latEval.tanggal)})</div>
     <div class="block">
       Score: <strong>${latEval.nilai}/100</strong> &nbsp;|&nbsp; Participation: <span class="stars">${stars(latEval.rating)}</span> ${ratingLabels[latEval.rating]||''}<br>
-      ${latEval.progress?'<br><strong>Progress:</strong> '+latEval.progress:''}
-      ${latEval.catatan?'<br><strong>Notes:</strong> '+latEval.catatan:''}
+      ${latEval.progress?'<br><strong>Progress:</strong> '+esc(latEval.progress):''}
+      ${latEval.catatan?'<br><strong>Notes:</strong> '+esc(latEval.catatan):''}
     </div>`:''}
     ${latPay?`
-    <div class="section">💰 Payment — ${latPay.periode||'-'}</div>
+    <div class="section">💰 Payment — ${esc(latPay.periode)||'-'}</div>
     <div class="block">
-      Invoice: <strong>${fmt(latPay.tagihan)}</strong> &nbsp;|&nbsp; Paid: <strong>${fmt(latPay.jumlah)}</strong> &nbsp;|&nbsp; Status: <strong>${latPay.status}</strong>
+      Invoice: <strong>${fmt(latPay.tagihan)}</strong> &nbsp;|&nbsp; Paid: <strong>${fmt(latPay.jumlah)}</strong> &nbsp;|&nbsp; Status: <strong>${esc(latPay.status)}</strong>
     </div>`:''}
     ${depBal>0?`
     <div class="section">🏦 Deposit Balance</div>
@@ -490,14 +532,14 @@ function renderBulkEvalGrid(){
       <div class="bulk-eval-header">
         <div class="bulk-eval-avatar">${(s.nick||s.nama).charAt(0).toUpperCase()}</div>
         <div style="flex:1">
-          <div class="bulk-eval-name">${s.nama}${s.nick?` <span style="color:var(--muted);font-size:0.8rem">(${s.nick})</span>`:''}</div>
-          <div class="bulk-eval-sub">${s.kelas||''} · ${s.level}</div>
+          <div class="bulk-eval-name">${esc(s.nama)}${s.nick?` <span style="color:var(--muted);font-size:0.8rem">(${esc(s.nick)})</span>`:''}</div>
+          <div class="bulk-eval-sub">${esc(s.kelas)||''} · ${esc(s.level)}</div>
         </div>
         <!-- Copy from another student -->
         <select onchange="copyFromStudent('${s.id}',this.value);this.value=''"
           style="font-size:0.75rem;padding:4px 8px;border-radius:7px;border:1px solid var(--border);background:var(--bg2);color:var(--muted);max-width:130px">
           <option value="">📋 Copy from…</option>
-          ${siswaList.filter(x=>x.id!==s.id).map(x=>`<option value="${x.id}">${x.nick||x.nama.split(' ')[0]}</option>`).join('')}
+          ${siswaList.filter(x=>x.id!==s.id).map(x=>`<option value="${x.id}">${esc(x.nick)||x.nama.split(' ')[0]}</option>`).join('')}
         </select>
         <!-- Skip toggle -->
         <label style="display:flex;align-items:center;gap:5px;font-size:0.75rem;color:var(--muted);cursor:pointer;font-weight:700;text-transform:none;letter-spacing:0;margin-left:6px;white-space:nowrap">
@@ -614,7 +656,7 @@ function renderTemplateList(){
   el.innerHTML = _evalTemplates.map((t,i)=>`
     <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
       <div style="flex:1;font-size:0.85rem">
-        <strong>${t.name}</strong>
+        <strong>${esc(t.name)}</strong>
         <span style="color:var(--muted);font-size:0.75rem;margin-left:6px">Score:${t.nilai||'—'} · ${['','⭐','⭐⭐','⭐⭐⭐','⭐⭐⭐⭐','⭐⭐⭐⭐⭐'][t.rating]||'—'}</span>
       </div>
       <button class="btn sm" onclick="applyTemplate(${i})">Apply All</button>

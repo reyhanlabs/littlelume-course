@@ -19,8 +19,8 @@ function globalSearch(q){
     <div class="search-result-item" onmousedown="goToStudent('${s.id}')">
       <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.8rem;font-weight:800;flex-shrink:0">${(s.nick||s.nama).charAt(0).toUpperCase()}</div>
       <div>
-        <div style="font-weight:700">${s.nama}${s.nick?` <span style="color:var(--muted);font-weight:500">(${s.nick})</span>`:''}</div>
-        <div style="font-size:0.72rem;color:var(--muted)">${s.level||''}${s.kelas?' · '+s.kelas:''}</div>
+        <div style="font-weight:700">${esc(s.nama)}${s.nick?` <span style="color:var(--muted);font-weight:500">(${esc(s.nick)})</span>`:''}</div>
+        <div style="font-size:0.72rem;color:var(--muted)">${esc(s.level)||''}${s.kelas?' · '+esc(s.kelas):''}</div>
       </div>
     </div>`).join('');
   res.classList.add('open');
@@ -78,7 +78,7 @@ function openStudentProfile(id){
   const recentAtt=[...attAll].sort((a,b)=>b.tanggal.localeCompare(a.tanggal)).slice(0,20).reverse();
   const attBar=recentAtt.map(a=>{
     const c=a.status==='Hadir'?'var(--green)':a.status==='Izin'?'var(--yellow)':'var(--red)';
-    return `<div class="sp-att-dot" style="background:${c}" title="${tglFmt(a.tanggal)} · ${a.status}"></div>`;
+    return `<div class="sp-att-dot" style="background:${c}" title="${tglFmt(a.tanggal)} · ${esc(a.status)}"></div>`;
   }).join('');
 
   document.getElementById('sp-content').innerHTML = `
@@ -86,9 +86,9 @@ function openStudentProfile(id){
     <div class="sp-header">
       <div class="sp-avatar">${(s.nick||s.nama).charAt(0).toUpperCase()}</div>
       <div>
-        <div class="sp-name">${s.nama}${s.nick?` <span style="font-size:0.8rem;opacity:0.8">(${s.nick})</span>`:''}</div>
-        <div class="sp-meta">${s.kelas||'—'} · ${s.level||'—'}${s.hari?' · '+s.hari:''}</div>
-        <div class="sp-meta" style="margin-top:4px">${s.namaOrtu?'👨‍👩‍👦 '+s.namaOrtu:''} ${s.hp?'· 📱 '+s.hp:''}</div>
+        <div class="sp-name">${esc(s.nama)}${s.nick?` <span style="font-size:0.8rem;opacity:0.8">(${esc(s.nick)})</span>`:''}</div>
+        <div class="sp-meta">${esc(s.kelas)||'—'} · ${esc(s.level)||'—'}${s.hari?' · '+esc(s.hari):''}</div>
+        <div class="sp-meta" style="margin-top:4px">${s.namaOrtu?'👨‍👩‍👦 '+esc(s.namaOrtu):''} ${s.hp?'· 📱 '+esc(s.hp):''}</div>
       </div>
       <div style="margin-left:auto;text-align:right">
         <div style="font-family:'Fredoka One',sans-serif;font-size:1.8rem;font-weight:800;color:#fff;line-height:1">${attRate}%</div>
@@ -132,7 +132,7 @@ function openStudentProfile(id){
       ${payStudent.slice(0,3).map(b=>`
         <div class="sp-pay-item">
           <div>
-            <div style="font-weight:700">${b.periode||tglFmt(b.tanggal)}</div>
+            <div style="font-weight:700">${esc(b.periode)||tglFmt(b.tanggal)}</div>
             <div style="font-size:0.72rem;color:var(--muted)">${tglFmt(b.tanggal)}</div>
           </div>
           <div style="text-align:right">
@@ -161,7 +161,7 @@ function openStudentProfile(id){
         <div class="sp-eval-item">
           <div>
             <div style="font-weight:700;font-size:0.82rem">${tglFmt(e.tanggal)}</div>
-            <div style="font-size:0.72rem;color:var(--muted)">${e.progress||e.catatan||'—'}</div>
+            <div style="font-size:0.72rem;color:var(--muted)">${esc(e.progress)||esc(e.catatan)||'—'}</div>
           </div>
           <div style="text-align:right;display:flex;align-items:center;gap:8px">
             <span>${stars(e.rating)}</span>
@@ -178,7 +178,7 @@ function openStudentProfile(id){
         <div style="display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--border)">
           <div class="lesson-dot ${m.status==='Selesai'?'done':'planned'}" style="margin-top:6px;flex-shrink:0"></div>
           <div>
-            <div style="font-weight:700;font-size:0.85rem">${m.topik}</div>
+            <div style="font-weight:700;font-size:0.85rem">${esc(m.topik)}</div>
             <div style="font-size:0.72rem;color:var(--muted)">${tglFmt(m.tanggal)} · ${m.status==='Selesai'?'Completed':'Planned'}</div>
           </div>
         </div>`).join('')
@@ -254,7 +254,7 @@ function buildSPRenderHTML(id){
     `<div style="margin-bottom:6px;padding:8px 10px;background:#f7f8ff;border-radius:8px;overflow:hidden">
       <table style="width:100%;border-collapse:collapse"><tr>
         <td style="vertical-align:top;padding:0">
-          <div style="font-size:13px;font-weight:700;color:#1a1f36">${b.periode||tglFmt(b.tanggal)}</div>
+          <div style="font-size:13px;font-weight:700;color:#1a1f36">${esc(b.periode)||tglFmt(b.tanggal)}</div>
           <div style="font-size:11px;color:#999;margin-top:1px">${tglFmt(b.tanggal)}</div>
         </td>
         <td style="text-align:right;vertical-align:top;padding:0;white-space:nowrap">
@@ -293,9 +293,9 @@ function buildSPRenderHTML(id){
           <div style="width:54px;height:54px;border-radius:12px;background:rgba(255,255,255,0.22);border:2px solid rgba(255,255,255,0.4);text-align:center;line-height:54px;font-size:24px;font-weight:800;color:#fff">${(s.nick||s.nama).charAt(0).toUpperCase()}</div>
         </td>
         <td style="vertical-align:middle;padding:0">
-          <div style="font-size:17px;font-weight:800;color:#fff;white-space:normal;word-break:normal;word-spacing:normal">${s.nama.replace(/ /g,'\u00a0')}${s.nick?' <span style="font-size:13px;opacity:0.85">('+s.nick+')</span>':''}</div>
-          <div style="font-size:12px;color:rgba(255,255,255,0.82);margin-top:3px">${s.kelas||'—'} &nbsp;&middot;&nbsp; ${s.level||'—'}${s.hari?' &nbsp;&middot;&nbsp; '+s.hari:''}</div>
-          ${s.namaOrtu?`<div style="font-size:11px;color:rgba(255,255,255,0.72);margin-top:3px">${s.namaOrtu}${s.hp?' &nbsp;&middot;&nbsp; '+s.hp:''}</div>`:''}
+          <div style="font-size:17px;font-weight:800;color:#fff;white-space:normal;word-break:normal;word-spacing:normal">${s.nama.replace(/ /g,'\u00a0')}${s.nick?' <span style="font-size:13px;opacity:0.85">('+esc(s.nick)+')</span>':''}</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.82);margin-top:3px">${esc(s.kelas)||'—'} &nbsp;&middot;&nbsp; ${esc(s.level)||'—'}${s.hari?' &nbsp;&middot;&nbsp; '+esc(s.hari):''}</div>
+          ${s.namaOrtu?`<div style="font-size:11px;color:rgba(255,255,255,0.72);margin-top:3px">${esc(s.namaOrtu)}${s.hp?' &nbsp;&middot;&nbsp; '+esc(s.hp):''}</div>`:''}
         </td>
         <td style="text-align:right;vertical-align:middle;padding:0;white-space:nowrap;padding-left:12px">
           <div style="font-size:36px;font-weight:800;color:#fff;line-height:1">${attRate}%</div>
@@ -367,7 +367,7 @@ function buildSPRenderHTML(id){
             <div style="width:10px;height:10px;border-radius:50%;background:${m.status==='Selesai'?'#00b371':'#a78bfa'};margin-top:3px"></div>
           </td>
           <td style="vertical-align:top;padding:8px 0;border-bottom:1px solid #f0f0f0">
-            <div style="font-size:13px;font-weight:700;color:#1a1f36">${m.topik}</div>
+            <div style="font-size:13px;font-weight:700;color:#1a1f36">${esc(m.topik)}</div>
             <div style="font-size:11px;color:#999;margin-top:2px">${tglFmt(m.tanggal)} &nbsp;&middot;&nbsp; ${m.status==='Selesai'?'Completed':'Planned'}</div>
           </td>
         </tr></table>`).join('')
@@ -580,8 +580,8 @@ function renderProgressTracker(){
         <div style="display:flex;align-items:center;gap:14px">
           <div class="student-avatar-big">${(siswa.nick||siswa.nama).charAt(0).toUpperCase()}</div>
           <div style="flex:1">
-            <div style="font-weight:800;font-size:1rem">${siswa.nama}${siswa.nick?` <span style="font-size:0.8rem;color:var(--muted)">(${siswa.nick})</span>`:''}</div>
-            <div style="font-size:0.75rem;color:var(--muted);margin-top:2px">${siswa.level} · ${siswa.kelas||'—'}</div>
+            <div style="font-weight:800;font-size:1rem">${esc(siswa.nama)}${siswa.nick?` <span style="font-size:0.8rem;color:var(--muted)">(${esc(siswa.nick)})</span>`:''}</div>
+            <div style="font-size:0.75rem;color:var(--muted);margin-top:2px">${esc(siswa.level)} · ${esc(siswa.kelas)||'—'}</div>
           </div>
           ${avgScore!==null ? `<div class="score-badge ${scoreClass}" style="font-size:1.1rem">${avgScore}</div>` : ''}
           <div class="trend-mini ${trend==='up'?'trend-up trend-arrow-up':trend==='dn'?'trend-dn trend-arrow-dn':'trend-neu'}">${trend==='up'?'Improving':trend==='dn'?'Declining':'Stable'}</div>
@@ -808,7 +808,7 @@ async function aiGenerateAllReports(){
   let count = 0;
   for(const siswa of siswaList.slice(0,5)){
     document.querySelectorAll('.ai-btn').forEach(b=>b.disabled=true);
-    out.innerHTML=`<div class="ai-loading"><div class="spin-sm"></div> Generating for ${siswa.nama} (${++count}/${Math.min(siswaList.length,5)})…</div>`;
+    out.innerHTML=`<div class="ai-loading"><div class="spin-sm"></div> Generating for ${esc(siswa.nama)} (${++count}/${Math.min(siswaList.length,5)})…</div>`;
     const ctx = getStudentContext(siswa.id);
     if(!ctx) continue;
     try{
@@ -841,9 +841,9 @@ function aiSendWA(){
 function updateAISelect(){
   const el = document.getElementById('ai-student-select');
   if(!el) return;
-  el.innerHTML = '<option value="">-- Choose student --</option>'+siswaList.map(s=>`<option value="${s.id}">${s.nama}${s.nick?' ('+s.nick+')':''}</option>`).join('');
+  el.innerHTML = '<option value="">-- Choose student --</option>'+siswaList.map(s=>`<option value="${s.id}">${esc(s.nama)}${s.nick?' ('+esc(s.nick)+')':''}</option>`).join('');
   const watEl = document.getElementById('wat-student');
-  if(watEl) watEl.innerHTML = '<option value="">-- Select Student --</option>'+siswaList.map(s=>`<option value="${s.id}">${s.nama}${s.nick?' ('+s.nick+')':''}</option>`).join('');
+  if(watEl) watEl.innerHTML = '<option value="">-- Select Student --</option>'+siswaList.map(s=>`<option value="${s.id}">${esc(s.nama)}${s.nick?' ('+esc(s.nick)+')':''}</option>`).join('');
 }
 
 // ════════════════════════════════════════════════

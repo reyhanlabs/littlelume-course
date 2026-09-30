@@ -18,8 +18,6 @@ const APP_LOGO_URL = new URL('favicon-256x256.png', location.href).href;
 const auth = firebase.auth();
 const db   = firebase.firestore();
 
-// ── Firestore settings: longer timeout, explicit network ──
-db.settings({ merge: true });
 
 // ── Force Firestore to go online (fixes offline-on-load issue) ──
 db.enableNetwork().catch(e => console.warn('enableNetwork:', e));
@@ -255,7 +253,13 @@ async function switchClass(classId){
   const cls = classesList.find(c=>c.id===classId);
   if(!cls) return;
   // 1) Simpan dulu edit yang masih tertunda di kelas lama (ke ref kelas lama)
-  if(_savePending){ await _flushToFirestore(); }
+  if(_savePending){
+    const ok = await _flushToFirestore();
+    if(!ok && _savePending){
+      showToast('⚠️ Perubahan di kelas ini belum tersimpan (koneksi?). Tunggu status "Synced" lalu coba pindah kelas lagi.', 'warn', 6000);
+      return;
+    }
+  }
   // 2) Putus listener kelas lama agar snapshot-nya tidak masuk ke kelas baru
   if(_unsubscribeSnapshot){ _unsubscribeSnapshot(); _unsubscribeSnapshot=null; }
   // 3) Kunci penyimpanan sampai data kelas baru berhasil dimuat
@@ -299,8 +303,8 @@ function renderClassListUI(){
     <div class="class-item ${c.id===currentClassId?'active-class':''}" onclick="switchClass('${c.id}')">
       <div class="ci-color" style="background:${c.color||'#6c63ff'}"></div>
       <div class="ci-info">
-        <div class="ci-name">${c.name} ${c.id===currentClassId?'<span class="chip chip-purple" style="font-size:0.65rem">Active</span>':''}</div>
-        <div class="ci-meta">${c.schedule||'No schedule set'}</div>
+        <div class="ci-name">${esc(c.name)} ${c.id===currentClassId?'<span class="chip chip-purple" style="font-size:0.65rem">Active</span>':''}</div>
+        <div class="ci-meta">${esc(c.schedule)||'No schedule set'}</div>
       </div>
       <div style="display:flex;gap:6px" onclick="event.stopPropagation()">
         <button class="btn sm icon-only" title="Edit" onclick="editClass('${c.id}')">✏️</button>
@@ -337,7 +341,7 @@ async function deleteClass(classId){
   const studentCount = isActive ? siswaList.length : '?';
   const payCount = isActive ? bayarList.length : '?';
   dangerModal(
-    `🗑️ Delete Class "${cls?.name}"?`,
+    `🗑️ Delete Class "${esc(cls?.name)}"?`,
     `<strong style="color:var(--red)">All data in this class will be permanently deleted:</strong>
     <div style="background:var(--bg3);border-radius:8px;padding:10px 14px;margin:10px 0;text-align:left;line-height:2">
       ${isActive ? `👤 ${studentCount} student(s) &nbsp;·&nbsp; 💰 ${payCount} payment(s)` : 'All students, attendance, evaluations and payments'}
@@ -346,14 +350,14 @@ async function deleteClass(classId){
     async ()=>{
       dangerModal(
         '⚠️ Final Confirmation',
-        `Type the class name to confirm: you are deleting <strong>"${cls?.name}"</strong> and all its data permanently.`,
+        `Type the class name to confirm: you are deleting <strong>"${esc(cls?.name)}"</strong> and all its data permanently.`,
         async ()=>{
           try{ await db.collection('workspace').doc(classId).delete(); }catch(e){ console.error(e); }
           classesList = classesList.filter(c=>c.id!==classId);
           await saveClassesList();
           renderClassListUI();
           if(classId === currentClassId){ await switchClass(classesList[0].id); }
-          showToast(`✅ Class "${cls?.name}" deleted.`, 'success');
+          showToast(`✅ Class "${esc(cls?.name)}" deleted.`, 'success');
         },
         { okText:'Delete Permanently', cancelText:'Cancel' }
       );
@@ -403,7 +407,7 @@ async function addAllowedEmail(email){
   const data=doc.data()||{};
   if(data.owner!==currentUser.email){ infoModal('Access Denied', 'Only the workspace owner can manage access.'); return; }
   const list=data.allowed_emails||[];
-  if(list.includes(email)){ infoModal('Already Added', `<strong>${email}</strong> is already in the access list.`); return; }
+  if(list.includes(email)){ infoModal('Already Added', `<strong>${esc(email)}</strong> is already in the access list.`); return; }
   list.push(email);
   await db.collection('workspace').doc('access').update({allowed_emails:list});
   renderAccessPanel(); showToast('✅ '+email+' added!', 'success');
@@ -425,11 +429,11 @@ async function renderAccessPanel(){
   const isOwner=currentUser?.email===data.owner;
   const emails=data.allowed_emails||[];
   panel.innerHTML=`
-    <div style="margin-bottom:12px;font-size:0.82rem;color:var(--muted)">👑 <strong>Owner:</strong> ${data.owner} ${isOwner?'<span class="chip chip-purple" style="margin-left:6px">You</span>':''}</div>
+    <div style="margin-bottom:12px;font-size:0.82rem;color:var(--muted)">👑 <strong>Owner:</strong> ${esc(data.owner)} ${isOwner?'<span class="chip chip-purple" style="margin-left:6px">You</span>':''}</div>
     <div style="margin-bottom:14px">${emails.map(e=>`
       <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg3);border-radius:8px;margin-bottom:6px;font-size:0.87rem">
-        <span>📧 ${e} ${e===data.owner?'<span class="chip chip-purple">owner</span>':''}</span>
-        ${isOwner&&e!==data.owner?`<button class="btn danger sm" onclick="removeAllowedEmail('${e}')">Remove</button>`:''}
+        <span>📧 ${esc(e)} ${e===data.owner?'<span class="chip chip-purple">owner</span>':''}</span>
+        ${isOwner&&e!==data.owner?`<button class="btn danger sm" onclick="removeAllowedEmail('${esc(e)}')">Remove</button>`:''}
       </div>`).join('')}</div>
     ${isOwner?`<div style="display:flex;gap:8px;flex-wrap:wrap">
       <input type="email" id="new-email-input" placeholder="email@gmail.com" style="flex:1;min-width:200px">
@@ -442,26 +446,69 @@ async function renderAccessPanel(){
 // ════════════════════════════════════════════════
 const COLS = ['siswa','absensi','materi','evaluasi','bayar','schedules','deposits'];
 
+// ════════════════════════════════════════════════
+//  SINKRONISASI AMAN ANTAR-DEVICE
+// ────────────────────────────────────────────────
+//  Setiap dokumen kelas punya nomor revisi `_rev` yang naik setiap kali disimpan.
+//  _base      = salinan data terakhir yang sama persis dengan server (titik acuan)
+//  _serverRev = revisi server saat _base diambil
+//  Saat menyimpan (dalam transaction): kalau revisi server ≠ _serverRev berarti
+//  device lain sudah menyimpan duluan → perubahan kita DIGABUNG per record (by id)
+//  dengan versi server, bukan menimpa seluruh dokumen.
+// ════════════════════════════════════════════════
+let _base = null;
+let _serverRev = 0;
+const _clone = o => JSON.parse(JSON.stringify(o));
+
+function _currentData(){
+  return { siswa:siswaList, absensi:absensiList, materi:materiList, evaluasi:evaluasiList,
+           bayar:bayarList, schedules:scheduleList, deposits:depositList };
+}
+function _dataFromDoc(d){
+  d = d || {};
+  const out = {};
+  COLS.forEach(k => { out[k] = Array.isArray(d[k]) ? d[k] : []; });
+  return out;
+}
+function _setLists(d){
+  siswaList    = d.siswa;    absensiList  = d.absensi;  materiList  = d.materi;
+  evaluasiList = d.evaluasi; bayarList    = d.bayar;    scheduleList = d.schedules;
+  depositList  = d.deposits;
+}
+// Gabung 3 arah untuk satu array record:
+//   base = versi acuan, local = versi device ini, remote = versi server terbaru.
+//   Yang diubah/ditambah/dihapus di device ini diterapkan di atas versi server;
+//   perubahan device lain yang tidak kita sentuh tetap dipertahankan.
+function _mergeArr(base, local, remote){
+  const key = r => (r && r.id != null) ? 'id:' + r.id : 'j:' + JSON.stringify(r);
+  const bMap = new Map(base.map(r => [key(r), JSON.stringify(r)]));
+  const lMap = new Map(local.map(r => [key(r), r]));
+  const out  = new Map(remote.map(r => [key(r), r]));
+  for(const k of bMap.keys()) if(!lMap.has(k)) out.delete(k);            // dihapus di device ini
+  for(const [k, r] of lMap){                                              // ditambah / diubah di device ini
+    if(!bMap.has(k) || bMap.get(k) !== JSON.stringify(r)) out.set(k, r);
+  }
+  return [...out.values()];
+}
+function _mergeAll(base, local, remote){
+  const out = {};
+  COLS.forEach(k => { out[k] = _mergeArr(base[k]||[], local[k]||[], remote[k]||[]); });
+  return out;
+}
+function _sameData(a, b){ return JSON.stringify(a) === JSON.stringify(b); }
+
 async function loadFromFirestore(){
   if(!userDocRef){ return; }  // not logged in yet — silent
   const loadingClassId = currentClassId;
-  _loadOk = false;
+  _loadOk = false; _deferredRemote = null;
   try{
     setSyncing();
     const snap = await userDocRef.get({ source:'server' });
     if(currentClassId !== loadingClassId) return;   // user sudah pindah kelas saat menunggu
-    if(snap.exists){
-      const d = snap.data();
-      siswaList    = d.siswa    || [];
-      absensiList  = d.absensi  || [];
-      materiList   = d.materi   || [];
-      evaluasiList = d.evaluasi || [];
-      bayarList    = d.bayar    || [];
-      scheduleList = d.schedules|| [];
-      depositList  = d.deposits || [];
-    } else {
-      siswaList=[];absensiList=[];materiList=[];evaluasiList=[];bayarList=[];scheduleList=[];depositList=[];
-    }
+    const raw  = snap.exists ? snap.data() : {};
+    const data = _dataFromDoc(raw);
+    _setLists(_clone(data));
+    _base = _clone(data); _serverRev = +raw._rev || 0;
     _loadOk = true; _dataClassId = loadingClassId;
     setSynced();
     renderAll(); setCurrentMonthDashFilter(); loadAbsensi();
@@ -470,7 +517,7 @@ async function loadFromFirestore(){
     setSyncErr(e.code || e.message);
     showToast('⚠️ Gagal memuat data kelas. Perubahan TIDAK akan disimpan sampai koneksi pulih — tekan Retry.', 'warn', 8000);
     console.error('Load error', e);
-    siswaList=[];absensiList=[];materiList=[];evaluasiList=[];bayarList=[];scheduleList=[];depositList=[];
+    _setLists(_dataFromDoc({})); _base = null;
     renderAll(); setCurrentMonthDashFilter(); loadAbsensi();
   }
 }
@@ -480,9 +527,7 @@ async function loadFromFirestore(){
 // ════════════════════════════════════════════════
 let _unsubscribeSnapshot = null;
 
-// Simpan session ID unik untuk device ini.
-// Setiap write menyertakan sessionId ini di dokumen Firestore.
-// Snapshot yang punya sessionId sama = echo dari kita sendiri → abaikan.
+// Session ID unik untuk tab ini. Snapshot dengan _sid sama = tulisan kita sendiri → abaikan.
 const _sessionId = Math.random().toString(36).slice(2);
 
 function _isEditFormOpen(){
@@ -492,56 +537,80 @@ function _isEditFormOpen(){
 function subscribeToClassUpdates(){
   if(_unsubscribeSnapshot){ _unsubscribeSnapshot(); _unsubscribeSnapshot=null; }
   if(!userDocRef) return;
-
-  // Snapshot pertama dari onSnapshot SELALU berisi current state dokumen —
-  // bukan perubahan baru. Kita sudah punya data ini dari loadFromFirestore().
-  // Tandai snapshot pertama agar diabaikan.
   let _isFirstSnapshot = true;
 
   _unsubscribeSnapshot = userDocRef.onSnapshot(snap => {
-    // Snapshot pertama: abaikan, hanya set flag ready
     if(_isFirstSnapshot){
       _isFirstSnapshot = false;
-      // Load awal sukses → snapshot pertama = duplikat, abaikan.
-      // Load awal gagal → snapshot pertama dari server dipakai untuk memulihkan data.
+      // Load awal sukses → snapshot pertama = duplikat. Load gagal → pakai untuk pulih.
       if(_loadOk || snap.metadata.fromCache) return;
     }
     if(!_loadOk && snap.metadata.fromCache) return;   // jangan pulih dari cache kosong
-
-    // Abaikan selama ada pending write milik kita (local echo)
     if(snap.metadata.hasPendingWrites) return;
     if(!snap.exists) return;
-    const d = snap.data();
+    const raw = snap.data();
+    const rev = +raw._rev || 0;
+    if(raw._sid === _sessionId || (_loadOk && rev <= _serverRev)) return;   // tulisan kita / tidak ada yang baru
 
-    // Abaikan jika session ID cocok = kita sendiri yang nulis
-    if(d._sid === _sessionId) return;
+    const remote = _dataFromDoc(raw);
 
-    // Jika form input sedang terbuka, warning saja tanpa overwrite
-    if(_loadOk && _isEditFormOpen()){
-      showToast('⚠️ Data diperbarui dari device lain. Selesaikan/tutup form ini lalu refresh halaman.', 'warn', 8000);
+    if(!_loadOk){
+      // Pemulihan setelah load gagal
+      _setLists(_clone(remote)); _base = _clone(remote); _serverRev = rev;
+      _loadOk = true; _dataClassId = currentClassId;
+      renderAll(); setCurrentMonthDashFilter(); loadAbsensi();
+      setSynced(); showToast('✅ Koneksi pulih, data kelas berhasil dimuat', 'success', 3500);
       return;
     }
 
-    // Benar-benar dari device/session lain — terapkan
-    siswaList    = d.siswa    || [];
-    absensiList  = d.absensi  || [];
-    materiList   = d.materi   || [];
-    evaluasiList = d.evaluasi || [];
-    bayarList    = d.bayar    || [];
-    scheduleList = d.schedules|| [];
-    depositList  = d.deposits || [];
-    const recovered = !_loadOk;
-    _loadOk = true; _dataClassId = currentClassId;
+    // Form sedang terbuka → jangan ganggu tampilan. _base tidak diubah, jadi saat
+    // disimpan nanti perubahan device lain otomatis digabung (lihat _flushToFirestore).
+    if(_isEditFormOpen() && !_savePending){
+      // Tunda: diterapkan begitu form ditutup (lihat _applyDeferredRemote)
+      _deferredRemote = { remote, rev, classId: currentClassId };
+      showToast('🔄 Ada perubahan dari device lain — akan diterapkan setelah form ditutup.', 'info', 5000);
+      return;
+    }
+
+    if(_savePending || _flushing){
+      // Ada edit lokal yang belum terkirim → gabung, lalu kirim hasil gabungan
+      _setLists(_mergeAll(_base, _clone(_currentData()), remote));
+      _base = _clone(remote); _serverRev = rev;
+      saveToFirestore();
+    } else {
+      _setLists(_clone(remote)); _base = _clone(remote); _serverRev = rev;
+    }
     renderAll(); setCurrentMonthDashFilter(); loadAbsensi();
-    if(recovered){ setSynced(); showToast('✅ Koneksi pulih, data kelas berhasil dimuat', 'success', 3500); }
-    else showToast('🔄 Data diperbarui dari device lain', 'info', 3500);
+    showToast('🔄 Data diperbarui dari device lain', 'info', 3500);
   }, err => {
     console.error('[Snapshot listener error]', err);
   });
 }
 
+// Perubahan remote yang ditunda karena form sedang terbuka
+let _deferredRemote = null;
+function _applyDeferredRemote(){
+  const d = _deferredRemote;
+  if(!d || _isEditFormOpen() || _flushing) return;
+  _deferredRemote = null;
+  if(d.classId !== currentClassId || d.rev <= _serverRev) return;   // sudah usang
+  if(_savePending){
+    _setLists(_mergeAll(_base, _clone(_currentData()), d.remote));
+    saveToFirestore();
+  } else {
+    _setLists(_clone(d.remote));
+  }
+  _base = _clone(d.remote); _serverRev = d.rev;
+  renderAll(); setCurrentMonthDashFilter(); loadAbsensi();
+  showToast('🔄 Data diperbarui dari device lain', 'info', 3000);
+}
+setInterval(_applyDeferredRemote, 1000);
+
 let _saveTimer   = null;
-let _savePending = false;   // ada perubahan yang belum terkirim (debounce / sedang menulis)
+let _retryTimer  = null;
+let _savePending = false;   // ada perubahan yang belum terkirim (debounce / gagal / sedang menulis)
+let _flushing    = false;   // transaction sedang berjalan
+let _flushAgain  = false;   // ada edit baru selama transaction berjalan
 function _saveBlocked(){
   // true = jangan tulis ke Firestore
   if(!userDocRef) return true;
@@ -559,31 +628,75 @@ function saveToFirestore(){
   setSyncing();
   _saveTimer = setTimeout(()=>{ _flushToFirestore(); }, 400);
 }
-// opts.force = true → dipakai Restore Backup (sengaja menimpa walau load gagal)
+function _scheduleRetry(){
+  clearTimeout(_retryTimer);
+  _retryTimer = setTimeout(()=>{ if(_savePending && !_flushing) _flushToFirestore(); }, 5000);
+}
+window.addEventListener('online', ()=>{ if(_savePending && !_flushing) _flushToFirestore(); });
+
+// Kirim perubahan ke Firestore. Return true kalau tersimpan.
+// opts.force = true → Restore Backup: timpa seluruh isi kelas tanpa digabung.
 async function _flushToFirestore(opts={}){
   clearTimeout(_saveTimer); _saveTimer = null;
-  if(!opts.force && _saveBlocked()){ _savePending = false; return; }
-  if(!userDocRef){ _savePending = false; return; }
-  // Tangkap ref + kelas SEKARANG (sinkron) supaya tidak ikut berubah kalau user pindah kelas
-  const ref = userDocRef;
+  clearTimeout(_retryTimer);
+  if(!opts.force && _saveBlocked()){ _savePending = false; return false; }
+  if(!userDocRef){ _savePending = false; return false; }
+  if(_flushing){ _flushAgain = true; return false; }     // antre: satu transaction dalam satu waktu
+
+  _flushing = true;
+  // Tangkap ref, kelas & data SEKARANG supaya tidak ikut berubah kalau user pindah kelas / terus mengedit
+  const ref = userDocRef, classId = currentClassId;
+  const local = _clone(_currentData());
+  const base  = _base;
+  let written = null, newRev = 0, merged = false;
   setSyncing();
   try{
-    await ref.set({
-      siswa:siswaList, absensi:absensiList, materi:materiList,
-      evaluasi:evaluasiList, bayar:bayarList, schedules:scheduleList,
-      deposits:depositList,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      _sid: _sessionId,   // ← tandai write ini milik session kita
-    },{merge:true});
-    if(opts.force){ _loadOk = true; _dataClassId = currentClassId; }
-    _savePending = false;
-    setSynced();
-    console.log('✅ Saved → '+currentClassName+' | students:'+siswaList.length);
+    await db.runTransaction(async tx => {
+      const snap = await tx.get(ref);
+      const raw = snap.exists ? snap.data() : {};
+      const remoteRev = +raw._rev || 0;
+      written = local; merged = false;
+      if(!opts.force && remoteRev !== _serverRev && base){
+        written = _mergeAll(base, local, _dataFromDoc(raw));   // device lain menyimpan duluan
+        merged = true;
+      }
+      newRev = remoteRev + 1;
+      tx.set(ref, {
+        ...written,
+        _rev: newRev,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        _sid: _sessionId,
+      }, { merge:true });
+    });
+
+    if(currentClassId === classId){
+      _serverRev = newRev;
+      _base = _clone(written);
+      if(opts.force){ _loadOk = true; _dataClassId = classId; }
+      if(merged){
+        // Terapkan hasil gabungan, tapi pertahankan edit yang dibuat selama transaction berjalan
+        const now = _clone(_currentData());
+        const finalData = _sameData(now, local) ? _clone(written) : _mergeAll(local, now, written);
+        _setLists(finalData);
+        renderAll(); setCurrentMonthDashFilter(); loadAbsensi();
+        showToast('🔀 Perubahan Anda digabung dengan perubahan dari device lain.', 'info', 4000);
+        if(!_sameData(finalData, written)) _flushAgain = true;
+      }
+    }
+    _savePending = !!_saveTimer || _flushAgain;
+    if(!_savePending) setSynced();
+    console.log('✅ Saved → '+currentClassName+' | rev '+newRev+(merged?' (merged)':''));
+    return true;
   } catch(e){
-    _savePending = false;
     setSyncErr(e.code || e.message);
     console.error('❌ Save failed:', e.code, e.message);
     if(opts.force) throw e;   // biar Restore Backup bisa menampilkan error
+    _savePending = true;      // data masih di memori → coba lagi otomatis
+    _scheduleRetry();
+    return false;
+  } finally {
+    _flushing = false;
+    if(_flushAgain){ _flushAgain = false; if(_savePending) setTimeout(()=>_flushToFirestore(), 0); }
   }
 }
 
@@ -637,6 +750,11 @@ let depositList  = [];  // { id, siswaId, namaSiswa, tanggal, jumlah, tipe:'topu
 //  HELPERS
 // ════════════════════════════════════════════════
 const uid  = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
+// Escape teks dari user sebelum dimasukkan ke innerHTML (cegah XSS: nama/catatan berisi <script>, <img onerror>, dll.)
+function esc(v){
+  if(v === null || v === undefined) return '';
+  return String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 const fmt  = n => 'Rp ' + Number(n||0).toLocaleString('id-ID');
 // Tanggal hari ini (YYYY-MM-DD) menurut jam LOKAL device.
 // Jangan pakai toISOString().slice(0,10) → itu tanggal UTC; di WIB jam 00:00–06:59 hasilnya = kemarin.

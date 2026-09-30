@@ -1,112 +1,100 @@
-// BunRey English Course — Service Worker
-const CACHE_NAME = 'bunrey-v2-deposits';
+// LittleLume English Course — Service Worker
+// Strategi:
+//   • File aplikasi sendiri (HTML/JS/CSS/ikon) → network-first, fallback cache  → update langsung terlihat, tetap bisa dibuka offline
+//   • Library CDN (versi terkunci di URL)         → cache-first
+//   • Firebase / Google API (auth & database)     → selalu langsung ke network, tidak pernah di-cache
+// Ganti CACHE_VERSION kalau daftar APP_SHELL berubah.
+const CACHE_VERSION = 'littlelume-v4';
 
-// Resources to cache on install
-const PRECACHE = [
-  '/',
-  '/index.html',
-  '/manifest.json',
+// Path relatif terhadap lokasi sw.js → tetap jalan walau di-host di subfolder
+const APP_SHELL = [
+  './',
+  './index.html',
+  './manifest.json',
+  './css/styles.css',
+  './js/core.js',
+  './js/dashboard-students.js',
+  './js/attendance-eval.js',
+  './js/payment-receipt.js',
+  './js/deposits.js',
+  './js/reports-analytics.js',
+  './js/notifications-ui.js',
+  './js/search-nav-misc.js',
+  './favicon.ico',
+  './favicon-256x256.png',
+  './icon-192.png',
+  './icon-512.png',
+  './apple-touch-icon.png',
 ];
 
-// External CDN resources to cache
-const CDN_CACHE = [
-  'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fredoka+One:wght@700;800&display=swap',
-  'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
-  'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',
-  'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js',
-  'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js',
-];
+const CDN_HOSTS = ['cdnjs.cloudflare.com', 'www.gstatic.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
-// ── INSTALL: cache core assets ──
+// ── INSTALL: simpan app shell (satu file gagal tidak menggagalkan semuanya) ──
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      console.log('[SW] Pre-caching app shell');
-      return cache.addAll(PRECACHE).catch(err => {
-        console.warn('[SW] Pre-cache error:', err);
-      });
-    }).then(() => self.skipWaiting())
+    caches.open(CACHE_VERSION)
+      .then(cache => Promise.all(APP_SHELL.map(url =>
+        cache.add(new Request(url, { cache: 'reload' })).catch(err => console.warn('[SW] skip', url, err))
+      )))
+      .then(() => self.skipWaiting())
   );
 });
 
-// ── ACTIVATE: clean old caches ──
+// ── ACTIVATE: hapus cache versi lama (termasuk cache lama "bunrey-…") ──
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys
-          .filter(key => key !== CACHE_NAME)
-          .map(key => {
-            console.log('[SW] Deleting old cache:', key);
-            return caches.delete(key);
-          })
-      )
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE_VERSION).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
-// ── FETCH: network-first for Firebase, cache-first for static assets ──
 self.addEventListener('fetch', event => {
-  const url = new URL(event.request.url);
+  const req = event.request;
+  if (req.method !== 'GET') return;                 // POST/PUT dsb. tidak pernah di-cache
+  const url = new URL(req.url);
+  if (!url.protocol.startsWith('http')) return;     // chrome-extension:, data:, dll.
 
-  // Always go network-first for Firebase (auth + firestore)
-  if (
-    url.hostname.includes('firebase') ||
-    url.hostname.includes('firestore') ||
-    url.hostname.includes('googleapis.com') && url.pathname.includes('identitytoolkit')
-  ) {
-    event.respondWith(fetch(event.request));
-    return;
-  }
+  // Firebase Auth / Firestore / Google APIs → biarkan browser yang menangani (network)
+  if (url.hostname.endsWith('googleapis.com') && url.hostname !== 'fonts.googleapis.com') return;
+  if (url.hostname.includes('firebase') || url.hostname.includes('firestore')) return;
+  if (url.hostname === 'www.gstatic.com' && !url.pathname.startsWith('/firebasejs/')) return;
 
-  // For Google Fonts and CDN: cache-first
-  if (
-    url.hostname.includes('fonts.googleapis.com') ||
-    url.hostname.includes('fonts.gstatic.com') ||
-    url.hostname.includes('cdnjs.cloudflare.com') ||
-    url.hostname.includes('gstatic.com')
-  ) {
+  // Library CDN & font → cache-first
+  if (CDN_HOSTS.includes(url.hostname)) {
     event.respondWith(
-      caches.match(event.request).then(cached => {
-        if (cached) return cached;
-        return fetch(event.request).then(response => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-          return response;
-        }).catch(() => cached);
-      })
+      caches.match(req).then(cached => cached || fetch(req).then(res => {
+        if (res && (res.ok || res.type === 'opaque')) {
+          const copy = res.clone();
+          caches.open(CACHE_VERSION).then(c => c.put(req, copy));
+        }
+        return res;
+      }))
     );
     return;
   }
 
-  // For local app files: network-first, fallback to cache
-  event.respondWith(
-    fetch(event.request)
-      .then(response => {
-        // Cache successful responses
-        if (response && response.status === 200) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+  // File aplikasi sendiri → network-first, fallback cache
+  if (url.origin === self.location.origin) {
+    event.respondWith(
+      fetch(req).then(res => {
+        if (res && res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE_VERSION).then(c => c.put(req, copy));
         }
-        return response;
-      })
-      .catch(() => {
-        // Offline fallback: serve from cache
-        return caches.match(event.request).then(cached => {
+        return res;
+      }).catch(() =>
+        caches.match(req, { ignoreSearch: true }).then(cached => {
           if (cached) return cached;
-          // If navigating and no cache, serve index.html
-          if (event.request.mode === 'navigate') {
-            return caches.match('/index.html');
-          }
-        });
-      })
-  );
+          if (req.mode === 'navigate') return caches.match('./index.html');
+          return Response.error();
+        })
+      )
+    );
+  }
 });
 
-// ── MESSAGE: force update ──
+// ── MESSAGE: paksa update ──
 self.addEventListener('message', event => {
-  if (event.data === 'skipWaiting') {
-    self.skipWaiting();
-  }
+  if (event.data === 'skipWaiting') self.skipWaiting();
 });
