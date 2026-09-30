@@ -1020,6 +1020,7 @@ function _getReceiptContext(){
       renderHTML: _buildDepositReceiptRenderHTML(d,siswa),
       filenameBase: 'DepositReceipt-'+((d.namaSiswa||'Student').replace(/[^a-zA-Z0-9 ]/g,'').trim().replace(/ +/g,'_'))+'-'+((d.tanggal||'').slice(0,10)),
       shareTextTitle: (d.tipe==='refund'?'Deposit Refund for ':'Deposit Receipt for ')+d.namaSiswa,
+      caption: _buildWaCaptionDeposit(d),
       studentPhone: siswa?.hp,
     };
   }
@@ -1032,6 +1033,7 @@ function _getReceiptContext(){
     renderHTML: _buildReceiptRenderHTML(b,siswa),
     filenameBase: 'Receipt-'+((b.namaSiswa||'Student').replace(/[^a-zA-Z0-9 ]/g,'').trim().replace(/ +/g,'_'))+'-'+((b.tanggal||'').slice(0,10)),
     shareTextTitle: 'Receipt for '+b.namaSiswa,
+    caption: _buildWaCaptionPayment(b),
     studentPhone: siswa?.hp,
   };
 }
@@ -1065,25 +1067,94 @@ function waText(){
   const text=document.getElementById('modal-receipt').dataset.receiptText||'';
   window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank');
 }
+// ════════════════════════════════════════════════
+//  WA: GAMBAR RECEIPT + TEKS CAPTION (satu pesan)
+// ════════════════════════════════════════════════
+// Teks caption WA. *...* = bold di WhatsApp.
+function _buildWaCaptionPayment(b){
+  const nama = (b.namaSiswa||'-').trim();
+  const periode = b.periode ? ` for ${b.periode}` : '';
+  let txt = `Assalamu'alaikum, here is the tuition payment receipt on behalf of *${nama}*${periode} amounting to ${fmt(b.jumlah)}.`;
+  if(b.status==='Cicil' && b.tagihan>b.jumlah){
+    txt += ` Remaining balance: ${fmt(b.tagihan-b.jumlah)}.`;
+  }
+  return txt + ' Thank you.';
+}
+function _buildWaCaptionDeposit(d){
+  const nama = (d.namaSiswa||'-').trim();
+  const isRefund = d.tipe==='refund';
+  const bal = (typeof getDepositBalance==='function') ? getDepositBalance(d.siswaId) : 0;
+  return isRefund
+    ? `Assalamu'alaikum, here is the deposit refund receipt on behalf of *${nama}* amounting to ${fmt(d.jumlah)}. Current deposit balance: ${fmt(bal)}. Thank you.`
+    : `Assalamu'alaikum, here is the deposit receipt on behalf of *${nama}* amounting to ${fmt(d.jumlah)}. Current deposit balance: ${fmt(bal)}. Thank you.`;
+}
+
+let _waShareCache = null;   // {file, caption, filenameBase, hp} — dipakai tombol "Share now"
+
 async function waImage(){
   const ctx = _getReceiptContext(); if(!ctx) return;
   const ws=document.getElementById('wa-status');
   const btn=document.getElementById('btn-wa-img');
   ws.style.display='block'; ws.textContent='⏳ Generating image…'; btn.disabled=true;
   try{
+    // Gambar tetap dari builder yang sama → tampilan receipt tidak berubah
     const canvas=await _renderToCanvasHTML(ctx.renderHTML);
-    const a=document.createElement('a');
-    a.download=ctx.filenameBase+'.png';
-    a.href=canvas.toDataURL('image/png'); a.click();
-    await new Promise(r=>setTimeout(r,600));
-    const hp=(ctx.studentPhone||'').replace(/\D/g,'');
-    const waUrl=hp?`https://wa.me/62${hp.replace(/^0/,'')}?text=${encodeURIComponent(ctx.shareTextTitle)}`:`https://wa.me/?text=${encodeURIComponent(ctx.shareTextTitle)}`;
-    window.open(waUrl,'_blank');
-    ws.innerHTML='✅ Image saved → WhatsApp opened → tap 📎 → Gallery to attach.';
-    setTimeout(()=>ws.style.display='none',7000);
-  }catch(e){ ws.textContent='❌ Failed. Try Save PNG.' }
+    const blob=await new Promise((res,rej)=>canvas.toBlob(b=>b?res(b):rej(new Error('toBlob failed')),'image/png'));
+    const file=new File([blob], ctx.filenameBase+'.png', {type:'image/png'});
+    _waShareCache={ file, caption:ctx.caption, filenameBase:ctx.filenameBase,
+                    hp:(ctx.studentPhone||'').replace(/\D/g,'') };
+
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await _waShareNow();
+    } else {
+      await _waShareFallback();
+    }
+  }catch(e){
+    console.error('waImage error:', e);
+    ws.textContent='❌ Failed. Try Save PNG.';
+  }
   btn.disabled=false;
 }
+
+// Web Share: gambar + teks → di WhatsApp teks jadi caption gambar
+async function _waShareNow(){
+  const ws=document.getElementById('wa-status');
+  const c=_waShareCache; if(!c) return;
+  try{
+    await navigator.share({ files:[c.file], text:c.caption });
+    ws.textContent='✅ Shared. Pilih kontak di WhatsApp lalu kirim.';
+    setTimeout(()=>ws.style.display='none',5000);
+  }catch(e){
+    if(e.name==='AbortError'){ ws.style.display='none'; return; }       // user batal
+    if(e.name==='NotAllowedError'){
+      // Gesture klik kedaluwarsa karena render gambar lama → minta tap sekali lagi
+      ws.innerHTML='✅ Image ready. <button class="btn wa2 sm" onclick="_waShareNow()">📤 Share to WhatsApp</button>';
+      return;
+    }
+    console.warn('share failed, fallback:', e);
+    await _waShareFallback();
+  }
+}
+
+// Fallback (desktop / browser tanpa Web Share file): download gambar,
+// copy caption ke clipboard, buka chat WA → user attach & paste caption
+async function _waShareFallback(){
+  const ws=document.getElementById('wa-status');
+  const c=_waShareCache; if(!c) return;
+  const a=document.createElement('a');
+  a.download=c.filenameBase+'.png';
+  a.href=URL.createObjectURL(c.file); a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+  let copied=false;
+  try{ await navigator.clipboard.writeText(c.caption); copied=true; }catch(e){}
+  await new Promise(r=>setTimeout(r,600));
+  window.open(c.hp?`https://wa.me/62${c.hp.replace(/^0/,'')}`:'https://wa.me/','_blank');
+  ws.innerHTML = copied
+    ? '✅ Image saved & caption copied → di WhatsApp tap 📎 → pilih gambar → <b>paste</b> di kolom caption → kirim.'
+    : '✅ Image saved → di WhatsApp tap 📎 → pilih gambar, lalu ketik caption.';
+  setTimeout(()=>ws.style.display='none',10000);
+}
+
 function copyReceipt(){
   const text=document.getElementById('modal-receipt').dataset.receiptText||'';
   navigator.clipboard.writeText(text).then(()=>showToast('✅ Copied to clipboard!','success'));
