@@ -105,7 +105,7 @@ function exportBackup(){
   const a=document.createElement('a');
   const safeName = (currentClassName||'class').replace(/\s+/g,'-');
   a.href=URL.createObjectURL(blob);
-  a.download='LittleLume-'+safeName+'-Backup-'+new Date().toISOString().slice(0,10)+'.json';
+  a.download='LittleLume-'+safeName+'-Backup-'+todayISO()+'.json';
   a.click();
 }
 function importBackup(e){
@@ -175,7 +175,7 @@ function exportCSV(key){
   else if(key==='deposits'){ headers=['Date','Student','Type','Amount','Method','Notes']; rows=depositList.map(d=>[tglFmt(d.tanggal),d.namaSiswa,d.tipe==='refund'?'Refund':'Top-Up',d.jumlah,d.metode||'',d.catatan||'']); }
   const csv=[headers,...rows].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
   const blob=new Blob([csv],{type:'text/csv'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='LittleLume-'+key+'-'+new Date().toISOString().slice(0,10)+'.csv'; a.click();
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='LittleLume-'+key+'-'+todayISO()+'.csv'; a.click();
 }
 function clearAllData(){
   dangerModal(
@@ -690,7 +690,7 @@ async function saveBulkEval(){
 }
 
 function init(){
-  const today=new Date().toISOString().slice(0,10);
+  const today=todayISO();
   document.getElementById('absen-date').value=today;
   document.getElementById('m-tanggal').value=today;
   document.getElementById('e-tanggal').value=today;

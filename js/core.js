@@ -630,6 +630,11 @@ let depositList  = [];  // { id, siswaId, namaSiswa, tanggal, jumlah, tipe:'topu
 // ════════════════════════════════════════════════
 const uid  = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 const fmt  = n => 'Rp ' + Number(n||0).toLocaleString('id-ID');
+// Tanggal hari ini (YYYY-MM-DD) menurut jam LOKAL device.
+// Jangan pakai toISOString().slice(0,10) → itu tanggal UTC; di WIB jam 00:00–06:59 hasilnya = kemarin.
+function todayISO(d = new Date()){
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
 const stars = n => '⭐'.repeat(Number(n)||0);
 const tglFmt = d => d ? new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '-';
 const chip = (txt,cls) => `<span class="chip ${cls}">${txt}</span>`;

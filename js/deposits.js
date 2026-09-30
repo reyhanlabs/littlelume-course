@@ -155,7 +155,7 @@ function openDepositForm(id, presetSiswaId){
     <button class="btn primary" onclick="saveDeposit()">💾 Save</button>
   `;
   document.getElementById('dep-id').value        = d?.id || '';
-  document.getElementById('dep-tanggal').value   = d?.tanggal || new Date().toISOString().slice(0,10);
+  document.getElementById('dep-tanggal').value   = d?.tanggal || todayISO();
   document.getElementById('dep-jumlah').value    = d?.jumlah || '';
   document.getElementById('dep-metode').value    = d?.metode || 'Transfer';
   document.getElementById('dep-catatan').value   = d?.catatan || '';
@@ -294,7 +294,7 @@ function openRefundForm(siswaId){
   }
   document.getElementById('form-deposit-title').textContent = '↩️ Refund Deposit';
   document.getElementById('dep-id').value      = '';
-  document.getElementById('dep-tanggal').value = new Date().toISOString().slice(0,10);
+  document.getElementById('dep-tanggal').value = todayISO();
   document.getElementById('dep-jumlah').value  = balance;      // default = full balance
   document.getElementById('dep-metode').value  = 'Transfer';
   document.getElementById('dep-catatan').value = '';
@@ -436,6 +436,11 @@ function openDepositDetail(siswaId){
  * Menampilkan panel deposit dengan auto-fill min(saldo, tagihan).
  */
 function refreshDepositPanel(){
+  _refreshDepositPanelCore();
+  // Nominal di form bisa berubah (sesi dicentang / monthly auto-fill) → perbarui status otomatis
+  if(typeof _updateAutoStatus === 'function') _updateAutoStatus();
+}
+function _refreshDepositPanelCore(){
   const panel   = document.getElementById('deposit-pay-panel');
   if(!panel) return;
   const siswaId = document.getElementById('b-siswa').value;

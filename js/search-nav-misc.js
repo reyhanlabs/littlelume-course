@@ -56,9 +56,9 @@ function openStudentProfile(id){
   if(s.billingType==='monthly'){
     const sessionMonths=new Set();
     attHadir.forEach(a=>{ const d=new Date(a.tanggal); sessionMonths.add(d.getFullYear()+'-'+(d.getMonth()+1).toString().padStart(2,'0')); });
-    const paidMonths=new Set();
-    payStudent.filter(b=>b.billingType==='monthly'&&b.status==='Lunas').forEach(b=>{ const p=parsePeriodeToYearMonth(b.periode||''); if(p) paidMonths.add(p.y+'-'+p.m.toString().padStart(2,'0')); });
-    sessionMonths.forEach(ym=>{ if(!paidMonths.has(ym)) outstanding+=(s.feeMonthly||0); });
+    const _mpi=getMonthlyPayInfo(s.id);
+    const paidMonths=_mpi.paid;
+    sessionMonths.forEach(ym=>{ outstanding+=monthDue(s, ym, _mpi); });
   } else {
     const unpaidCount=attHadir.filter(a=>!paidSesiIds.has(a.id)).length;
     outstanding=unpaidCount*(s.feePerSesi||0);
@@ -208,9 +208,9 @@ function buildSPRenderHTML(id){
   if(s.billingType==='monthly'){
     const sessionMonths=new Set();
     attHadir.forEach(a=>{ const d=new Date(a.tanggal); sessionMonths.add(d.getFullYear()+'-'+(d.getMonth()+1).toString().padStart(2,'0')); });
-    const paidMonths=new Set();
-    payStudent.filter(b=>b.billingType==='monthly'&&b.status==='Lunas').forEach(b=>{ const p=parsePeriodeToYearMonth(b.periode||''); if(p) paidMonths.add(p.y+'-'+p.m.toString().padStart(2,'0')); });
-    sessionMonths.forEach(ym=>{ if(!paidMonths.has(ym)) outstanding+=(s.feeMonthly||0); });
+    const _mpi=getMonthlyPayInfo(s.id);
+    const paidMonths=_mpi.paid;
+    sessionMonths.forEach(ym=>{ outstanding+=monthDue(s, ym, _mpi); });
   } else {
     outstanding = attHadir.filter(a=>!paidSesiIds.has(a.id)).length * (s.feePerSesi||0);
   }
@@ -440,8 +440,8 @@ async function exportSP(type){
     let outstanding=0;
     if(s.billingType==='monthly'){
       const sessionMonths=new Set(); attHadir.forEach(a=>{ const d=new Date(a.tanggal); sessionMonths.add(d.getFullYear()+'-'+(d.getMonth()+1).toString().padStart(2,'0')); });
-      const paidMonths=new Set(); payStudent.filter(b=>b.billingType==='monthly'&&b.status==='Lunas').forEach(b=>{ const p=parsePeriodeToYearMonth(b.periode||''); if(p) paidMonths.add(p.y+'-'+p.m.toString().padStart(2,'0')); });
-      sessionMonths.forEach(ym=>{ if(!paidMonths.has(ym)) outstanding+=(s.feeMonthly||0); });
+      const _mpi=getMonthlyPayInfo(s.id); const paidMonths=_mpi.paid;
+      sessionMonths.forEach(ym=>{ outstanding+=monthDue(s, ym, _mpi); });
     } else {
       outstanding=attHadir.filter(a=>!paidSesiIds.has(a.id)).length*(s.feePerSesi||0);
     }
@@ -676,10 +676,7 @@ function getStudentContext(siswaId){
       const d=new Date(a.tanggal);
       sessionMonths.add(d.getFullYear()+'-'+(d.getMonth()+1).toString().padStart(2,'0'));
     });
-    const paidMonths = new Set();
-    pays.filter(b=>b.billingType==='monthly'&&b.status==='Lunas').forEach(b=>{
-      const p=parsePeriodeToYearMonth(b.periode||''); if(p) paidMonths.add(p.y+'-'+p.m.toString().padStart(2,'0'));
-    });
+    const paidMonths = getPaidMonths(siswaId);
     unpaidMonths = [...sessionMonths].filter(ym=>!paidMonths.has(ym)).length;
     unpaidSessions = unpaidMonths; // alias agar template WA tetap bisa pakai ctx.unpaidSessions
   } else {
@@ -937,7 +934,7 @@ function sendWaTemplate(){
   saveBulkEval = async function(){
     await _orig();
     if(document.getElementById('cal-grid')) renderCalendar();
-    const today = new Date().toISOString().slice(0,10);
+    const today = todayISO();
     const perfect = evaluasiList.filter(e=>e.tanggal===today && Number(e.nilai)===100);
     if(perfect.length > 0) triggerConfetti();
   };
@@ -988,11 +985,8 @@ function updateMbnBadge(){
         const d=new Date(a.tanggal);
         sessionMonths.add(d.getFullYear()+'-'+(d.getMonth()+1).toString().padStart(2,'0'));
       });
-      const paidMonths = new Set();
-      bayarList.filter(b=>b.siswaId===s.id&&b.billingType==='monthly'&&b.status==='Lunas').forEach(b=>{
-        const p=parsePeriodeToYearMonth(b.periode||'');
-        if(p) paidMonths.add(p.y+'-'+p.m.toString().padStart(2,'0'));
-      });
+      const _mpi = getMonthlyPayInfo(s.id);
+      const paidMonths = _mpi.paid;
       if([...sessionMonths].some(ym=>!paidMonths.has(ym))) n++;
     } else {
       if(absensiList.some(a=>a.siswaId===s.id&&a.status==='Hadir'&&!paidSesiIds.has(a.id))) n++;

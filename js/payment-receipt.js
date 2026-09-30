@@ -180,10 +180,11 @@ function openPaymentForm(id){
   _paymentAmountManuallyEdited = !!b;
   document.getElementById('b-id').value=b?.id||'';
   document.getElementById('b-periode').value=b?.periode||'';
-  document.getElementById('b-tanggal').value=b?.tanggal||new Date().toISOString().slice(0,10);
+  document.getElementById('b-tanggal').value=b?.tanggal||todayISO();
   document.getElementById('b-jumlah').value=b?.jumlah||'';
   document.getElementById('b-tagihan').value=b?.tagihan||'';
   document.getElementById('b-status').value=b?.status||'Lunas';
+  setTimeout(_updateAutoStatus, 80);
   document.getElementById('b-catatan').value=b?.catatan||'';
 
   // Deposit-used field: prime with existing value when editing, otherwise clear
@@ -280,20 +281,40 @@ function savePayment(){
     }
   }
 
+  // ── Status otomatis & cegah lebih bayar ──
+  const selfId = id || uid();
+  let prevPaid = 0, oldPeriode = null;
+  if(id){ oldPeriode = bayarList.find(b=>b.id===id)?.periode ?? null; }
+  if(isMonthly){
+    prevPaid = _monthlyGroup(siswaId, periode).filter(o=>o.id!==selfId).reduce((t,o)=>t+(+o.jumlah||0),0);
+  }
+  if(prevPaid + jumlah > tagihan){
+    showToast(prevPaid>0
+      ? `Total paid (${fmt(prevPaid)} earlier + ${fmt(jumlah)}) exceeds invoice ${fmt(tagihan)}. Record the extra as a deposit top-up.`
+      : `Amount paid (${fmt(jumlah)}) exceeds invoice (${fmt(tagihan)}). Record the extra as a deposit top-up.`,
+      'warn', 6000);
+    return;
+  }
+
   const data={
     siswaId, namaSiswa:s?.nama||'-',
     periode,
     tanggal,
     jumlah,
     tagihan,
-    status:document.getElementById('b-status').value,
+    status: derivePaymentStatus(prevPaid + jumlah, tagihan),   // diturunkan otomatis
     catatan:document.getElementById('b-catatan').value.trim(),
     sesiIds,
     depositUsed,
     billingType: isMonthly ? 'monthly' : 'per_session',
   };
   if(id){ const i=bayarList.findIndex(b=>b.id===id); if(i>-1) bayarList[i]={...bayarList[i],...data}; }
-  else bayarList.push({id:uid(),...data});
+  else bayarList.push({id:selfId,...data});
+  // Cicilan bulanan: urutan tanggal bisa menggeser status record lain di periode yang sama
+  if(isMonthly){
+    _recalcMonthlyGroupStatus(siswaId, periode);
+    if(oldPeriode!==null && oldPeriode!==periode) _recalcMonthlyGroupStatus(siswaId, oldPeriode);
+  }
   DB.set('bayar',bayarList);
   closePaymentForm(); renderPayment(); updateUnpaidBadge(); updateMbnBadge();
   // Refresh hutang tab jika sedang aktif
@@ -307,13 +328,12 @@ function getMonthlySessionIds(siswaId, periodeText){
   // Parse "June 2026" / "Juni 2025" / "2026-06" → year+month range
   // TIDAK ada fallback ke semua sesi — jika periode tidak bisa di-parse, return array kosong
   // agar savePayment() bisa mendeteksi dan memblokir penyimpanan
-  const parsed = parsePeriodeToYearMonth(periodeText);
-  if(!parsed) return null;  // ← null = sinyal periode tidak valid (bukan array kosong)
-  const {y,m}=parsed;
+  const months = parsePeriodeToMonths(periodeText);
+  if(!months.length) return null;  // ← null = sinyal periode tidak valid (bukan array kosong)
+  const set = new Set(months);
   return absensiList.filter(a=>{
     if(a.siswaId!==siswaId || a.status!=='Hadir') return false;
-    const d=new Date(a.tanggal);
-    return d.getFullYear()===y && (d.getMonth()+1)===m;
+    return set.has((a.tanggal||'').slice(0,7));
   }).map(a=>a.id);
 }
 
@@ -330,6 +350,149 @@ function parsePeriodeToYearMonth(text){
   if(m3){const key=m3[2].slice(0,3); const mo=months[key]; if(mo) return {y:+m3[1],m:mo};}
   return null;
 }
+
+// ────────────────────────────────────────────────
+//  PERIODE MULTI-BULAN & STATUS BULANAN TERPUSAT
+// ────────────────────────────────────────────────
+function _ymKey(y,m){ return y+'-'+String(m).padStart(2,'0'); }
+
+/**
+ * Periode → daftar bulan 'YYYY-MM'.
+ *   "July 2026"                   → ['2026-07']
+ *   "July 2026 - October 2026"    → ['2026-07','2026-08','2026-09','2026-10']
+ *   "Juli - Oktober 2026"         → idem (tahun diambil dari bulan berikutnya)
+ *   "November 2026 - Feb 2027"    → lintas tahun
+ *   "2026-07 s/d 2026-09"         → format angka
+ * Tidak dikenali → [].
+ */
+function parsePeriodeToMonths(text){
+  if(!text) return [];
+  const t = String(text).toLowerCase();
+  const MONTHS={jan:1,feb:2,mar:3,apr:4,may:5,mei:5,jun:6,jul:7,aug:8,agu:8,agt:8,sep:9,okt:10,oct:10,nov:11,des:12,dec:12};
+  let pts = [];
+  for(const m of t.matchAll(/(\d{4})[.\-\/](\d{1,2})(?!\d)/g)) pts.push({y:+m[1], m:+m[2]});
+  if(!pts.length){
+    for(const m of t.matchAll(/([a-z]{3,})\.?[\s,]*(\d{4})?/g)){
+      const mo = MONTHS[m[1].slice(0,3)];
+      if(mo) pts.push({y:m[2]?+m[2]:null, m:mo});
+    }
+    // Bulan tanpa tahun ambil tahun dari titik berikutnya ("Juli - Oktober 2026")
+    for(let i=pts.length-1;i>=0;i--){
+      if(pts[i].y!=null) continue;
+      const nxt = pts.slice(i+1).find(p=>p.y!=null);
+      if(nxt) pts[i].y = pts[i].m > nxt.m ? nxt.y-1 : nxt.y;
+    }
+  }
+  pts = pts.filter(p=>p.y && p.m>=1 && p.m<=12);
+  if(!pts.length){
+    const one = parsePeriodeToYearMonth(text);        // fallback format lama ("2026 July")
+    return one ? [_ymKey(one.y, one.m)] : [];
+  }
+  let s = pts[0].y*12 + pts[0].m-1, e = pts[pts.length-1].y*12 + pts[pts.length-1].m-1;
+  if(e < s) [s,e] = [e,s];
+  if(e - s > 23) e = s;                               // guard: maks 24 bulan
+  const out=[]; for(let k=s;k<=e;k++) out.push(_ymKey(Math.floor(k/12), k%12+1));
+  return out;
+}
+
+// Payment bulanan lain untuk siswa + periode yang sama (grup cicilan)
+function _monthlyGroup(siswaId, periodeText){
+  const key = parsePeriodeToMonths(periodeText).join(',');
+  if(!key) return [];
+  return bayarList.filter(b=>b.siswaId===siswaId && b.billingType==='monthly'
+                          && parsePeriodeToMonths(b.periode).join(',')===key);
+}
+
+/**
+ * Status bulanan per siswa, memperhitungkan cicilan & periode multi-bulan.
+ *   paid       : Set 'YYYY-MM' yang sudah lunas
+ *   paidAmount : { 'YYYY-MM': nominal terbayar (dibagi rata untuk periode multi-bulan) }
+ * Lunas = total cicilan ≥ tagihan, atau ada record berstatus Lunas (data lama).
+ */
+function getMonthlyPayInfo(siswaId){
+  const groups = {};
+  bayarList.filter(b=>b.siswaId===siswaId && b.billingType==='monthly').forEach(b=>{
+    const months = parsePeriodeToMonths(b.periode||''); if(!months.length) return;
+    const key = months.join(',');
+    const g = groups[key] || (groups[key] = {months, sum:0, tagihan:0, lunas:false});
+    g.sum += (+b.jumlah||0);
+    g.tagihan = Math.max(g.tagihan, +b.tagihan||0);
+    if(b.status==='Lunas') g.lunas = true;
+  });
+  const paid = new Set(), paidAmount = {};
+  Object.values(groups).forEach(g=>{
+    const full = g.lunas || (g.tagihan>0 && g.sum>=g.tagihan);
+    g.months.forEach(ym=>{
+      paidAmount[ym] = (paidAmount[ym]||0) + g.sum/g.months.length;
+      if(full) paid.add(ym);
+    });
+  });
+  return { paid, paidAmount };
+}
+function getPaidMonths(siswaId){ return getMonthlyPayInfo(siswaId).paid; }
+// Sisa tagihan untuk satu bulan (0 kalau lunas; dikurangi cicilan yang sudah masuk)
+function monthDue(s, ym, info){
+  if(info.paid.has(ym)) return 0;
+  return Math.max(0, (s.feeMonthly||0) - Math.round(info.paidAmount[ym]||0));
+}
+
+// ────────────────────────────────────────────────
+//  STATUS OTOMATIS (Poin 6)
+// ────────────────────────────────────────────────
+function derivePaymentStatus(paid, tagihan){
+  if(!(paid>0)) return 'Belum Bayar';
+  return paid >= tagihan ? 'Lunas' : 'Cicil';
+}
+/** Total terbayar s/d record ini (termasuk cicilan sebelumnya di periode yang sama) */
+function getPaymentProgress(b){
+  let paidToDate = +b.jumlah||0;
+  if(b.billingType==='monthly'){
+    paidToDate = _monthlyGroup(b.siswaId, b.periode)
+      .filter(o=>_isOnOrBefore(o.tanggal, o.id, b.tanggal, b.id))
+      .reduce((s,o)=>s+(+o.jumlah||0), 0);
+  }
+  const tagihan = +b.tagihan||0;
+  return {
+    paidToDate,
+    remaining: Math.max(0, tagihan - paidToDate),
+    pct: tagihan>0 ? Math.min(100, Math.round(paidToDate/tagihan*100)) : 0,
+  };
+}
+/** Hitung ulang status semua cicilan dalam satu grup (setelah save/edit/hapus) */
+function _recalcMonthlyGroupStatus(siswaId, periodeText){
+  _monthlyGroup(siswaId, periodeText).forEach(b=>{
+    b.status = derivePaymentStatus(getPaymentProgress(b).paidToDate, +b.tagihan||0);
+  });
+}
+/** Pratinjau status di form (select status dikunci, diisi otomatis) */
+function _updateAutoStatus(){
+  const sel  = document.getElementById('b-status');
+  const hint = document.getElementById('b-status-hint');
+  if(!sel) return;
+  const siswaId = document.getElementById('b-siswa').value;
+  const s = siswaId ? siswaList.find(x=>x.id===siswaId) : null;
+  const id = document.getElementById('b-id').value;
+  const jumlah  = getNumberValue('b-jumlah');
+  const tagihan = getNumberValue('b-tagihan');
+  let prev = 0;
+  if(s && s.billingType==='monthly'){
+    prev = _monthlyGroup(siswaId, document.getElementById('b-periode').value)
+      .filter(o=>o.id!==id).reduce((t,o)=>t+(+o.jumlah||0),0);
+  }
+  const total = prev + jumlah;
+  sel.value = derivePaymentStatus(total, tagihan);
+  if(!hint) return;
+  if(!tagihan || !jumlah){ hint.innerHTML=''; return; }
+  const prevTxt = prev>0 ? ` (incl. ${fmt(prev)} paid earlier this period)` : '';
+  hint.innerHTML = total > tagihan
+    ? `<span style="color:var(--red)">⚠️ Exceeds invoice by ${fmt(total-tagihan)}${prevTxt}. Record the extra as a deposit top-up.</span>`
+    : total < tagihan
+      ? `<span style="color:var(--yellow)">Partial — ${fmt(tagihan-total)} remaining${prevTxt}</span>`
+      : `<span style="color:var(--green)">Paid in full${prevTxt}</span>`;
+}
+document.addEventListener('input', e=>{
+  if(['b-jumlah','b-tagihan','b-periode'].includes(e.target?.id)) _updateAutoStatus();
+});
 
 function onPaymentStudentChange(){
   // Ganti siswa = reset flag manual edit agar auto-kalkulasi aktif kembali
@@ -373,24 +536,20 @@ function refreshMonthlyPanel(){
   const feeMonthly=s.feeMonthly||0;
   const body=document.getElementById('monthly-pay-body');
   // Count sessions in that month
-  const parsed=parsePeriodeToYearMonth(periodeText);
+  const months=parsePeriodeToMonths(periodeText);
   let sesiCount=0, sesiInfo='';
-  if(parsed){
-    const {y,m}=parsed;
-    const sesiInMonth=absensiList.filter(a=>{
-      if(a.siswaId!==siswaId||a.status!=='Hadir') return false;
-      const d=new Date(a.tanggal); return d.getFullYear()===y&&(d.getMonth()+1)===m;
-    });
-    sesiCount=sesiInMonth.length;
+  if(months.length){
+    sesiCount=(getMonthlySessionIds(siswaId, periodeText)||[]).length;
+    const scope = months.length>1 ? `in these ${months.length} months` : 'this month';
     sesiInfo=sesiCount>0
-      ? `<span style="color:var(--green)">✅ ${sesiCount} sessions present this month</span>`
-      : `<span style="color:var(--muted)">⚠️ No attendance records this month</span>`;
+      ? `<span style="color:var(--green)">✅ ${sesiCount} sessions present ${scope}</span>`
+      : `<span style="color:var(--muted)">⚠️ No attendance records ${scope}</span>`;
   } else {
     sesiInfo=periodeText?`<span style="color:var(--yellow)">⚠️ Unrecognized period format (try: "June 2026")</span>`:`<span style="color:var(--muted)">— Enter a period first (e.g. June 2026)</span>`;
   }
   body.innerHTML=`
     <div>👤 <strong>${s.nama}</strong></div>
-    <div>💰 Monthly Fee: <strong style="color:var(--green)">${fmt(feeMonthly)}</strong></div>
+    <div>💰 Monthly Fee: <strong style="color:var(--green)">${fmt(feeMonthly)}</strong>${months.length>1?` × ${months.length} months = <strong style="color:var(--green)">${fmt(feeMonthly*months.length)}</strong>`:''}</div>
     <div>📅 Periode: <strong>${periodeText||'-'}</strong></div>
     <div>${sesiInfo}</div>
     <div style="font-size:0.78rem;color:var(--muted);margin-top:4px">All sessions this month will be automatically linked when saved.</div>
@@ -401,18 +560,26 @@ function applyMonthlyBilling(){
   const siswaId=document.getElementById('b-siswa').value;
   const s=siswaId?siswaList.find(x=>x.id===siswaId):null;
   if(!s||!s.feeMonthly){ showToast('Set Monthly Fee in student profile first!','warn'); return; }
-  const formatted = 'Rp ' + Number(s.feeMonthly).toLocaleString('id-ID');
-  document.getElementById('b-tagihan').value = formatted;
-  document.getElementById('b-jumlah').value  = formatted;
-  document.getElementById('b-status').value  = 'Lunas';
   // Auto-fill periode dengan bulan berjalan jika masih kosong
   if(!document.getElementById('b-periode').value.trim()){
     const now=new Date();
     document.getElementById('b-periode').value=now.toLocaleString('en',{month:'long'})+' '+now.getFullYear();
     refreshMonthlyPanel();
   }
+  const nMonths = Math.max(1, parsePeriodeToMonths(document.getElementById('b-periode').value).length);
+  const invoice = s.feeMonthly * nMonths;
+  // Kalau sudah ada cicilan di periode ini, Amount Paid = sisa tagihan
+  const id = document.getElementById('b-id').value;
+  const prev = _monthlyGroup(siswaId, document.getElementById('b-periode').value)
+    .filter(o=>o.id!==id).reduce((t,o)=>t+(+o.jumlah||0),0);
+  const pay = Math.max(0, invoice - prev);
+  document.getElementById('b-tagihan').value = 'Rp ' + invoice.toLocaleString('id-ID');
+  document.getElementById('b-jumlah').value  = pay>0 ? 'Rp ' + pay.toLocaleString('id-ID') : '';
   if(typeof refreshDepositPanel === 'function') refreshDepositPanel();
-  showToast(`✅ Invoice & Amount auto-filled: ${fmt(s.feeMonthly)}. Review then click Save.`,'success');
+  _updateAutoStatus();
+  showToast(prev>0
+    ? `✅ Invoice ${fmt(invoice)} · already paid ${fmt(prev)} · remaining ${fmt(pay)}. Review then click Save.`
+    : `✅ Invoice & Amount auto-filled: ${fmt(invoice)}. Review then click Save.`,'success');
 }
 function deletePayment(id){
   const payment = bayarList.find(b => b.id === id);
@@ -434,6 +601,7 @@ function deletePayment(id){
     `This action cannot be undone.`,
     () => {
       bayarList = bayarList.filter(b => b.id !== id);
+      if(payment.billingType==='monthly') _recalcMonthlyGroupStatus(payment.siswaId, payment.periode);
       DB.set('bayar', bayarList);
       renderPayment();
       updateUnpaidBadge(); updateMbnBadge();
@@ -497,12 +665,9 @@ function renderPayment(){
           const d=new Date(a.tanggal);
           sessionMonths.add(d.getFullYear()+'-'+(d.getMonth()+1).toString().padStart(2,'0'));
         });
-        const paidMonths = new Set();
-        bayarList.filter(b=>b.siswaId===s.id&&b.billingType==='monthly'&&b.status==='Lunas').forEach(b=>{
-          const parsed=parsePeriodeToYearMonth(b.periode||'');
-          if(parsed) paidMonths.add(parsed.y+'-'+parsed.m.toString().padStart(2,'0'));
-        });
-        sessionMonths.forEach(ym=>{ if(!paidMonths.has(ym)) outstanding+=(s.feeMonthly||0); });
+        const _mpi = getMonthlyPayInfo(s.id);
+        const paidMonths = _mpi.paid;
+        sessionMonths.forEach(ym=>{ outstanding+=monthDue(s, ym, _mpi); });
       } else {
         const fee = s.feePerSesi || 0;
         if(!fee) return;
@@ -603,11 +768,8 @@ function updateUnpaidBadge(){
         const d=new Date(a.tanggal);
         sessionMonths.add(d.getFullYear()+'-'+(d.getMonth()+1).toString().padStart(2,'0'));
       });
-      const paidMonths = new Set();
-      bayarList.filter(b=>b.siswaId===s.id&&b.billingType==='monthly'&&b.status==='Lunas').forEach(b=>{
-        const p=parsePeriodeToYearMonth(b.periode||'');
-        if(p) paidMonths.add(p.y+'-'+p.m.toString().padStart(2,'0'));
-      });
+      const _mpi = getMonthlyPayInfo(s.id);
+      const paidMonths = _mpi.paid;
       if([...sessionMonths].some(ym=>!paidMonths.has(ym))) n++;
     } else {
       if(absensiList.some(a=>a.siswaId===s.id&&a.status==='Hadir'&&!paidSesiIds.has(a.id))) n++;
@@ -645,22 +807,20 @@ function renderHutangSesi(){
           if(!sessionMonths[ym]) sessionMonths[ym]=[];
           sessionMonths[ym].push(a);
         });
-        const paidMonths = new Set();
-        bayarList.filter(b=>b.siswaId===siswa.id&&b.billingType==='monthly'&&b.status==='Lunas').forEach(b=>{
-          const parsed=parsePeriodeToYearMonth(b.periode||'');
-          if(parsed) paidMonths.add(parsed.y+'-'+parsed.m.toString().padStart(2,'0'));
-        });
+        const _mpi = getMonthlyPayInfo(siswa.id);
+        const paidMonths = _mpi.paid;
         const unpaidMonths = Object.keys(sessionMonths).filter(ym=>!paidMonths.has(ym)).sort();
         if(!unpaidMonths.length) return;
         anyUnpaid=true;
         const feeMonthly=siswa.feeMonthly||0;
-        const totalHutang=unpaidMonths.length*feeMonthly;
+        const totalHutang=unpaidMonths.reduce((t,ym)=>t+monthDue(siswa, ym, _mpi), 0);   // cicilan diperhitungkan
         const pctPaid=Object.keys(sessionMonths).length ? Math.round((paidMonths.size/Object.keys(sessionMonths).length)*100) : 0;
         const monthChips=unpaidMonths.map(ym=>{
           const [y,m]=ym.split('-');
           const label=new Date(+y,+m-1).toLocaleString('en',{month:'short',year:'numeric'});
           const sesiCount=sessionMonths[ym].length;
-          return `<span class="session-chip unpaid" title="${sesiCount} sesi">📅 ${label} (${sesiCount}x)</span>`;
+          const part=Math.round(_mpi.paidAmount[ym]||0);
+          return `<span class="session-chip unpaid" title="${sesiCount} sesi${part?' · paid '+fmt(part):''}">📅 ${label} (${sesiCount}x)${part?' · partial':''}</span>`;
         }).join('');
         listEl.innerHTML += `
           <div class="sesi-tracker-card">
@@ -714,7 +874,7 @@ function openPaymentFormForStudent(siswaId){
   _paymentAmountManuallyEdited = false;
   document.getElementById('b-id').value='';
   document.getElementById('b-periode').value='';
-  document.getElementById('b-tanggal').value=new Date().toISOString().slice(0,10);
+  document.getElementById('b-tanggal').value=todayISO();
   document.getElementById('b-jumlah').value='';
   document.getElementById('b-tagihan').value='';
   document.getElementById('b-status').value='Lunas';
@@ -783,7 +943,7 @@ function _buildReceiptBodyHTML(b,siswa){
       rows.push(['Sessions ('+b.sesiIds.length+'×)', sesiLabels]);
     }
   }
-  const paidPct = b.tagihan>0 ? Math.round((b.jumlah/b.tagihan)*100) : 0;
+  const paidPct = getPaymentProgress(b).pct;   // kumulatif s/d cicilan ini
   return {rno,stc,stl,rows,isMonthly,paidPct};
 }
 function showReceipt(id){
@@ -846,7 +1006,7 @@ function showReceipt(id){
         : '') +
       (b.status==='Cicil'?
         `<div style="background:#fce7f3;border-radius:6px;height:7px;margin-bottom:5px"><div style="background:linear-gradient(90deg,#ec4899,#0d9488);border-radius:6px;height:7px;width:${paidPct}%"></div></div>` +
-        `<div style="font-size:0.65rem;color:#db2777;text-align:right;margin-bottom:10px;font-weight:600">${paidPct}% paid — ${fmt(b.tagihan-b.jumlah)} remaining</div>`
+        `<div style="font-size:0.65rem;color:#db2777;text-align:right;margin-bottom:10px;font-weight:600">${paidPct}% paid — ${fmt(getPaymentProgress(b).remaining)} remaining</div>`
       :'') +
       `<div style="text-align:center;padding:9px;background:${stBg};border-radius:8px;border:1px solid ${stBorder}">` +
         `<span style="font-size:0.72rem;font-weight:800;color:${stText}">${stl}</span>` +
@@ -933,7 +1093,7 @@ function _buildReceiptPrintHTML(b,siswa){
       ${b.jumlah>b.depositUsed?`<div style="display:flex;justify-content:space-between;font-size:0.72rem;color:#78350f;margin-top:2px"><span>Cash</span><strong>${fmt(b.jumlah-b.depositUsed)}</strong></div>`:''}
       <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:#78350f;margin-top:5px;padding-top:4px;border-top:1px dashed #fcd34d"><span>Remaining Balance</span><strong style="color:#0d9488">${fmt((typeof getDepositBalance==='function')?getDepositBalanceAt(b.siswaId, b.tanggal, b.id):0)}</strong></div>
     </div>`:''}
-    ${b.status==='Cicil'?`<div class="prog-track"><div class="prog-fill" style="width:${paidPct}%"></div></div><div class="prog-text">${paidPct}% paid — ${fmt(b.tagihan-b.jumlah)} remaining</div>`:''}
+    ${b.status==='Cicil'?`<div class="prog-track"><div class="prog-fill" style="width:${paidPct}%"></div></div><div class="prog-text">${paidPct}% paid — ${fmt(getPaymentProgress(b).remaining)} remaining</div>`:''}
     <div class="status" style="background:${stBg};border:1px solid ${stBorder};color:${stText}">${stl}</div>
     ${b.catatan?`<div class="note">Note: ${b.catatan}</div>`:''}
   </div>
@@ -987,7 +1147,7 @@ function _buildReceiptRenderHTML(b,siswa){
       ${b.jumlah>b.depositUsed?`<div style="display:flex;justify-content:space-between;font-size:0.72rem;color:#78350f;margin-top:2px"><span>Cash</span><strong>${fmt(b.jumlah-b.depositUsed)}</strong></div>`:''}
       <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:#78350f;margin-top:5px;padding-top:4px;border-top:1px dashed #fcd34d"><span>Remaining Balance</span><strong style="color:#0d9488">${fmt((typeof getDepositBalance==='function')?getDepositBalanceAt(b.siswaId, b.tanggal, b.id):0)}</strong></div>
     </div>`:''}
-    ${b.status==='Cicil'?`<div style="background:#fce7f3;border-radius:6px;height:7px;margin-bottom:5px"><div style="background:linear-gradient(90deg,#ec4899,#0d9488);border-radius:6px;height:7px;width:${paidPct}%"></div></div><div style="font-size:0.65rem;color:#db2777;text-align:right;margin-bottom:10px;font-weight:600">${paidPct}% paid — ${fmt(b.tagihan-b.jumlah)} remaining</div>`:''}
+    ${b.status==='Cicil'?`<div style="background:#fce7f3;border-radius:6px;height:7px;margin-bottom:5px"><div style="background:linear-gradient(90deg,#ec4899,#0d9488);border-radius:6px;height:7px;width:${paidPct}%"></div></div><div style="font-size:0.65rem;color:#db2777;text-align:right;margin-bottom:10px;font-weight:600">${paidPct}% paid — ${fmt(getPaymentProgress(b).remaining)} remaining</div>`:''}
     <div style="text-align:center;padding:9px;background:${stBg};border-radius:8px;border:1px solid ${stBorder}">
       <span style="font-size:0.72rem;font-weight:800;color:${stText}">${stl}</span>
     </div>
@@ -1076,8 +1236,9 @@ function _buildWaCaptionPayment(b){
   const nama = (b.namaSiswa||'-').trim();
   const periode = b.periode ? ` for ${b.periode}` : '';
   let txt = `Assalamu'alaikum, here is the tuition payment receipt on behalf of *${nama}*${periode} amounting to ${fmt(b.jumlah)}.`;
-  if(b.status==='Cicil' && b.tagihan>b.jumlah){
-    txt += ` Remaining balance: ${fmt(b.tagihan-b.jumlah)}.`;
+  const prog = getPaymentProgress(b);
+  if(b.status==='Cicil' && prog.remaining>0){
+    txt += ` Remaining balance: ${fmt(prog.remaining)}.`;
   }
   return txt + ' Thank you.';
 }

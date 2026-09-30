@@ -21,7 +21,7 @@ function clearDashFilter(){
 }
 
 function renderDashboard(){
-  const today = new Date().toISOString().slice(0,10);
+  const today = todayISO();
   const todayDay = new Date().toLocaleDateString('en-US',{weekday:'short'});
 
   // Read filters
@@ -57,11 +57,8 @@ function renderDashboard(){
         if(fSampai && a.tanggal>fSampai) return;
         sessionMonths.add(ym);
       });
-      const paidMonths = new Set();
-      bayarList.filter(b=>b.siswaId===s.id&&b.billingType==='monthly'&&b.status==='Lunas').forEach(b=>{
-        const parsed=parsePeriodeToYearMonth(b.periode||'');
-        if(parsed) paidMonths.add(parsed.y+'-'+parsed.m.toString().padStart(2,'0'));
-      });
+      const _mpi = getMonthlyPayInfo(s.id);
+      const paidMonths = _mpi.paid;
       sessionMonths.forEach(ym=>{ if(!paidMonths.has(ym)) unpaid++; });
     } else {
       const unpaidSessions = absensiList.filter(a => {

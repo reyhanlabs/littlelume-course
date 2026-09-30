@@ -99,7 +99,7 @@ function setAttMode(mode){
     sel.innerHTML = '<option value="">-- Pilih Siswa --</option>' + opts;
     // Default tanggal = hari ini
     if(!document.getElementById('single-att-tanggal').value){
-      document.getElementById('single-att-tanggal').value = new Date().toISOString().slice(0,10);
+      document.getElementById('single-att-tanggal').value = todayISO();
     }
     onSingleAttSiswaChange();
   }
@@ -117,7 +117,7 @@ function onSingleAttSiswaChange(){
     document.getElementById('single-att-status').value = existing.status;
     document.getElementById('single-att-ket').value    = existing.keterangan||'';
   } else {
-    const isFuture = tanggal > new Date().toISOString().slice(0,10);
+    const isFuture = tanggal > todayISO();
     infoEl.innerHTML = isFuture
       ? `<span style="color:var(--teal)">📅 Tanggal mendatang — cocok untuk catat sesi yang sudah dibayar di muka.</span>`
       : '';
@@ -167,7 +167,7 @@ function saveSingleAtt(){
   updateUnpaidBadge(); updateMbnBadge();
   if(document.getElementById('page-dashboard').classList.contains('active')) renderDashboard();
 
-  const isFuture = tanggal > new Date().toISOString().slice(0,10);
+  const isFuture = tanggal > todayISO();
   showToast(
     `✅ Attendance ${existingIdx>-1?'updated':'saved'} — ${siswa?.nama}, ${tglFmt(tanggal)}, ${status}` +
     (isFuture ? ' 📅 (future date)' : ''),
@@ -178,7 +178,7 @@ function saveSingleAtt(){
   document.getElementById('single-att-siswa').value  = '';
   document.getElementById('single-att-ket').value    = '';
   document.getElementById('single-att-status').value = 'Hadir';
-  document.getElementById('single-att-tanggal').value = new Date().toISOString().slice(0,10);
+  document.getElementById('single-att-tanggal').value = todayISO();
   document.getElementById('single-att-info').textContent = '';
 }
 
@@ -356,7 +356,7 @@ function deleteAttendance(id){
 function resetLessonForm(){
   document.getElementById('form-lesson-title').textContent='Add Lesson';
   document.getElementById('m-id').value='';
-  document.getElementById('m-tanggal').value=new Date().toISOString().slice(0,10);
+  document.getElementById('m-tanggal').value=todayISO();
   document.getElementById('m-status').value='Rencana';
   ['m-topik','m-deskripsi','m-sumber'].forEach(i=>document.getElementById(i).value='');
 }
@@ -505,7 +505,7 @@ function renderEval(){
 function resetEvalForm(){
   document.getElementById('form-eval-title').textContent='Add Evaluation';
   document.getElementById('e-id').value='';
-  document.getElementById('e-tanggal').value=new Date().toISOString().split('T')[0];
+  document.getElementById('e-tanggal').value=todayISO();
   document.getElementById('e-siswa').value='';
   document.getElementById('e-nilai').value='';
   document.getElementById('e-rating').value='5';

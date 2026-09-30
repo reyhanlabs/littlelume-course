@@ -440,14 +440,11 @@ function renderPaymentReminders(){
         const ym=d.getFullYear()+'-'+(d.getMonth()+1).toString().padStart(2,'0');
         sessionMonths[ym]=(sessionMonths[ym]||0)+1;
       });
-      const paidMonths = new Set();
-      bayarList.filter(b=>b.siswaId===siswa.id&&b.billingType==='monthly'&&b.status==='Lunas').forEach(b=>{
-        const parsed=parsePeriodeToYearMonth(b.periode||'');
-        if(parsed) paidMonths.add(parsed.y+'-'+parsed.m.toString().padStart(2,'0'));
-      });
+      const _mpi = getMonthlyPayInfo(siswa.id);
+      const paidMonths = _mpi.paid;
       const unpaidMonths = Object.keys(sessionMonths).filter(ym=>!paidMonths.has(ym));
       if(!unpaidMonths.length) return;
-      const grossTotal = unpaidMonths.length * (siswa.feeMonthly||0);
+      const grossTotal = unpaidMonths.reduce((t,ym)=>t+monthDue(siswa, ym, _mpi), 0);   // cicilan diperhitungkan
       const netTotal   = Math.max(0, grossTotal - depBal);
       if((siswa.feeMonthly||0)>0 && netTotal===0 && depBal>0) return;
       reminders.push({ siswa, unpaidCount:unpaidMonths.length, total:netTotal, grossTotal, depBal, isMonthly:true });
