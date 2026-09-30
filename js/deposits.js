@@ -369,6 +369,7 @@ function openDepositDetail(siswaId){
       detail = `${m.entry.metode||''}${m.entry.catatan?' · '+m.entry.catatan:''}`;
       actions = `
         <button class="btn sm" onclick="closeModal('modal-deposit-detail');showDepositReceipt('${m.entry.id}')" title="Receipt">🧾 Receipt</button>
+        <button class="btn wa sm" onclick="waReceiptQuick('deposit','${m.entry.id}',this)" title="Send receipt to WhatsApp">💬 WA</button>
         <button class="btn sm icon-only" onclick="closeModal('modal-deposit-detail');openDepositForm('${m.entry.id}')" title="Edit">✏️</button>
         <button class="btn danger sm icon-only" onclick="deleteDeposit('${m.entry.id}')" title="Delete">🗑️</button>`;
     } else if(m.type==='refund'){
@@ -376,11 +377,13 @@ function openDepositDetail(siswaId){
       detail = `${m.entry.metode||''}${m.entry.catatan?' · '+m.entry.catatan:''}`;
       actions = `
         <button class="btn sm" onclick="closeModal('modal-deposit-detail');showDepositReceipt('${m.entry.id}')" title="Receipt">🧾 Receipt</button>
+        <button class="btn wa sm" onclick="waReceiptQuick('deposit','${m.entry.id}',this)" title="Send receipt to WhatsApp">💬 WA</button>
         <button class="btn danger sm icon-only" onclick="deleteDeposit('${m.entry.id}')" title="Delete">🗑️</button>`;
     } else {
       icon='💳'; label='Applied to Payment';
       detail = `${m.entry.periode||'Payment'} · Invoice ${fmt(m.entry.tagihan)}`;
-      actions = `<button class="btn sm" onclick="closeModal('modal-deposit-detail');navigate('payment');setTimeout(()=>openPaymentForm('${m.entry.id}'),100)">👁️ View Payment</button>`;
+      actions = `<button class="btn sm" onclick="closeModal('modal-deposit-detail');navigate('payment');setTimeout(()=>openPaymentForm('${m.entry.id}'),100)">👁️ View Payment</button>
+        <button class="btn wa sm" onclick="waReceiptQuick('payment','${m.entry.id}',this)" title="Send payment receipt to WhatsApp">💬 WA</button>`;
     }
     return `
       <div style="display:flex;align-items:flex-start;gap:12px;padding:14px 4px;border-bottom:1px solid var(--border)">

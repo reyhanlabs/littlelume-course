@@ -586,6 +586,7 @@ function renderPayment(){
       <td class="nowrap">
         <button class="btn sm" onclick="openPaymentForm('${b.id}')" style="margin-right:4px">✏️</button>
         <button class="btn sm" onclick="showReceipt('${b.id}')" style="margin-right:4px">🧾</button>
+        <button class="btn wa sm" onclick="waReceiptQuick('payment','${b.id}',this)" title="Send receipt to WhatsApp" style="margin-right:4px">💬</button>
         <button class="btn danger sm icon-only" onclick="deletePayment('${b.id}')">🗑️</button>
       </td>
     </tr>`;
@@ -1006,10 +1007,10 @@ function _buildReceiptRenderHTML(b,siswa){
 //   receiptType = 'payment' (default) | 'deposit'
 //   receiptId   = ID di bayarList / depositList
 // Shim ini mengembalikan record + siswa yang tepat + builder HTML yang tepat.
-function _getReceiptContext(){
+function _getReceiptContext(forceType, forceId){
   const modal = document.getElementById('modal-receipt');
-  const id    = modal.dataset.receiptId;
-  const type  = modal.dataset.receiptType || 'payment';
+  const id    = forceId   || modal.dataset.receiptId;
+  const type  = forceType || modal.dataset.receiptType || 'payment';
   if(type === 'deposit'){
     const d = (typeof depositList!=='undefined') ? depositList.find(x=>x.id===id) : null;
     if(!d) return null;
@@ -1089,20 +1090,63 @@ function _buildWaCaptionDeposit(d){
     : `Assalamu'alaikum, here is the deposit receipt on behalf of *${nama}* amounting to ${fmt(d.jumlah)}. Current deposit balance: ${fmt(bal)}. Thank you.`;
 }
 
-let _waShareCache = null;   // {file, caption, filenameBase, hp} — dipakai tombol "Share now"
+let _waShareCache = null;   // {file, caption, filenameBase, hp, rep}
 
+// Reporter status: di modal receipt pakai #wa-status, dari list pakai toast + dialog
+function _modalWaReporter(){
+  const ws=document.getElementById('wa-status');
+  return {
+    msg(html, hideAfter){
+      ws.style.display='block'; ws.innerHTML=html;
+      if(hideAfter) setTimeout(()=>ws.style.display='none', hideAfter);
+    },
+    hide(){ ws.style.display='none'; },
+    needTap(){
+      ws.style.display='block';
+      ws.innerHTML='✅ Image ready. <button class="btn wa2 sm" onclick="_waShareNow()">📤 Share to WhatsApp</button>';
+    },
+  };
+}
+function _toastWaReporter(){
+  return {
+    msg(html, hideAfter){ showToast(html, 'info', hideAfter||3000); },
+    hide(){},
+    needTap(){
+      // Klik OK = gesture baru → navigator.share diizinkan
+      showModalDialog('📤 Receipt Ready', 'The receipt image is ready. Tap the button below to share it to WhatsApp.',
+        ()=>_waShareNow(), { okText:'📤 Share to WhatsApp', type:'success' });
+    },
+  };
+}
+
+// Tombol "WA Image" di modal receipt (payment & deposit)
 async function waImage(){
   const ctx = _getReceiptContext(); if(!ctx) return;
-  const ws=document.getElementById('wa-status');
   const btn=document.getElementById('btn-wa-img');
-  ws.style.display='block'; ws.textContent='⏳ Generating image…'; btn.disabled=true;
+  btn.disabled=true;
+  await _sendReceiptWA(ctx, _modalWaReporter());
+  btn.disabled=false;
+}
+
+// Tombol WA langsung dari list (tanpa buka modal receipt)
+//   type: 'payment' | 'deposit'
+async function waReceiptQuick(type, id, btnEl){
+  const ctx = _getReceiptContext(type, id);
+  if(!ctx){ showToast('Receipt not found','warn'); return; }
+  if(btnEl) btnEl.disabled=true;
+  await _sendReceiptWA(ctx, _toastWaReporter());
+  if(btnEl) btnEl.disabled=false;
+}
+
+async function _sendReceiptWA(ctx, rep){
+  rep.msg('⏳ Generating image…');
   try{
     // Gambar tetap dari builder yang sama → tampilan receipt tidak berubah
     const canvas=await _renderToCanvasHTML(ctx.renderHTML);
     const blob=await new Promise((res,rej)=>canvas.toBlob(b=>b?res(b):rej(new Error('toBlob failed')),'image/png'));
     const file=new File([blob], ctx.filenameBase+'.png', {type:'image/png'});
     _waShareCache={ file, caption:ctx.caption, filenameBase:ctx.filenameBase,
-                    hp:(ctx.studentPhone||'').replace(/\D/g,'') };
+                    hp:(ctx.studentPhone||'').replace(/\D/g,''), rep };
 
     if(navigator.canShare && navigator.canShare({files:[file]})){
       await _waShareNow();
@@ -1110,27 +1154,21 @@ async function waImage(){
       await _waShareFallback();
     }
   }catch(e){
-    console.error('waImage error:', e);
-    ws.textContent='❌ Failed. Try Save PNG.';
+    console.error('WA receipt error:', e);
+    rep.msg('❌ Failed. Try Save PNG.', 5000);
   }
-  btn.disabled=false;
 }
 
 // Web Share: gambar + teks → di WhatsApp teks jadi caption gambar
 async function _waShareNow(){
-  const ws=document.getElementById('wa-status');
   const c=_waShareCache; if(!c) return;
+  const rep=c.rep;
   try{
     await navigator.share({ files:[c.file], text:c.caption });
-    ws.textContent='✅ Shared. Pilih kontak di WhatsApp lalu kirim.';
-    setTimeout(()=>ws.style.display='none',5000);
+    rep.msg('✅ Shared. Pilih kontak di WhatsApp lalu kirim.', 5000);
   }catch(e){
-    if(e.name==='AbortError'){ ws.style.display='none'; return; }       // user batal
-    if(e.name==='NotAllowedError'){
-      // Gesture klik kedaluwarsa karena render gambar lama → minta tap sekali lagi
-      ws.innerHTML='✅ Image ready. <button class="btn wa2 sm" onclick="_waShareNow()">📤 Share to WhatsApp</button>';
-      return;
-    }
+    if(e.name==='AbortError'){ rep.hide(); return; }   // user batal
+    if(e.name==='NotAllowedError'){ rep.needTap(); return; } // gesture kedaluwarsa → tap lagi
     console.warn('share failed, fallback:', e);
     await _waShareFallback();
   }
@@ -1139,7 +1177,6 @@ async function _waShareNow(){
 // Fallback (desktop / browser tanpa Web Share file): download gambar,
 // copy caption ke clipboard, buka chat WA → user attach & paste caption
 async function _waShareFallback(){
-  const ws=document.getElementById('wa-status');
   const c=_waShareCache; if(!c) return;
   const a=document.createElement('a');
   a.download=c.filenameBase+'.png';
@@ -1149,10 +1186,9 @@ async function _waShareFallback(){
   try{ await navigator.clipboard.writeText(c.caption); copied=true; }catch(e){}
   await new Promise(r=>setTimeout(r,600));
   window.open(c.hp?`https://wa.me/62${c.hp.replace(/^0/,'')}`:'https://wa.me/','_blank');
-  ws.innerHTML = copied
+  c.rep.msg(copied
     ? '✅ Image saved & caption copied → di WhatsApp tap 📎 → pilih gambar → <b>paste</b> di kolom caption → kirim.'
-    : '✅ Image saved → di WhatsApp tap 📎 → pilih gambar, lalu ketik caption.';
-  setTimeout(()=>ws.style.display='none',10000);
+    : '✅ Image saved → di WhatsApp tap 📎 → pilih gambar, lalu ketik caption.', 10000);
 }
 
 function copyReceipt(){
