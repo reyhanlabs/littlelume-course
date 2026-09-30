@@ -248,7 +248,7 @@ function renderNotifPanel(){
       <div class="ni-icon">${n.icon}</div>
       <div class="ni-body">
         <div class="ni-title">${esc(n.title)}</div>
-        <div class="ni-sub">${n.sub} · ${rel(n.ts)}</div>
+        <div class="ni-sub">${esc(n.sub)} · ${rel(n.ts)}</div>
       </div>
     </div>`).join('');
 }
