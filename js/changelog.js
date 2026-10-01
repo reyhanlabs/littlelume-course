@@ -9,10 +9,29 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '1.7.0';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.7.0', date: '2026-10-01',
+    title: 'Restore points',
+    items: [
+      ['new', 'A copy of each class is saved automatically once a day, before the first change of the day, and kept for 14 days.'],
+      ['new', 'Backup & Restore → Restore Points: restore any earlier point with one click, download it as a backup file, or create one manually.'],
+      ['improve', 'Restoring always saves the current data as a restore point first, so a restore can be undone.'],
+    ],
+  },
+  {
+    version: '1.6.1', date: '2026-10-01',
+    title: 'Fixes',
+    items: [
+      ['fix', 'The selected student in Evaluation, Lessons and Parent Reports no longer resets when data updates from another device.'],
+      ['fix', 'Moving a top-up to another student is blocked if the original student has already used it.'],
+      ['fix', 'Updates from another device now wait while any form (deposit, evaluation, etc.) is open, not just the payment form.'],
+      ['improve', 'Clarified: the app shell loads offline, but logging in and saving still need an internet connection.'],
+    ],
+  },
   {
     version: '1.6.0', date: '2026-10-01',
     title: 'Version info & What\'s New',
@@ -49,7 +68,7 @@ const CHANGELOG = [
       ['improve', 'Restore Backup checks the file first and downloads a safety copy of current data before replacing it.'],
       ['security', 'Text containing HTML/code (in names, notes) is displayed as plain text and never executed.'],
       ['improve', 'Faster tables for large classes.'],
-      ['improve', 'The app opens properly while offline.'],
+      ['improve', 'The app loads faster and keeps working through short connection drops.'],
       ['fix', 'CSV export opens correctly in Excel (Indonesian settings, special characters).'],
     ],
   },

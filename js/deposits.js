@@ -307,8 +307,16 @@ function saveDeposit(){
     // Preserve original tipe defensively — form ini hanya untuk top-up,
     // tapi jangan sampai tanpa sengaja mengubah tipe entry yang sudah ada.
     data.tipe = old.tipe;
+    // Top-up dipindah ke siswa lain → saldo siswa LAMA tidak boleh jadi minus
+    if(old.siswaId !== siswaId){
+      const oldStudentBal = getDepositBalance(old.siswaId) - (+old.jumlah||0);
+      if(oldStudentBal < 0){
+        showToast(`Cannot move: ${old.namaSiswa} has already used this deposit (balance would be ${fmt(oldStudentBal)})`, 'warn', 6000);
+        return;
+      }
+    }
     // Simulate new balance: current - old.jumlah + new.jumlah (both topups)
-    const newBalance = getDepositBalance(siswaId) - old.jumlah + jumlah;
+    const newBalance = getDepositBalance(siswaId) - (old.siswaId===siswaId ? old.jumlah : 0) + jumlah;
     if(newBalance < 0){
       showToast(`Cannot reduce: this student has already used ${fmt(getDepositUsed(siswaId))} from deposit`, 'warn', 5000);
       return;

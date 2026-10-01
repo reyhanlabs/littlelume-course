@@ -260,19 +260,22 @@ function renderBackupSummary(){
 // ════════════════════════════════════════════════
 function updateSelects(){
   const opts=siswaList.map(s=>`<option value="${s.id}">${esc(s.nama)}${s.nick?' ('+esc(s.nick)+')':''}</option>`).join('');
-  document.getElementById('e-siswa').innerHTML='<option value="">-- Select --</option>'+opts;
-  document.getElementById('b-siswa').innerHTML='<option value="">-- Select --</option>'+opts;
-  document.getElementById('m-target').innerHTML='<option value="Semua">All Students</option>'+opts;
-  document.getElementById('r-siswa').innerHTML='<option value="">-- All Students --</option>'+opts;
-  const filterEl=document.getElementById('eval-filter-siswa');
-  if(filterEl) filterEl.innerHTML='<option value="">All Students</option>'+opts;
-  // Update single attendance dropdown jika panel sedang terbuka
+  // Isi ulang dropdown TANPA menghilangkan pilihan yang sedang aktif
+  // (dulu: setiap data diperbarui dari device lain, siswa yang dipilih di form/laporan ter-reset)
+  const fill=(id, firstOpt)=>{
+    const el=document.getElementById(id); if(!el) return;
+    const cur=el.value;
+    el.innerHTML=firstOpt+opts;
+    if(cur && [...el.options].some(o=>o.value===cur)) el.value=cur;
+  };
+  fill('e-siswa','<option value="">-- Select --</option>');
+  fill('b-siswa','<option value="">-- Select --</option>');
+  fill('m-target','<option value="Semua">All Students</option>');
+  fill('r-siswa','<option value="">-- All Students --</option>');
+  fill('eval-filter-siswa','<option value="">All Students</option>');
+  // Single attendance dropdown hanya diisi ulang jika panel sedang terbuka
   const singleSel=document.getElementById('single-att-siswa');
-  if(singleSel && singleSel.options.length > 1){
-    const currentVal = singleSel.value;
-    singleSel.innerHTML='<option value="">-- Pilih Siswa --</option>'+opts;
-    singleSel.value = currentVal;
-  }
+  if(singleSel && singleSel.options.length > 1) fill('single-att-siswa','<option value="">-- Pilih Siswa --</option>');
 }
 
 // ════════════════════════════════════════════════

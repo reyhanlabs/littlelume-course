@@ -804,6 +804,14 @@
         </div>
       </div>
       <div class="card" style="margin-top:0">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+          <div style="font-family:'Fredoka One',sans-serif;font-weight:800">🕒 Restore Points</div>
+          <button class="btn primary sm" onclick="rpCreateManual()">➕ Create now</button>
+        </div>
+        <div style="font-size:0.85rem;color:var(--muted);margin-bottom:12px">A copy of this class is saved automatically once a day, before the first change of the day, and kept for 14 days. If something is changed or deleted by mistake, restore an earlier point.</div>
+        <div id="rp-panel"></div>
+      </div>
+      <div class="card" style="margin-top:0">
         <div style="font-family:'Fredoka One',sans-serif;font-weight:800;margin-bottom:6px">👥 User Access Management</div>
         <div style="font-size:0.85rem;color:var(--muted);margin-bottom:16px">Manage who can access this shared workspace.</div>
         <div id="access-panel"><span style="color:var(--muted);font-size:0.85rem">Loading…</span></div>
@@ -1225,6 +1233,7 @@
 <script src="js/reports-analytics.js"></script>
 <script src="js/notifications-ui.js"></script>
 <script src="js/search-nav-misc.js"></script>
+<script src="js/restore-points.js"></script>
 
 
 

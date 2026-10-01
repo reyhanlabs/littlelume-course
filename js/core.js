@@ -355,6 +355,7 @@ async function deleteClass(classId){
         `Type the class name to confirm: you are deleting <strong>"${esc(cls?.name)}"</strong> and all its data permanently.`,
         async ()=>{
           try{ await db.collection('workspace').doc(classId).delete(); }catch(e){ console.error(e); }
+          if(typeof rpDeleteAllForClass === 'function') await rpDeleteAllForClass(classId);
           classesList = classesList.filter(c=>c.id!==classId);
           await saveClassesList();
           renderClassListUI();
@@ -514,6 +515,8 @@ async function loadFromFirestore(){
     _loadOk = true; _dataClassId = loadingClassId;
     setSynced();
     renderAll(); setCurrentMonthDashFilter(); loadAbsensi();
+    // Restore point harian (js/restore-points.js) — tidak menghalangi tampilan
+    setTimeout(()=>{ if(typeof rpEnsureDaily === 'function') rpEnsureDaily(); }, 3000);
   } catch(e){
     _loadOk = false;   // ← penting: blok semua save sampai load berhasil
     setSyncErr(e.code || e.message);
@@ -533,7 +536,9 @@ let _unsubscribeSnapshot = null;
 const _sessionId = Math.random().toString(36).slice(2);
 
 function _isEditFormOpen(){
-  return !!document.querySelector('.form-panel.open') || !!document.getElementById('modal-payment')?.classList.contains('open');
+  // Panel form terbuka, atau modal yang berisi isian (payment, deposit, evaluasi, dll.)
+  return !!document.querySelector('.form-panel.open')
+      || !!document.querySelector('.overlay.open input:not([type=hidden]), .overlay.open select, .overlay.open textarea');
 }
 
 function subscribeToClassUpdates(){
@@ -625,6 +630,8 @@ function _saveBlocked(){
 }
 function saveToFirestore(){
   if(_saveBlocked()) return;
+  // Pastikan restore point hari ini sudah ada (menyimpan data SEBELUM perubahan ini)
+  if(typeof rpEnsureDaily === 'function') rpEnsureDaily();
   clearTimeout(_saveTimer);
   _savePending = true;
   setSyncing();
@@ -880,7 +887,7 @@ function navigate(page){
   if(page==='dashboard') setCurrentMonthDashFilter();
   if(page==='analytics') renderAnalytics();
   if(page==='reports')   renderReports();
-  if(page==='backup')  { renderBackupSummary(); renderAccessPanel(); }
+  if(page==='backup')  { renderBackupSummary(); renderAccessPanel(); if(typeof renderRestorePoints==='function') renderRestorePoints(); }
   if(page==='payment') { setCurrentMonthFilter(); }
   if(page==='attendance') { setCurrentMonthAttFilter(); }
   if(page==='deposits')   { renderDeposits(); }
