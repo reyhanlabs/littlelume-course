@@ -59,6 +59,7 @@
   </div>
   <div class="sb-nav">
     <div class="nav-section">Main</div>
+    <div class="nav-item" data-page="overview"><span class="ico">🌐</span> All Classes</div>
     <div class="nav-item active" data-page="dashboard"><span class="ico">🏠</span> Dashboard</div>
     <div class="nav-item" data-page="students"><span class="ico">👤</span> Students</div>
     <div class="nav-section">Classes</div>
@@ -117,6 +118,17 @@
   <div class="page-content">
 
     <!-- ══════════════════ DASHBOARD ══════════════════ -->
+    <div class="page" id="page-overview">
+      <div class="sec-hd">
+        <div><h2>🌐 All Classes</h2><div class="sub">One overview of every class — revenue, outstanding bills and schedule</div></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="month" id="ov-month" onchange="renderOverview()" style="width:auto">
+          <button class="btn sm" onclick="renderOverview(true)" title="Reload all classes">↻ Refresh</button>
+        </div>
+      </div>
+      <div id="ov-body"></div>
+    </div>
+
     <div class="page active" id="page-dashboard">
       <!-- Period Filter -->
       <div class="filter-bar" style="margin-bottom:20px">
@@ -1234,6 +1246,7 @@
 <script src="js/notifications-ui.js"></script>
 <script src="js/search-nav-misc.js"></script>
 <script src="js/restore-points.js"></script>
+<script src="js/overview.js"></script>
 
 
 

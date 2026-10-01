@@ -9,10 +9,20 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '1.8.0';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.8.0', date: '2026-10-01',
+    title: 'All Classes overview',
+    items: [
+      ['new', 'New "All Classes" page (top of the sidebar): students, revenue, outstanding bills, sessions and deposits for every class at once, with a month picker.'],
+      ['new', 'Per-class table with totals — tap "Open" to jump into that class.'],
+      ['new', 'One "To Bill" list for all classes, sorted by amount, with WhatsApp reminder and record-payment buttons.'],
+      ['new', 'Combined weekly schedule of all classes; ⚠️ marks the same time slot used by two classes.'],
+    ],
+  },
   {
     version: '1.7.0', date: '2026-10-01',
     title: 'Restore points',

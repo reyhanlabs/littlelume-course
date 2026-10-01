@@ -842,7 +842,7 @@ function closePanel(id){
 //  NAVIGATION
 // ════════════════════════════════════════════════
 const pageNames = {
-  dashboard:'Dashboard', students:'Students', attendance:'Attendance',
+  overview:'All Classes', dashboard:'Dashboard', students:'Students', attendance:'Attendance',
   lessons:'Lessons', evaluation:'Evaluation', payment:'Payment',
   deposits:'Deposits',
   reports:'Parent Reports', analytics:'Analytics', backup:'Backup & Restore'
@@ -886,6 +886,7 @@ function navigate(page){
   }
   if(page==='dashboard') setCurrentMonthDashFilter();
   if(page==='analytics') renderAnalytics();
+  if(page==='overview' && typeof renderOverview==='function') renderOverview();
   if(page==='reports')   renderReports();
   if(page==='backup')  { renderBackupSummary(); renderAccessPanel(); if(typeof renderRestorePoints==='function') renderRestorePoints(); }
   if(page==='payment') { setCurrentMonthFilter(); }

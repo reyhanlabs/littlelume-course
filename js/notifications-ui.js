@@ -407,11 +407,8 @@ function calSelectDate(dateStr){
 // ════════════════════════════════════════════════
 //  PAYMENT REMINDERS
 // ════════════════════════════════════════════════
-function renderPaymentReminders(){
-  const el = document.getElementById('dash-reminders');
-  const countEl = document.getElementById('reminder-count');
-  if(!el) return;
-
+// Daftar murid yang punya tagihan (dipakai Dashboard kelas & ringkasan Semua Kelas)
+function computePaymentReminders(){
   const paidSesiIds = new Set();
   bayarList.forEach(b=>{ if(b.sesiIds) b.sesiIds.forEach(id=>paidSesiIds.add(id)); });
 
@@ -450,6 +447,15 @@ function renderPaymentReminders(){
       reminders.push({ siswa, unpaidCount:unpaidMonths.length, total:netTotal, grossTotal, depBal, isMonthly:true });
     }
   });
+
+  return reminders;
+}
+
+function renderPaymentReminders(){
+  const el = document.getElementById('dash-reminders');
+  const countEl = document.getElementById('reminder-count');
+  if(!el) return;
+  const reminders = computePaymentReminders();
 
   if(!reminders.length){
     el.innerHTML='<div style="color:var(--muted);font-size:0.85rem;text-align:center;padding:16px">🎉 All payments are up to date!</div>';

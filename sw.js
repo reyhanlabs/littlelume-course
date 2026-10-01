@@ -4,7 +4,7 @@
 //   • Library CDN (versi terkunci di URL)         → cache-first
 //   • Firebase / Google API (auth & database)     → selalu langsung ke network, tidak pernah di-cache
 // Ganti CACHE_VERSION kalau daftar APP_SHELL berubah.
-const CACHE_VERSION = 'littlelume-v6';
+const CACHE_VERSION = 'littlelume-v7';
 
 // Path relatif terhadap lokasi sw.js → tetap jalan walau di-host di subfolder
 const APP_SHELL = [
@@ -22,6 +22,7 @@ const APP_SHELL = [
   './js/notifications-ui.js',
   './js/search-nav-misc.js',
   './js/restore-points.js',
+  './js/overview.js',
   './favicon.ico',
   './favicon-256x256.png',
   './icon-192.png',

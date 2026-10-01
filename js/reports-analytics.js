@@ -282,6 +282,8 @@ function updateSelects(){
 //  RENDER ALL
 // ════════════════════════════════════════════════
 function renderAll(){
+  // Halaman "All Classes" sedang dibuka → ikut diperbarui (kelas aktif dari memori, kelas lain dari cache)
+  if(typeof renderOverview==='function' && document.getElementById('page-overview')?.classList.contains('active')) renderOverview();
   renderStudents(); renderLessons();
   renderEval(); updateSelects(); updateUnpaidBadge();
   if(typeof renderDeposits === 'function') renderDeposits();
