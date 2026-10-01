@@ -9,10 +9,21 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.8.0';
+const APP_VERSION = '1.9.0';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.9.0', date: '2026-10-01',
+    title: 'LittleLume Curriculum in Lessons',
+    items: [
+      ['new', 'Lessons page shows the official LittleLume curriculum for the class\'s grade (Kindergarten, Grade 1, 3, 4) and semester.'],
+      ['new', 'Every session has its full lesson plan: objectives, grammar, vocabulary, media, timed activities and assessment — viewable and printable.'],
+      ['new', '"➕ Plan" turns a curriculum session into a lesson, pre-filled with topic, activities and reference.'],
+      ['new', 'Progress bar and status per session (Next / Planned / Taught), based on your lessons.'],
+      ['improve', 'Each class remembers its grade and semester (guessed from the class name until you choose).'],
+    ],
+  },
   {
     version: '1.8.0', date: '2026-10-01',
     title: 'All Classes overview',

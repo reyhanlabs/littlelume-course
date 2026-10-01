@@ -358,6 +358,7 @@ function deleteAttendance(id){
 function resetLessonForm(){
   document.getElementById('form-lesson-title').textContent='Add Lesson';
   document.getElementById('m-id').value='';
+  document.getElementById('m-kur').value='';
   document.getElementById('m-tanggal').value=todayISO();
   document.getElementById('m-status').value='Rencana';
   ['m-topik','m-deskripsi','m-sumber'].forEach(i=>document.getElementById(i).value='');
@@ -366,6 +367,7 @@ function openEditLesson(id){
   const m=materiList.find(x=>x.id===id); if(!m) return;
   document.getElementById('form-lesson-title').textContent='Edit Lesson';
   document.getElementById('m-id').value=m.id;
+  document.getElementById('m-kur').value=m.kurikulum||'';
   document.getElementById('m-tanggal').value=m.tanggal||'';
   document.getElementById('m-status').value=m.status||'Rencana';
   document.getElementById('m-topik').value=m.topik||'';
@@ -385,11 +387,13 @@ function saveLesson(){
     deskripsi:document.getElementById('m-deskripsi').value.trim(),
     sumber:document.getElementById('m-sumber').value.trim(),
     target:document.getElementById('m-target').value,
+    kurikulum:document.getElementById('m-kur').value||'',   // sesi kurikulum yang terhubung (js/curriculum.js)
   };
   if(id){ const i=materiList.findIndex(m=>m.id===id); if(i>-1) materiList[i]={...materiList[i],...data}; }
   else materiList.push({id:uid(),...data});
   DB.set('materi',materiList);
   document.getElementById('m-id').value='';
+  document.getElementById('m-kur').value='';
   ['m-topik','m-deskripsi','m-sumber'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('form-lesson-title').textContent='Add Lesson';
   closePanel('form-lesson'); renderLessons();
@@ -409,8 +413,9 @@ function renderLessons(){
       <div class="lesson-dot ${m.status==='Rencana'?'planned':'done'}"></div>
       <div style="flex:1">
         <div style="font-weight:700;font-size:0.92rem">${esc(m.topik)}</div>
+        ${m.kurikulum && typeof curLabel==='function' ? `<div style="margin-top:3px"><span class="chip chip-purple" style="font-size:0.66rem;cursor:pointer" onclick="curLoad().then(()=>curShowMeeting('${esc(m.kurikulum)}'))" title="View lesson plan">📚 ${esc(curLabel(m.kurikulum))}</span></div>` : ''}
         <div style="font-size:0.77rem;color:var(--muted);margin-top:3px">${tglFmt(m.tanggal)} · ${m.target==='Semua'?'All Students':m.target||'All'}</div>
-        ${m.deskripsi?`<div style="font-size:0.85rem;color:var(--muted);margin-top:8px">${esc(m.deskripsi)}</div>`:''}
+        ${m.deskripsi?`<div style="font-size:0.85rem;color:var(--muted);margin-top:8px;white-space:pre-line;${m.kurikulum?'display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden':''}">${esc(m.deskripsi)}</div>`:''}
         ${m.sumber?`<div style="font-size:0.77rem;color:var(--accent);margin-top:5px">📎 ${m.sumber}</div>`:''}
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0">
@@ -422,6 +427,8 @@ function renderLessons(){
   document.getElementById('lesson-planned').innerHTML=rencana.length?rencana.map(makeCard).join(''):'<div style="color:var(--muted);font-size:0.85rem;padding:10px 0">No planned lessons.</div>';
   document.getElementById('lesson-done').innerHTML=selesai.length?selesai.map(makeCard).join(''):'<div style="color:var(--muted);font-size:0.85rem;padding:10px 0">No completed lessons.</div>';
   document.getElementById('empty-lessons').style.display=materiList.length?'none':'block';
+  // Panel kurikulum (progress per sesi) — hanya saat halaman Lessons terbuka
+  if(typeof renderCurriculum==='function' && document.getElementById('page-lessons')?.classList.contains('active')) renderCurriculum();
 }
 
 // ════════════════════════════════════════════════

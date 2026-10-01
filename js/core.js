@@ -887,6 +887,7 @@ function navigate(page){
   if(page==='dashboard') setCurrentMonthDashFilter();
   if(page==='analytics') renderAnalytics();
   if(page==='overview' && typeof renderOverview==='function') renderOverview();
+  if(page==='lessons' && typeof renderCurriculum==='function') renderCurriculum();
   if(page==='reports')   renderReports();
   if(page==='backup')  { renderBackupSummary(); renderAccessPanel(); if(typeof renderRestorePoints==='function') renderRestorePoints(); }
   if(page==='payment') { setCurrentMonthFilter(); }
