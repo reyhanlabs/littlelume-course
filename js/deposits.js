@@ -85,6 +85,15 @@ function getTopupUsage(siswaId){
   return usage;
 }
 
+// Potong top-up menjadi sebesar bagian yang sudah terpakai (sisa yang belum terpakai dihapus)
+function _trimTopup(t, usedAmt){
+  const removed = (+t.jumlah||0) - usedAmt;
+  t.jumlah = usedAmt;
+  const note = `unused ${fmt(removed)} removed ${tglFmt(todayISO())}`;
+  t.catatan = t.catatan ? t.catatan + ' · ' + note : note;
+  return removed;
+}
+
 // Daftar payment yang menarik deposit siswa (untuk ditampilkan di peringatan)
 function _depositUsageListHtml(siswaId){
   const usingPays = bayarList
@@ -167,7 +176,7 @@ function renderDeposits(){
       <td class="nowrap">
         <button class="btn sm primary" onclick="openDepositForm(null,'${s.id}')" title="Top Up">➕</button>
         <button class="btn sm" onclick="openDepositDetail('${s.id}')" title="History & Receipts">📖</button>
-        <button class="btn danger sm" onclick="deleteStudentDeposits('${s.id}')" title="Delete unused deposit" style="${used+refunds>0?'opacity:0.5':''}">🗑️</button>
+        <button class="btn danger sm" onclick="deleteStudentDeposits('${s.id}')" title="Remove unused deposit" style="${balance<=0?'opacity:0.5':''}">🗑️</button>
         ${balance>0?`<button class="btn sm" onclick="openRefundForm('${s.id}')" title="Refund" style="background:rgba(255,179,71,0.15);color:var(--yellow)">↩️</button>`:''}
       </td>
     </tr>`;
@@ -180,11 +189,12 @@ function deleteStudentDeposits(siswaId){
   const s = siswaList.find(x=>x.id===siswaId); if(!s) return;
   const topups = depositList.filter(d=>d.siswaId===siswaId && d.tipe==='topup');
   if(!topups.length){ showToast('No top-ups to delete','info'); return; }
-  const usage  = getTopupUsage(siswaId);
-  const unused = topups.filter(t=>!(usage.get(t.id)>0));
-  const usedCount = topups.length - unused.length;
+  const usage   = getTopupUsage(siswaId);
+  const unused  = topups.filter(t=>!(usage.get(t.id)>0));                               // dihapus utuh
+  const partial = topups.filter(t=>usage.get(t.id)>0 && usage.get(t.id)<(+t.jumlah||0)); // dipotong
+  const fullCount = topups.length - unused.length - partial.length;                       // terpakai penuh, tetap
 
-  if(!unused.length){
+  if(!unused.length && !partial.length){
     warningModal(
       '⛔ Cannot Delete — Already Used',
       `All deposits of <strong>${esc(s.nama)}</strong> have already been used, so they cannot be deleted.` +
@@ -194,22 +204,28 @@ function deleteStudentDeposits(siswaId){
     );
     return;
   }
-  const total = unused.reduce((t,d)=>t+(+d.jumlah||0),0);
+  const total = unused.reduce((t,d)=>t+(+d.jumlah||0),0)
+              + partial.reduce((t,d)=>t+(+d.jumlah||0)-usage.get(d.id),0);
+  const lines = [
+    ...unused.map(t=>`<div style="padding:3px 0;border-bottom:1px dashed var(--border)">🗑️ ${tglFmt(t.tanggal)} · <strong>${fmt(t.jumlah)}</strong> top-up${t.catatan?' · '+esc(t.catatan):''} <span style="color:var(--muted)">→ deleted</span></div>`),
+    ...partial.map(t=>`<div style="padding:3px 0;border-bottom:1px dashed var(--border)">✂️ ${tglFmt(t.tanggal)} · <strong>${fmt(t.jumlah)}</strong> top-up, used ${fmt(usage.get(t.id))} <span style="color:var(--muted)">→ becomes ${fmt(usage.get(t.id))}</span></div>`),
+  ].join('');
   dangerModal(
-    'Delete Unused Deposit?',
-    `Delete <strong>${unused.length}</strong> unused top-up${unused.length>1?'s':''} of <strong>${esc(s.nama)}</strong>, total <strong>${fmt(total)}</strong>?` +
-    `<div style="margin-top:10px;padding:10px;background:var(--bg3);border-radius:8px;font-size:0.82rem;text-align:left;max-height:140px;overflow-y:auto">` +
-      unused.map(t=>`<div style="padding:3px 0;border-bottom:1px dashed var(--border)">💰 ${tglFmt(t.tanggal)} · ${esc(t.metode||'')} · <strong>${fmt(t.jumlah)}</strong>${t.catatan?' · '+esc(t.catatan):''}</div>`).join('') +
-    `</div>` +
-    (usedCount ? `<div style="margin-top:8px;font-size:0.8rem;color:var(--yellow)">⚠️ ${usedCount} other top-up${usedCount>1?'s have':' has'} already been used and will be kept.</div>` : '') +
+    `Remove Unused Deposit ${fmt(total)}?`,
+    `Remove the unused deposit of <strong>${esc(s.nama)}</strong>: <strong>${fmt(total)}</strong>. The balance will become <strong>Rp 0</strong>; deposit already used stays recorded.` +
+    `<div style="margin-top:10px;padding:10px;background:var(--bg3);border-radius:8px;font-size:0.82rem;text-align:left;max-height:150px;overflow-y:auto">${lines}</div>` +
+    (fullCount ? `<div style="margin-top:8px;font-size:0.8rem;color:var(--muted)">${fullCount} fully used top-up${fullCount>1?'s':''} kept.</div>` : '') +
+    `<div style="margin-top:8px;font-size:0.8rem;color:var(--muted)">💡 If the money was <b>returned to the parent</b>, use <b>Refund</b> instead so it has its own receipt.</div>` +
     `<br>This cannot be undone.`,
     ()=>{
       const ids = new Set(unused.map(t=>t.id));
+      partial.forEach(t=>_trimTopup(t, usage.get(t.id)));
       depositList = depositList.filter(x=>!ids.has(x.id));
       DB.set('deposits', depositList);
       renderDeposits();
-      showToast(`🗑️ ${unused.length} unused top-up${unused.length>1?'s':''} deleted`,'success');
-    }
+      showToast(`🗑️ Unused deposit ${fmt(total)} removed`,'success');
+    },
+    { okText:`Remove ${fmt(total)}` }
   );
 }
 
@@ -319,6 +335,27 @@ function deleteDeposit(id){
   const label = d.tipe==='refund' ? 'refund' : 'top-up';
   if(d.tipe==='topup'){
     const usedAmt = getTopupUsage(d.siswaId).get(d.id) || 0;
+    const amtT = +d.jumlah||0;
+    if(usedAmt > 0 && usedAmt < amtT){
+      // Terpakai sebagian → yang boleh dihapus hanya sisanya
+      const sisa = amtT - usedAmt;
+      dangerModal(
+        `Remove Unused ${fmt(sisa)}?`,
+        `This top-up of <strong>${fmt(amtT)}</strong> for <strong>${esc(d.namaSiswa)}</strong> has already been used <strong style="color:var(--yellow)">${fmt(usedAmt)}</strong>, so it cannot be deleted completely.<br><br>` +
+        `You can remove the unused <strong>${fmt(sisa)}</strong> instead → this top-up becomes <strong>${fmt(usedAmt)}</strong> and the balance becomes <strong>${fmt(getDepositBalance(d.siswaId)-sisa)}</strong>.` +
+        `<div style="margin-top:10px;font-size:0.8rem;color:var(--muted)">💡 If the ${fmt(sisa)} was <b>returned to the parent</b>, use <b>Refund</b> instead so it has its own receipt.</div>` +
+        _depositUsageListHtml(d.siswaId),
+        ()=>{
+          _trimTopup(d, usedAmt);
+          DB.set('deposits', depositList);
+          renderDeposits();
+          if(document.getElementById('modal-deposit-detail')?.classList.contains('open')) openDepositDetail(d.siswaId);
+          showToast(`🗑️ Unused ${fmt(sisa)} removed`,'success');
+        },
+        { okText:`Remove ${fmt(sisa)}` }
+      );
+      return;
+    }
     if(usedAmt > 0){
       warningModal(
         '⛔ Cannot Delete — Already Used',
@@ -475,7 +512,7 @@ function openDepositDetail(siswaId){
         <button class="btn sm" onclick="closeModal('modal-deposit-detail');showDepositReceipt('${m.entry.id}')" title="Receipt">🧾 Receipt</button>
         <button class="btn wa sm" onclick="waReceiptQuick('deposit','${m.entry.id}',this)" title="Send receipt to WhatsApp">💬 WA</button>
         <button class="btn sm icon-only" onclick="closeModal('modal-deposit-detail');openDepositForm('${m.entry.id}')" title="Edit">✏️</button>
-        <button class="btn danger sm icon-only" onclick="deleteDeposit('${m.entry.id}')" title="${usedAmt>0?'Already used — cannot delete':'Delete'}" style="${usedAmt>0?'opacity:0.5':''}">🗑️</button>`;
+        <button class="btn danger sm icon-only" onclick="deleteDeposit('${m.entry.id}')" title="${usedAmt>=amtT?'Already used — cannot delete':usedAmt>0?'Remove unused part':'Delete'}" style="${usedAmt>=amtT?'opacity:0.5':''}">🗑️</button>`;
     } else if(m.type==='refund'){
       icon='↩️'; label='Refund';
       detail = `${esc(m.entry.metode||'')}${m.entry.catatan?' · '+esc(m.entry.catatan):''}`;
