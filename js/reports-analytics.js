@@ -124,7 +124,8 @@ function exportBackup(tag){
     siswa:siswaList, absensi:absensiList, materi:materiList,
     evaluasi:evaluasiList, bayar:bayarList, schedules:scheduleList,
     deposits:depositList,
-    exportedAt:new Date().toISOString()
+    exportedAt:new Date().toISOString(),
+    appVersion:(typeof APP_VERSION!=='undefined'?APP_VERSION:null)
   };
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const a=document.createElement('a');

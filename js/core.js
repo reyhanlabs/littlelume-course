@@ -131,6 +131,8 @@ auth.onAuthStateChanged(async user => {
     }
     currentUser = user;
     document.getElementById('login-screen').style.display = 'none';
+    // Popup "What's New" sekali setelah versi aplikasi berubah (js/changelog.js)
+    setTimeout(()=>{ if(typeof checkWhatsNew === 'function') checkWhatsNew(); }, 1500);
     document.getElementById('sync-status').style.display = 'flex';
     document.getElementById('sync-label').textContent = 'Connecting…';
     const chip = document.getElementById('user-chip');
