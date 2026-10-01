@@ -65,6 +65,40 @@ function getDepositBalanceAt(siswaId, refDate, refId){
   return bal;
 }
 
+/**
+ * Berapa bagian dari tiap top-up yang sudah terpakai (FIFO: top-up paling lama dipakai duluan).
+ * Pemakaian = deposit yang dipakai di payment + refund.
+ * Return: Map topupId → nominal terpakai
+ */
+function getTopupUsage(siswaId){
+  const topups = depositList
+    .filter(d=>d.siswaId===siswaId && d.tipe==='topup')
+    .sort((a,b)=> _isOnOrBefore(a.tanggal,a.id,b.tanggal,b.id) ? -1 : 1);
+  let consumed = getDepositUsed(siswaId) + getDepositRefunds(siswaId);
+  const usage = new Map();
+  topups.forEach(t=>{
+    const amt  = +t.jumlah||0;
+    const take = Math.min(amt, Math.max(0, consumed));
+    usage.set(t.id, take);
+    consumed -= take;
+  });
+  return usage;
+}
+
+// Daftar payment yang menarik deposit siswa (untuk ditampilkan di peringatan)
+function _depositUsageListHtml(siswaId){
+  const usingPays = bayarList
+    .filter(b=>b.siswaId===siswaId && (+b.depositUsed||0)>0)
+    .sort((a,b)=> (a.tanggal||'').localeCompare(b.tanggal||''));
+  const refunds = depositList.filter(d=>d.siswaId===siswaId && d.tipe==='refund');
+  if(!usingPays.length && !refunds.length) return '';
+  return `<div style="margin-top:10px;padding:10px;background:var(--bg3);border-radius:8px;font-size:0.82rem;text-align:left;max-height:160px;overflow-y:auto">
+      <div style="font-weight:700;margin-bottom:6px;color:var(--muted)">Deposit already used by:</div>
+      ${usingPays.map(b=>`<div style="padding:3px 0;border-bottom:1px dashed var(--border)">💳 ${tglFmt(b.tanggal)} · ${esc(b.periode||'Payment')} · <strong style="color:var(--yellow)">${fmt(b.depositUsed)}</strong></div>`).join('')}
+      ${refunds.map(r=>`<div style="padding:3px 0;border-bottom:1px dashed var(--border)">↩️ ${tglFmt(r.tanggal)} · Refund · <strong style="color:var(--yellow)">${fmt(r.jumlah)}</strong></div>`).join('')}
+    </div>`;
+}
+
 // ─── Main page render ───────────────────────────────────────────────
 function renderDeposits(){
   // Stats
@@ -133,11 +167,50 @@ function renderDeposits(){
       <td class="nowrap">
         <button class="btn sm primary" onclick="openDepositForm(null,'${s.id}')" title="Top Up">➕</button>
         <button class="btn sm" onclick="openDepositDetail('${s.id}')" title="History & Receipts">📖</button>
+        <button class="btn danger sm" onclick="deleteStudentDeposits('${s.id}')" title="Delete unused deposit" style="${used+refunds>0?'opacity:0.5':''}">🗑️</button>
         ${balance>0?`<button class="btn sm" onclick="openRefundForm('${s.id}')" title="Refund" style="background:rgba(255,179,71,0.15);color:var(--yellow)">↩️</button>`:''}
       </td>
     </tr>`;
   });
   tbody.innerHTML += __html0;
+}
+
+// Hapus deposit siswa yang belum terpakai (dari daftar utama)
+function deleteStudentDeposits(siswaId){
+  const s = siswaList.find(x=>x.id===siswaId); if(!s) return;
+  const topups = depositList.filter(d=>d.siswaId===siswaId && d.tipe==='topup');
+  if(!topups.length){ showToast('No top-ups to delete','info'); return; }
+  const usage  = getTopupUsage(siswaId);
+  const unused = topups.filter(t=>!(usage.get(t.id)>0));
+  const usedCount = topups.length - unused.length;
+
+  if(!unused.length){
+    warningModal(
+      '⛔ Cannot Delete — Already Used',
+      `All deposits of <strong>${esc(s.nama)}</strong> have already been used, so they cannot be deleted.` +
+      `<br><br>To remove them, first edit or delete the payments/refunds that used this deposit.` +
+      _depositUsageListHtml(siswaId),
+      ()=>{}, { okText:'OK', cancelText:null }
+    );
+    return;
+  }
+  const total = unused.reduce((t,d)=>t+(+d.jumlah||0),0);
+  dangerModal(
+    'Delete Unused Deposit?',
+    `Delete <strong>${unused.length}</strong> unused top-up${unused.length>1?'s':''} of <strong>${esc(s.nama)}</strong>, total <strong>${fmt(total)}</strong>?` +
+    `<div style="margin-top:10px;padding:10px;background:var(--bg3);border-radius:8px;font-size:0.82rem;text-align:left;max-height:140px;overflow-y:auto">` +
+      unused.map(t=>`<div style="padding:3px 0;border-bottom:1px dashed var(--border)">💰 ${tglFmt(t.tanggal)} · ${esc(t.metode||'')} · <strong>${fmt(t.jumlah)}</strong>${t.catatan?' · '+esc(t.catatan):''}</div>`).join('') +
+    `</div>` +
+    (usedCount ? `<div style="margin-top:8px;font-size:0.8rem;color:var(--yellow)">⚠️ ${usedCount} other top-up${usedCount>1?'s have':' has'} already been used and will be kept.</div>` : '') +
+    `<br>This cannot be undone.`,
+    ()=>{
+      const ids = new Set(unused.map(t=>t.id));
+      depositList = depositList.filter(x=>!ids.has(x.id));
+      DB.set('deposits', depositList);
+      renderDeposits();
+      showToast(`🗑️ ${unused.length} unused top-up${unused.length>1?'s':''} deleted`,'success');
+    }
+  );
 }
 
 // ─── Top-up form ────────────────────────────────────────────────────
@@ -244,28 +317,23 @@ function deleteDeposit(id){
   const d = depositList.find(x=>x.id===id);
   if(!d) return;
   const label = d.tipe==='refund' ? 'refund' : 'top-up';
-  // Cek: hapus entry ini akan bikin saldo siswa negative?
+  if(d.tipe==='topup'){
+    const usedAmt = getTopupUsage(d.siswaId).get(d.id) || 0;
+    if(usedAmt > 0){
+      warningModal(
+        '⛔ Cannot Delete — Already Used',
+        `This top-up of <strong>${fmt(d.jumlah)}</strong> for <strong>${esc(d.namaSiswa)}</strong> has already been used` +
+        (usedAmt < (+d.jumlah||0) ? ` (<strong style="color:var(--yellow)">${fmt(usedAmt)}</strong> of it)` : '') +
+        `, so it cannot be deleted.<br><br>To remove it, first edit or delete the payments/refunds that used this deposit.` +
+        _depositUsageListHtml(d.siswaId),
+        ()=>{}, { okText:'OK', cancelText:null }
+      );
+      return;
+    }
+  }
   const balAfter = d.tipe==='topup'
     ? getDepositBalance(d.siswaId) - d.jumlah
     : getDepositBalance(d.siswaId) + d.jumlah;
-  if(d.tipe==='topup' && balAfter < 0){
-    // Bangun daftar payment yang menarik dari deposit siswa ini
-    const usingPays = bayarList
-      .filter(b=>b.siswaId===d.siswaId && (+b.depositUsed||0)>0)
-      .sort((a,b)=> (a.tanggal||'').localeCompare(b.tanggal||''));
-    const usageHtml = usingPays.length
-      ? `<div style="margin-top:10px;padding:10px;background:var(--bg3);border-radius:8px;font-size:0.82rem;text-align:left;max-height:160px;overflow-y:auto">
-          <div style="font-weight:700;margin-bottom:6px;color:var(--muted)">Payments using this student's deposit:</div>
-          ${usingPays.map(b=>`<div style="padding:3px 0;border-bottom:1px dashed var(--border)">• ${tglFmt(b.tanggal)} — ${esc(b.periode)||'—'} · <strong style="color:var(--yellow)">${fmt(b.depositUsed)}</strong> drawn</div>`).join('')}
-        </div>`
-      : '';
-    warningModal(
-      '⚠️ Cannot Delete',
-      `Deleting this top-up of <strong>${fmt(d.jumlah)}</strong> would leave <strong>${esc(d.namaSiswa)}</strong> with a negative balance of <strong style="color:var(--red)">${fmt(balAfter)}</strong>.<br><br>Reduce or delete payments that used this deposit first.${usageHtml}`,
-      ()=>{}, { okText:'OK', cancelText:null }
-    );
-    return;
-  }
   dangerModal(
     `Delete ${label}?`,
     `Are you sure you want to delete this ${label} of <strong>${fmt(d.jumlah)}</strong> for <strong>${esc(d.namaSiswa)}</strong>?<br><br>` +
@@ -390,19 +458,24 @@ function openDepositDetail(siswaId){
     openModal('modal-deposit-detail');
     return;
   }
+  const _usage = getTopupUsage(siswaId);
   body.innerHTML = mutations.map(m=>{
     const amtColor = m.amount>0 ? 'var(--green)' : 'var(--red)';
     const amtSign  = m.amount>0 ? '+' : '−';
     const amtAbs   = Math.abs(m.amount);
-    let icon='', label='', actions='', detail='';
+    let icon='', label='', actions='', detail='', usageBadge='';
     if(m.type==='topup'){
+      const usedAmt = _usage.get(m.entry.id)||0, amtT = +m.entry.jumlah||0;
+      usageBadge = usedAmt<=0
+        ? `<span style="font-size:0.7rem;font-weight:700;color:var(--green);background:rgba(67,233,123,0.12);padding:1px 7px;border-radius:10px;margin-left:6px">Unused</span>`
+        : `<span style="font-size:0.7rem;font-weight:700;color:var(--yellow);background:rgba(255,179,71,0.14);padding:1px 7px;border-radius:10px;margin-left:6px">${usedAmt>=amtT?'Used':'Used '+fmt(usedAmt)}</span>`;
       icon='📥'; label='Top-Up';
       detail = `${esc(m.entry.metode||'')}${m.entry.catatan?' · '+esc(m.entry.catatan):''}`;
       actions = `
         <button class="btn sm" onclick="closeModal('modal-deposit-detail');showDepositReceipt('${m.entry.id}')" title="Receipt">🧾 Receipt</button>
         <button class="btn wa sm" onclick="waReceiptQuick('deposit','${m.entry.id}',this)" title="Send receipt to WhatsApp">💬 WA</button>
         <button class="btn sm icon-only" onclick="closeModal('modal-deposit-detail');openDepositForm('${m.entry.id}')" title="Edit">✏️</button>
-        <button class="btn danger sm icon-only" onclick="deleteDeposit('${m.entry.id}')" title="Delete">🗑️</button>`;
+        <button class="btn danger sm icon-only" onclick="deleteDeposit('${m.entry.id}')" title="${usedAmt>0?'Already used — cannot delete':'Delete'}" style="${usedAmt>0?'opacity:0.5':''}">🗑️</button>`;
     } else if(m.type==='refund'){
       icon='↩️'; label='Refund';
       detail = `${esc(m.entry.metode||'')}${m.entry.catatan?' · '+esc(m.entry.catatan):''}`;
@@ -421,7 +494,7 @@ function openDepositDetail(siswaId){
         <div style="font-size:1.6rem;flex-shrink:0;line-height:1;padding-top:2px">${icon}</div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:3px">
-            <div style="font-weight:800;font-size:0.9rem;color:var(--text)">${label}</div>
+            <div style="font-weight:800;font-size:0.9rem;color:var(--text)">${label}${usageBadge}</div>
             <div style="font-family:'Fredoka One',sans-serif;font-weight:800;color:${amtColor};white-space:nowrap;font-size:1rem">${amtSign}${fmt(amtAbs)}</div>
           </div>
           <div style="font-size:0.78rem;color:var(--muted);line-height:1.35;margin-bottom:10px;word-break:break-word">${tglFmt(m.date)}${detail?' · '+detail:''}</div>
