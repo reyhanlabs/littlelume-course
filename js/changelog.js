@@ -9,10 +9,19 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.10.2';
+const APP_VERSION = '1.10.3';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.10.3', date: '2026-10-08',
+    title: 'Nicer lesson plan view',
+    items: [
+      ['improve', 'Lesson plan window redesigned: big topic title, small info tags (status, date, students, grade, duration) and clear sections.'],
+      ['improve', 'Formatting in lesson descriptions (headings, **bold**, bullet lists) now shows properly instead of raw ### and ** symbols — on screen, in print, in images, and as WhatsApp bold text.'],
+      ['improve', 'Long documents scroll inside the window so the Send / Print buttons stay visible.'],
+    ],
+  },
   {
     version: '1.10.2', date: '2026-10-08',
     title: 'Lesson plan image',

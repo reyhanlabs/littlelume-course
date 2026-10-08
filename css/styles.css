@@ -1292,3 +1292,35 @@ td.nowrap { white-space:nowrap }
 .doc-preview .row strong { text-align:right }
 .doc-preview .section { margin:14px 0 6px;font-size:0.72rem;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--accent) }
 .doc-preview .block { background:var(--bg3);border-radius:10px;padding:10px 12px;white-space:pre-line }
+
+/* Isi modal dokumen bisa di-scroll; tombol kirim/print tetap terlihat */
+.doc-scroll { max-height:min(62vh,640px); overflow-y:auto; margin:0 -6px; padding:0 6px }
+
+/* ── Pratinjau Lesson Plan ── */
+.lp { font-size:0.88rem; line-height:1.55; color:var(--text) }
+.lp-topic { font-family:'Fredoka One',sans-serif; font-size:1.2rem; font-weight:800; line-height:1.25; margin-bottom:8px }
+.lp-meta { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px }
+.lp-meta span { font-size:0.75rem; font-weight:700; color:var(--muted); background:var(--bg3); border:1px solid var(--border); border-radius:20px; padding:3px 10px }
+.lp-meta .lp-badge.plan { color:#7c74ff; background:rgba(108,99,255,0.12); border-color:rgba(108,99,255,0.3) }
+.lp-meta .lp-badge.done { color:var(--green); background:rgba(0,214,143,0.12); border-color:rgba(0,214,143,0.3) }
+.lp-ref { font-size:0.78rem; color:var(--accent); font-weight:600; margin-bottom:8px }
+.lp-sec { margin-top:14px }
+.lp-h { font-size:0.72rem; font-weight:800; letter-spacing:.6px; text-transform:uppercase; color:var(--accent); margin-bottom:6px }
+.lp-checks { list-style:none; margin:0; padding:0 }
+.lp-checks li { position:relative; padding:3px 0 3px 22px }
+.lp-checks li::before { content:'✓'; position:absolute; left:2px; top:3px; color:var(--green); font-weight:800 }
+.lp-gram { border-left:3px solid var(--green); background:var(--bg3); border-radius:0 10px 10px 0; padding:8px 12px; margin-bottom:8px }
+.lp-gram b { display:block } .lp-gram i { display:block; color:var(--muted); margin-top:2px }
+.lp-chips { display:flex; flex-wrap:wrap; gap:5px }
+.lp-chips span { font-size:0.75rem; font-weight:700; border-radius:20px; padding:2px 9px; background:rgba(236,72,153,0.1); color:#e5488f; border:1px solid rgba(236,72,153,0.25) }
+.lp-acts { border:1px solid var(--border); border-radius:12px; overflow:hidden }
+.lp-act { display:flex; gap:10px; padding:8px 12px; border-top:1px solid var(--border) }
+.lp-act:first-child { border-top:0 }
+.lp-act .t { flex:0 0 34px; font-weight:800; color:var(--accent) }
+.lp-act div div { color:var(--muted); font-size:0.82rem }
+.lp-total { padding:7px 12px; background:var(--bg3); font-size:0.78rem; font-weight:800; color:var(--muted); border-top:1px solid var(--border) }
+.lp-md { background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:12px 14px }
+.lp-md h4 { font-size:0.9rem; font-weight:800; color:var(--accent); margin:12px 0 4px }
+.lp-md h4:first-child { margin-top:0 }
+.lp-md p { margin:4px 0 } .lp-md ul, .lp-md ol { margin:4px 0; padding-left:20px } .lp-md li { padding:2px 0 }
+.lp-md code { background:var(--bg2); border-radius:4px; padding:0 4px; font-size:0.82rem }

@@ -92,7 +92,11 @@ function buildLessonPlanPrintHTML(d){
     .chips{ display:flex; flex-wrap:wrap; gap:5px; align-items:flex-start; align-content:flex-start }
     .chips span{ border:1px solid #f5c2da; background:#fff5fa; color:#a3245f; border-radius:20px; padding:1px 9px; font-weight:700; font-size:9pt }
     .two{ display:grid; grid-template-columns:1fr 1fr; gap:14px }
-    .desc{ white-space:pre-line; background:#fafbff; border:1px solid #e7e8f2; border-radius:10px; padding:10px 12px }
+    .desc{ background:#fafbff; border:1px solid #e7e8f2; border-radius:10px; padding:10px 14px }
+    .md h4{ font-family:'Fredoka','Nunito',Arial,sans-serif; font-size:11pt; color:#5b52e8; margin:10px 0 4px }
+    .md h4:first-child{ margin-top:0 }
+    .md p{ margin:4px 0 } .md ul,.md ol{ padding-left:20px; margin:4px 0 } .md li{ padding:1px 0 }
+    .md code{ background:#eef0fb; border-radius:4px; padding:0 4px; font-size:9.5pt }
 
     /* Tabel aktivitas */
     table{ width:100%; border-collapse:separate; border-spacing:0; border:1px solid #e1e3f0; border-radius:10px; overflow:hidden }
@@ -151,11 +155,11 @@ function buildLessonPlanPrintHTML(d){
       <thead><tr><th>Time</th><th>Stage</th><th>What happens</th><th>✓</th></tr></thead>
       <tbody>${acts.map(a=>`<tr><td class="time">${e(a.waktu)}</td><td class="act">${e(a.kegiatan)}</td><td>${e(a.deskripsi)}</td><td class="chk"><i></i></td></tr>`).join('')}
       ${totalMin?`<tr class="total"><td class="time">${totalMin}'</td><td colspan="3">Total time</td></tr>`:''}</tbody>
-    </table>` : (d.description ? `<div class="desc">${e(d.description)}</div>` : ''), false)}
+    </table>` : (d.description ? `<div class="desc md">${mdToHtml(d.description)}</div>` : ''), false)}
 
   ${sec('Assessment', list(d.assessment).length ? `<ul class="checks">${list(d.assessment).map(x=>`<li>${e(x)}</li>`).join('')}</ul>` : '')}
 
-  ${acts.length && d.description && !d.fromCurriculum ? sec('Notes', `<div class="desc">${e(d.description)}</div>`) : ''}
+  ${acts.length && d.description && !d.fromCurriculum ? sec('Notes', `<div class="desc md">${mdToHtml(d.description)}</div>`) : ''}
 
   ${d.forImage ? '' : sec('Teacher Notes', `
     <div class="notes-grid">
@@ -231,4 +235,80 @@ async function renderLessonPlanCanvas(d){
   } finally {
     ifr.remove();
   }
+}
+
+// ════════════════════════════════════════════════
+//  MARKDOWN SEDERHANA → HTML (aman: di-escape dulu)
+//  Mendukung: # judul, **tebal**, *miring*, `kode`, daftar - / * / • / 1.
+// ════════════════════════════════════════════════
+function mdToHtml(text){
+  const inline = s => esc(s)
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/__(.+?)__/g,'<strong>$1</strong>')
+    .replace(/(^|[\s(])\*(?!\s)(.+?)\*(?=[\s).,!?:;]|$)/g,'$1<em>$2</em>')
+    .replace(/`([^`]+)`/g,'<code>$1</code>');
+  const out = []; let list = null, para = [];
+  const flushPara = ()=>{ if(para.length){ out.push(`<p>${para.join('<br>')}</p>`); para=[]; } };
+  const flushList = ()=>{ if(list){ out.push(`<${list.tag}>${list.items.map(i=>`<li>${i}</li>`).join('')}</${list.tag}>`); list=null; } };
+  String(text||'').replace(/\r/g,'').split('\n').forEach(raw=>{
+    const line = raw.trim();
+    let m;
+    if(!line){ flushPara(); flushList(); return; }
+    if((m = line.match(/^#{1,6}\s+(.*)$/))){ flushPara(); flushList(); out.push(`<h4>${inline(m[1])}</h4>`); return; }
+    if((m = line.match(/^(?:[-*•]|\d+[.)])\s+(.*)$/))){
+      const tag = /^\d/.test(line) ? 'ol' : 'ul';
+      flushPara(); if(list && list.tag!==tag) flushList();
+      if(!list) list = { tag, items:[] };
+      list.items.push(inline(m[1])); return;
+    }
+    // Baris "Judul:" berdiri sendiri (mis. "**Activities:**" atau "Objectives:") → judul kecil
+    if((m = line.match(/^\*\*(.+?):?\*\*:?$/)) || (m = line.match(/^([A-Z][A-Za-z &/]{2,40}):$/))){
+      flushPara(); flushList(); out.push(`<h4>${inline(m[1].replace(/:$/,''))}</h4>`); return;
+    }
+    flushList(); para.push(inline(line));
+  });
+  flushPara(); flushList();
+  return out.join('');
+}
+// Markdown → teks WhatsApp (*tebal*, _miring_)
+function mdToWa(text){
+  return String(text||'')
+    .replace(/^#{1,6}\s+(.*)$/gm,'*$1*')
+    .replace(/\*\*(.+?)\*\*/g,'*$1*')
+    .replace(/__(.+?)__/g,'*$1*');
+}
+
+// ════════════════════════════════════════════════
+//  PRATINJAU LESSON PLAN DI MODAL (ikut tema app: terang/gelap)
+// ════════════════════════════════════════════════
+function lessonPreviewHTML(d){
+  const e = v => esc(v==null?'':String(v));
+  const L = a => (a||[]).filter(Boolean);
+  const status = d.status==='Completed'
+    ? '<span class="lp-badge done">✅ Completed</span>' : '<span class="lp-badge plan">🗓️ Planned</span>';
+  const acts = L(d.activities);
+  const totalMin = acts.reduce((t,a)=>t+_lpMinutes(a.waktu),0);
+  const sec = (t, body) => body ? `<div class="lp-sec"><div class="lp-h">${t}</div>${body}</div>` : '';
+  return `
+  <div class="lp">
+    <div class="lp-topic">${e(d.topic)}</div>
+    <div class="lp-meta">
+      ${status}
+      ${d.date?`<span>📅 ${e(d.date)}</span>`:''}
+      ${d.target?`<span>👥 ${e(d.target)}</span>`:''}
+      ${d.grade?`<span>🎓 ${e(d.grade)}${d.semester?' · S'+e(d.semester):''}${d.session?' · '+e(d.session):''}</span>`:''}
+      ${totalMin||d.duration?`<span>⏱ ${e(d.duration || totalMin+' min')}</span>`:''}
+    </div>
+    ${d.reference && !d.fromCurriculum?`<div class="lp-ref">📎 ${e(d.reference)}</div>`:''}
+
+    ${sec('🎯 Objectives', L(d.objectives).length?`<ul class="lp-checks">${L(d.objectives).map(x=>`<li>${e(x)}</li>`).join('')}</ul>`:'')}
+    ${sec('🗣️ Language Focus', (d.grammar&&d.grammar.pattern)||L(d.vocab).length ? `
+      ${d.grammar&&d.grammar.pattern?`<div class="lp-gram"><b>${e(d.grammar.pattern)}</b>${d.grammar.example?`<i>“${e(d.grammar.example)}”</i>`:''}</div>`:''}
+      ${L(d.vocab).length?`<div class="lp-chips">${L(d.vocab).map(v=>`<span>${e(v)}</span>`).join('')}</div>`:''}`:'')}
+    ${sec('🧩 Activities', acts.length?`<div class="lp-acts">${acts.map(a=>`
+        <div class="lp-act"><span class="t">${e(a.waktu)}</span><div><b>${e(a.kegiatan)}</b><div>${e(a.deskripsi)}</div></div></div>`).join('')}
+        ${totalMin?`<div class="lp-total">Total ${totalMin} minutes</div>`:''}</div>`:'')}
+    ${sec('✅ Assessment', L(d.assessment).length?`<ul class="lp-checks">${L(d.assessment).map(x=>`<li>${e(x)}</li>`).join('')}</ul>`:'')}
+    ${!d.fromCurriculum && d.description ? sec('📝 Description & Activities', `<div class="lp-md">${mdToHtml(d.description)}</div>`) : ''}
+  </div>`;
 }

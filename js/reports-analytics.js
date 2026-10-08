@@ -380,11 +380,14 @@ async function showLessonPrint(id){
     ${m.sumber?`<div class="row"><span>Reference</span><strong>${esc(m.sumber)}</strong></div>`:''}
     ${m.deskripsi?`<div class="section">Description & Activities</div><div class="block">${esc(m.deskripsi)}</div>`:''}
   `;
-  const txt=`📚 LESSON PLAN — LITTLELUME ENGLISH COURSE\n${'─'.repeat(36)}\nTopic    : ${m.topik}\nDate     : ${tglFmt(m.tanggal)}\nStatus   : ${m.status}\nTarget   : ${targetName}\n${m.sumber?'Ref      : '+m.sumber+'\n':''}${m.deskripsi?'\n📝 Description:\n'+m.deskripsi+'\n':''}\n${'─'.repeat(36)}\nLittleLume English Course 🎓`;
+  const txt=`📚 LESSON PLAN — LITTLELUME ENGLISH COURSE\n${'─'.repeat(36)}\nTopic    : ${m.topik}\nDate     : ${tglFmt(m.tanggal)}\nStatus   : ${m.status}\nTarget   : ${targetName}\n${m.sumber?'Ref      : '+m.sumber+'\n':''}${m.deskripsi?'\n📝 Description:\n'+(typeof mdToWa==='function'?mdToWa(m.deskripsi):m.deskripsi)+'\n':''}\n${'─'.repeat(36)}\nLittleLume English Course 🎓`;
   _docStore.lesson = { html:bodyHTML, text:txt, title:'Lesson-'+m.topik.replace(/\s+/g,'-').slice(0,30),
     caption:`Lesson plan: *${m.topik}* (${tglFmt(m.tanggal)}) — LittleLume English Course.`,
     printData: typeof lessonPrintData==='function' ? lessonPrintData(m) : null };   // cetakan A4 (js/lesson-print.js)
-  document.getElementById('lesson-print-content').innerHTML = `<div class="doc-preview">${bodyHTML}</div>`;
+  const pd = _docStore.lesson.printData;
+  document.getElementById('lesson-print-content').innerHTML = (pd && typeof lessonPreviewHTML==='function')
+    ? lessonPreviewHTML(pd) : `<div class="doc-preview">${bodyHTML}</div>`;
+  document.getElementById('lesson-print-content').scrollTop = 0;
   document.getElementById('doc-status-lesson').style.display='none';
   openModal('modal-lesson-print');
 }
