@@ -147,9 +147,10 @@ function _curModal(id, title, body, footer){
   document.body.insertAdjacentHTML('beforeend', `
     <div class="overlay open" id="${id}" onclick="if(event.target===this) closeModalDialog('${id}')">
       <div class="modal" style="max-width:640px">
-        <div class="modal-title">${title}</div>
-        <div style="max-height:65vh;overflow-y:auto;padding-right:4px;text-align:left">${body}</div>
-        <div class="modal-footer" style="flex-wrap:wrap;gap:6px">${footer}</div>
+        <button class="modal-x" onclick="closeModalDialog('${id}')" title="Close">✕</button>
+        <div class="modal-title modal-head-pad">${title}</div>
+        <div style="max-height:62vh;overflow-y:auto;padding-right:4px;text-align:left">${body}</div>
+        ${footer}
       </div>
     </div>`);
 }
@@ -180,11 +181,12 @@ function curShowMeeting(key){
   _curModal('modal-cur-meeting',
     `📚 ${esc(r.m.num)}: ${esc(r.m.title)}`,
     `<div style="font-size:0.78rem;color:var(--muted)">${esc(CUR_GRADES[r.grade]||r.grade)} · Semester ${r.sem} · ${esc(r.m.duration||'')}</div>` + _curMeetingBody(r.m),
-    `<button class="btn secondary" onclick="curPrintMeeting('${key}')">🖨️ Print</button>
-     ${linkedLesson
-       ? `<button class="btn" onclick="closeModalDialog('modal-cur-meeting');openEditLesson('${linkedLesson.id}')">✏️ Open lesson</button>`
-       : `<button class="btn primary" onclick="closeModalDialog('modal-cur-meeting');curAddLesson('${key}')">➕ Add to lessons</button>`}
-     <button class="btn" onclick="closeModalDialog('modal-cur-meeting')">Close</button>`);
+    shareBarHTML({
+      primary: linkedLesson
+        ? ['✏️','Open lesson',`closeModalDialog('modal-cur-meeting');openEditLesson('${linkedLesson.id}')`]
+        : ['➕','Add to lessons',`closeModalDialog('modal-cur-meeting');curAddLesson('${key}')`],
+      print:`curPrintMeeting('${key}')`,
+    }));
 }
 
 function curShowOverview(){
@@ -199,7 +201,7 @@ function curShowOverview(){
     (s.grammarApproach ? _curSec('Grammar approach', `<div style="font-size:0.86rem;line-height:1.55">${esc(s.grammarApproach)}</div>`) : '') +
     _curSec('Session structure', `<div class="tbl-wrap"><table style="font-size:0.82rem"><tbody>${(s.sessionStructure||[]).map(x=>`<tr><td style="width:60px">${esc(x.waktu)}</td><td style="width:140px"><b>${esc(x.tahap)}</b></td><td>${esc(x.deskripsi)}</td></tr>`).join('')}</tbody></table></div>`) +
     _curSec('Unit map', `<div class="tbl-wrap"><table style="font-size:0.8rem"><thead><tr><th>#</th><th>Theme</th><th>Vocabulary</th><th>Grammar</th><th>Skill</th></tr></thead><tbody>${(s.petaMateri||[]).map(x=>`<tr><td>${esc(x.num)}</td><td><b>${esc(x.tema)}</b></td><td>${esc(x.kosakata)}</td><td>${esc(x.grammar)}</td><td>${esc(x.skill)}</td></tr>`).join('')}</tbody></table></div>`),
-    `<button class="btn primary" onclick="closeModalDialog('modal-cur-overview')">Close</button>`);
+    '');
 }
 
 // ── Buat lesson dari sesi kurikulum ──

@@ -51,11 +51,15 @@ function renderReports(){
         ${latEval?`<div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">⭐ Latest Evaluation (${tglFmt(latEval.tanggal)})</div><div style="background:var(--bg3);border-radius:10px;padding:14px;font-size:0.87rem;margin-bottom:16px">${latEval.progress?`<div><strong>Progress:</strong> ${esc(latEval.progress)}</div>`:''} ${latEval.catatan?`<div style="margin-top:5px"><strong>Notes:</strong> ${esc(latEval.catatan)}</div>`:`<span style="color:var(--muted)">No details.</span>`}</div>`:''}
         ${latPay?`<div style="background:var(--bg3);border-radius:10px;padding:14px;font-size:0.87rem;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px"><span>Invoice: <strong>${fmt(latPay.tagihan)}</strong></span><span>Paid: <strong style="color:var(--green)">${fmt(latPay.jumlah)}</strong></span>${latPay.status==='Lunas'?chip('Paid','chip-green'):latPay.status==='Cicil'?chip('Partial','chip-yellow'):chip('Unpaid','chip-red')}</div>`:''}
         ${depBal>0?`<div style="background:linear-gradient(135deg,rgba(0,214,143,0.1),rgba(56,189,248,0.08));border:1px solid var(--green);border-radius:10px;padding:12px 14px;font-size:0.87rem;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center"><span>🏦 Deposit Balance</span><strong style="color:var(--green);font-family:'Fredoka One',sans-serif;font-size:1rem">${fmt(depBal)}</strong></div>`:''}
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn wa" onclick="window.open('https://wa.me/?text='+encodeURIComponent(_reportTexts['${key}']),'_blank')">💬 Share via WhatsApp</button>
-          <button class="btn" onclick="showReportPrint('${siswa.id}')">🖨️ Print Report</button>
-          <button class="btn" onclick="navigator.clipboard.writeText(_reportTexts['${key}']).then(()=>showToast('✅ Copied!','success'))">📋 Copy</button>
-        </div>
+        ${shareBarHTML({
+          wa:`showReportPrint('${siswa.id}');docWaImage('report')`,
+          print:`showReportPrint('${siswa.id}');docPrint('report')`,
+          more:[
+            ['💬','Send as text only',`window.open('https://wa.me/?text='+encodeURIComponent(_reportTexts['${key}']),'_blank')`],
+            ['👁','Preview report',`showReportPrint('${siswa.id}')`],
+            ['📋','Copy text',`navigator.clipboard.writeText(_reportTexts['${key}']).then(()=>showToast('✅ Copied!','success'))`],
+          ],
+        })}
       </div>
     </div>`;
   });
@@ -352,8 +356,9 @@ function showEvalPrint(id){
     ${e.catatan?`<div class="section">Notes & Recommendations</div><div class="block">${esc(e.catatan)}</div>`:''}
   `;
   const txt=`⭐ EVALUATION REPORT — LITTLELUME ENGLISH COURSE\n${'─'.repeat(36)}\nStudent  : ${e.namaSiswa}${s?.nick?' ('+s.nick+')':''}\n${s?.kelas?'School   : '+s.kelas+'\n':''}${s?.namaOrtu?'Parent   : '+s.namaOrtu+'\n':''}Date     : ${tglFmt(e.tanggal)}\nLevel    : ${s?.level||'-'}\nScore    : ${e.nilai||'-'}/100\nRating   : ${stars(e.rating)} ${ratingLabels[e.rating]||''}\n${e.progress?'\n📈 Progress:\n'+e.progress+'\n':''}${e.catatan?'\n📝 Notes:\n'+e.catatan+'\n':''}\n${'─'.repeat(36)}\nLittleLume English Course 🎓`;
-  _docStore.eval = { html:bodyHTML, text:txt, title:'Evaluation-'+e.namaSiswa+'-'+e.tanggal };
-  document.getElementById('eval-print-content').innerHTML = `<div style="font-size:0.87rem;line-height:1.7;color:var(--text)">${bodyHTML}</div>`;
+  _docStore.eval = { html:bodyHTML, text:txt, title:'Evaluation-'+e.namaSiswa+'-'+e.tanggal,
+    caption:`Assalamu'alaikum, here is the English evaluation report for *${e.namaSiswa}* (${tglFmt(e.tanggal)}). Thank you.`, phone:s?.hp };
+  document.getElementById('eval-print-content').innerHTML = `<div class="doc-preview">${bodyHTML}</div>`;
   document.getElementById('doc-status-eval').style.display='none';
   openModal('modal-eval-print');
 }
@@ -373,8 +378,9 @@ function showLessonPrint(id){
     ${m.deskripsi?`<div class="section">Description & Activities</div><div class="block">${esc(m.deskripsi)}</div>`:''}
   `;
   const txt=`📚 LESSON PLAN — LITTLELUME ENGLISH COURSE\n${'─'.repeat(36)}\nTopic    : ${m.topik}\nDate     : ${tglFmt(m.tanggal)}\nStatus   : ${m.status}\nTarget   : ${m.target==='Semua'?'All Students':m.target||'All Students'}\n${m.sumber?'Ref      : '+m.sumber+'\n':''}${m.deskripsi?'\n📝 Description:\n'+m.deskripsi+'\n':''}\n${'─'.repeat(36)}\nLittleLume English Course 🎓`;
-  _docStore.lesson = { html:bodyHTML, text:txt, title:'Lesson-'+m.topik.replace(/\s+/g,'-').slice(0,30) };
-  document.getElementById('lesson-print-content').innerHTML = `<div style="font-size:0.87rem;line-height:1.7;color:var(--text)">${bodyHTML}</div>`;
+  _docStore.lesson = { html:bodyHTML, text:txt, title:'Lesson-'+m.topik.replace(/\s+/g,'-').slice(0,30),
+    caption:`Lesson plan: *${m.topik}* (${tglFmt(m.tanggal)}) — LittleLume English Course.` };
+  document.getElementById('lesson-print-content').innerHTML = `<div class="doc-preview">${bodyHTML}</div>`;
   document.getElementById('doc-status-lesson').style.display='none';
   openModal('modal-lesson-print');
 }
@@ -426,8 +432,9 @@ function showReportPrint(siswaId){
   `;
   const key='rpt_'+siswa.id;
   const txt = _reportTexts[key] || `📤 PARENT REPORT — ${siswa.nama}\nLittleLume English Course\n${now}`;
-  _docStore.report = { html:bodyHTML, text:txt, title:'Report-'+siswa.nama.replace(/\s+/g,'-') };
-  document.getElementById('report-print-content').innerHTML = `<div style="font-size:0.87rem;line-height:1.7;color:var(--text)">${bodyHTML}</div>`;
+  _docStore.report = { html:bodyHTML, text:txt, title:'Report-'+siswa.nama.replace(/\s+/g,'-'),
+    caption:`Assalamu'alaikum, here is the progress report for *${siswa.nama}* from LittleLume English Course. Thank you.`, phone:siswa.hp };
+  document.getElementById('report-print-content').innerHTML = `<div class="doc-preview">${bodyHTML}</div>`;
   document.getElementById('doc-status-report').style.display='none';
   openModal('modal-report-print');
 }
@@ -485,15 +492,12 @@ async function docWaImage(type){
   try{
     const canvas = await html2canvas(panel,{scale:2.5,useCORS:true,backgroundColor:'#ffffff',width:560,windowWidth:560});
     panel.innerHTML='';
-    const a=document.createElement('a');
-    a.download=d.title+'.jpg'; a.href=canvas.toDataURL('image/jpeg',0.92); a.click();
-    await new Promise(r=>setTimeout(r,600));
-    window.open('https://wa.me/?text='+encodeURIComponent('📎 Please see attached image from LittleLume English Course'),'_blank');
-    statusEl.innerHTML='✅ Image saved → WhatsApp opened → tap 📎 → Gallery to attach & send.';
-    setTimeout(()=>statusEl.style.display='none',7000);
+    // Satu pesan WA: gambar + caption (js/share-bar.js)
+    await shareImageToWA(canvas, d.title, d.caption || d.title.replace(/-/g,' '), d.phone, statusEl);
   }catch(e){
+    console.error('docWaImage', e);
     panel.innerHTML='';
-    statusEl.textContent='❌ Failed. Try Save JPG.';
+    statusEl.textContent='❌ Failed. Try ⋯ → Save as image.';
   }
 }
 

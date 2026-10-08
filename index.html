@@ -850,72 +850,30 @@
 <!-- ══ MODAL: EVAL PRINT ══ -->
 <div class="overlay" id="modal-eval-print">
   <div class="modal modal-sm">
-    <div class="modal-title">⭐ Evaluation Report</div>
+    <button class="modal-x" onclick="closeModal('modal-eval-print')" title="Close">✕</button>
+    <div class="modal-title modal-head-pad">⭐ Evaluation Report</div>
     <div id="eval-print-content"></div>
-    <div style="margin-top:20px">
-      <div style="font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">📲 Send to WhatsApp</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-        <button class="btn wa sm" onclick="docWaText('eval')">💬 Text</button>
-        <button class="btn wa2 sm" onclick="docWaImage('eval')">🖼️ Image + WA</button>
-        <button class="btn wa3 sm" onclick="docDownloadJPG('eval')">⬇️ Save JPG</button>
-      </div>
-      <div style="font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">🖨️ Print / Download</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn sm" onclick="docPrint('eval')">🖨️ Print</button>
-        <button class="btn sm primary" onclick="docDownloadPDF('eval')">⬇️ PDF</button>
-        <button class="btn sm success" onclick="docCopyText('eval')">📋 Copy Text</button>
-        <button class="btn sm" onclick="closeModal('modal-eval-print')">Close</button>
-      </div>
-      <div id="doc-status-eval" style="display:none;font-size:0.82rem;font-weight:600;margin-top:10px;padding:10px 14px;border-radius:8px;background:var(--bg3);color:var(--muted)"></div>
-    </div>
+    <div id="sb-doc-eval"></div>
   </div>
 </div>
 
 <!-- ══ MODAL: LESSON PRINT ══ -->
 <div class="overlay" id="modal-lesson-print">
   <div class="modal modal-sm">
-    <div class="modal-title">📚 Lesson Plan</div>
+    <button class="modal-x" onclick="closeModal('modal-lesson-print')" title="Close">✕</button>
+    <div class="modal-title modal-head-pad">📚 Lesson Plan</div>
     <div id="lesson-print-content"></div>
-    <div style="margin-top:20px">
-      <div style="font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">📲 Send to WhatsApp</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-        <button class="btn wa sm" onclick="docWaText('lesson')">💬 Text</button>
-        <button class="btn wa2 sm" onclick="docWaImage('lesson')">🖼️ Image + WA</button>
-        <button class="btn wa3 sm" onclick="docDownloadJPG('lesson')">⬇️ Save JPG</button>
-      </div>
-      <div style="font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">🖨️ Print / Download</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn sm" onclick="docPrint('lesson')">🖨️ Print</button>
-        <button class="btn sm primary" onclick="docDownloadPDF('lesson')">⬇️ PDF</button>
-        <button class="btn sm success" onclick="docCopyText('lesson')">📋 Copy Text</button>
-        <button class="btn sm" onclick="closeModal('modal-lesson-print')">Close</button>
-      </div>
-      <div id="doc-status-lesson" style="display:none;font-size:0.82rem;font-weight:600;margin-top:10px;padding:10px 14px;border-radius:8px;background:var(--bg3);color:var(--muted)"></div>
-    </div>
+    <div id="sb-doc-lesson"></div>
   </div>
 </div>
 
 <!-- ══ MODAL: REPORT PRINT ══ -->
 <div class="overlay" id="modal-report-print">
   <div class="modal modal-sm">
-    <div class="modal-title">📤 Parent Report</div>
+    <button class="modal-x" onclick="closeModal('modal-report-print')" title="Close">✕</button>
+    <div class="modal-title modal-head-pad">📤 Parent Report</div>
     <div id="report-print-content"></div>
-    <div style="margin-top:20px">
-      <div style="font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">📲 Send to WhatsApp</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-        <button class="btn wa sm" onclick="docWaText('report')">💬 Text</button>
-        <button class="btn wa2 sm" onclick="docWaImage('report')">🖼️ Image + WA</button>
-        <button class="btn wa3 sm" onclick="docDownloadJPG('report')">⬇️ Save JPG</button>
-      </div>
-      <div style="font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">🖨️ Print / Download</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn sm" onclick="docPrint('report')">🖨️ Print</button>
-        <button class="btn sm primary" onclick="docDownloadPDF('report')">⬇️ PDF</button>
-        <button class="btn sm success" onclick="docCopyText('report')">📋 Copy Text</button>
-        <button class="btn sm" onclick="closeModal('modal-report-print')">Close</button>
-      </div>
-      <div id="doc-status-report" style="display:none;font-size:0.82rem;font-weight:600;margin-top:10px;padding:10px 14px;border-radius:8px;background:var(--bg3);color:var(--muted)"></div>
-    </div>
+    <div id="sb-doc-report"></div>
   </div>
 </div>
 
@@ -989,18 +947,13 @@
 <!-- ══ MODAL: RECEIPT ══ -->
 <div class="overlay" id="modal-receipt">
   <div class="modal" style="max-width:400px;padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:90vh">
+    <div style="position:relative;flex-shrink:0;padding:16px 60px 12px 20px;border-bottom:1px solid var(--border);background:var(--bg2)">
+      <div class="modal-title" style="margin:0;font-size:1.15rem">🧾 Receipt</div>
+      <button class="modal-x" style="top:10px;right:12px" onclick="closeModal('modal-receipt')" title="Close">✕</button>
+    </div>
     <div id="receipt-content" style="overflow-y:auto;flex:1;min-height:0"></div>
-    <div style="padding:14px 16px 16px;border-top:1px solid var(--border);flex-shrink:0;background:var(--bg2)">
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-        <button class="btn wa sm" onclick="waText()">💬 WA Text</button>
-        <button class="btn wa2 sm" id="btn-wa-img" onclick="waImage()">🖼️ WA Image</button>
-        <button class="btn wa3 sm" onclick="downloadPNG()">⬇️ PNG</button>
-        <button class="btn sm" onclick="printReceipt()">🖨️ Print</button>
-        <button class="btn sm primary" onclick="downloadPDF()">⬇️ PDF</button>
-        <button class="btn sm success" onclick="copyReceipt()">📋 Copy</button>
-        <button class="btn sm" onclick="closeModal('modal-receipt')">✕ Close</button>
-      </div>
-      <div id="wa-status"></div>
+    <div style="padding:2px 16px 16px;border-top:1px solid var(--border);flex-shrink:0;background:var(--bg2);overflow:visible">
+      <div id="sb-receipt"></div>
     </div>
   </div>
 </div>
@@ -1204,14 +1157,10 @@
   <div class="modal modal-lg" style="max-width:600px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
       <div class="modal-title" style="margin-bottom:0">👤 Student Profile</div>
-      <div style="display:flex;gap:6px;align-items:center">
-        <button class="btn sm" onclick="exportSP('png')" title="Download PNG">🖼️ PNG</button>
-        <button class="btn sm" onclick="exportSP('pdf')" title="Download PDF">📄 PDF</button>
-        <button class="btn wa sm" onclick="exportSP('wa')" title="Share via WhatsApp">💬 WhatsApp</button>
-        <button class="btn sm icon-only" onclick="closeModal('modal-student-profile')" style="font-size:1rem">✕</button>
-      </div>
     </div>
+    <button class="modal-x" onclick="closeModal('modal-student-profile')" title="Close">✕</button>
     <div id="sp-content"></div>
+    <div id="sb-profile"></div>
   </div>
 </div>
 
@@ -1250,6 +1199,7 @@
 <script src="js/restore-points.js"></script>
 <script src="js/overview.js"></script>
 <script src="js/curriculum.js"></script>
+<script src="js/share-bar.js"></script>
 
 
 

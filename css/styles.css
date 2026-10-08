@@ -1245,3 +1245,50 @@ td.nowrap { white-space:nowrap }
   font-size:0.82rem;
 }
 .sp-score{font-family:'Fredoka One',sans-serif;font-size:1.1rem;font-weight:800}
+
+/* ════════════════════════════════════════════════
+   SHARE BAR — tombol kirim WA / print yang seragam
+   [ Send via WhatsApp ] [ 🖨️ ] [ ⋯ ]
+   ════════════════════════════════════════════════ */
+.modal-x {
+  position:absolute;top:14px;right:14px;z-index:3;
+  width:34px;height:34px;border-radius:50%;border:1px solid var(--border);
+  background:var(--bg3);color:var(--muted);font-size:0.95rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all .15s;
+}
+.modal-x:hover { color:var(--text);border-color:var(--accent) }
+.modal-head-pad { padding-right:44px }
+
+.share-bar { display:flex;gap:8px;align-items:stretch;margin-top:18px }
+.share-bar .btn, .modal .share-bar .btn { height:44px;min-width:0;border-radius:12px;justify-content:center;white-space:nowrap }
+.share-bar .sb-main, .modal .share-bar .sb-main { flex:1 1 auto;font-size:0.92rem;padding:0 14px }
+.share-bar .sb-icon, .modal .share-bar .sb-icon { flex:0 0 44px;width:44px;padding:0;font-size:1.05rem }
+.sb-more { position:relative;flex-shrink:0 }
+.sb-menu {
+  position:absolute;right:0;bottom:calc(100% + 8px);min-width:210px;z-index:60;
+  background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:6px;
+  box-shadow:0 14px 34px rgba(0,0,0,0.28);display:none;
+}
+.sb-menu.open { display:block;animation:fadeIn .12s ease-out }
+.sb-menu button {
+  display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border:0;border-radius:9px;
+  background:none;color:var(--text);font-family:inherit;font-size:0.86rem;font-weight:600;text-align:left;cursor:pointer;
+}
+.sb-menu button:hover { background:var(--bg3) }
+.sb-menu .sb-ico { width:20px;text-align:center }
+.sb-status {
+  display:none;margin-top:10px;padding:9px 12px;border-radius:10px;
+  background:var(--bg3);color:var(--muted);font-size:0.8rem;font-weight:600;line-height:1.45;
+}
+
+/* Pratinjau dokumen (eval / lesson / report) di dalam modal */
+.doc-preview { font-size:0.87rem;line-height:1.6;color:var(--text) }
+.doc-preview h1 { display:none }
+.doc-preview .sub { color:var(--muted);font-size:0.8rem;margin:-6px 0 12px }
+.doc-preview .row {
+  display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--border)
+}
+.doc-preview .row span { color:var(--muted) }
+.doc-preview .row strong { text-align:right }
+.doc-preview .section { margin:14px 0 6px;font-size:0.72rem;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--accent) }
+.doc-preview .block { background:var(--bg3);border-radius:10px;padding:10px 12px;white-space:pre-line }

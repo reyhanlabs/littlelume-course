@@ -9,10 +9,20 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.9.0';
+const APP_VERSION = '1.10.0';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.10.0', date: '2026-10-08',
+    title: 'Simpler share & print',
+    items: [
+      ['improve', 'Receipts, evaluations, lesson plans, parent reports, student profiles and curriculum sessions now share one simple button layout: Send via WhatsApp · 🖨️ · ⋯'],
+      ['improve', 'Less used options (text only, save image, PDF, copy) moved into the ⋯ menu; Close is the ✕ in the corner.'],
+      ['new', 'Evaluation, lesson plan and parent report images are sent to WhatsApp together with a caption in one message, like receipts.'],
+      ['improve', 'Document previews are laid out cleanly (label on the left, value on the right).'],
+    ],
+  },
   {
     version: '1.9.0', date: '2026-10-01',
     title: 'LittleLume Curriculum in Lessons',
