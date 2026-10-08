@@ -9,10 +9,17 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.10.3';
+const APP_VERSION = '1.10.4';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.10.4', date: '2026-10-08',
+    title: 'Fix',
+    items: [
+      ['fix', 'The "All Classes" menu now shows a colored highlight when selected, instead of only turning the text white.'],
+    ],
+  },
   {
     version: '1.10.3', date: '2026-10-08',
     title: 'Nicer lesson plan view',

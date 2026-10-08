@@ -75,6 +75,7 @@ body{font-family:'Fredoka One',sans-serif;background:var(--bg);color:var(--text)
 .nav-item.active { color:#fff;border:none;font-weight:700 }
 
 /* Each section gets its own color */
+.nav-item[data-page="overview"].active   { background:linear-gradient(135deg,#ec4899,#8b5cf6);box-shadow:0 4px 14px rgba(236,72,153,0.38) }
 .nav-item[data-page="dashboard"].active  { background:linear-gradient(135deg,#6c63ff,#9c8fff);box-shadow:0 4px 14px rgba(108,99,255,0.4) }
 .nav-item[data-page="students"].active   { background:linear-gradient(135deg,#38bdf8,#0ea5e9);box-shadow:0 4px 14px rgba(56,189,248,0.4) }
 .nav-item[data-page="attendance"].active { background:linear-gradient(135deg,#00d68f,#00b371);box-shadow:0 4px 14px rgba(0,214,143,0.4) }
@@ -87,6 +88,7 @@ body{font-family:'Fredoka One',sans-serif;background:var(--bg);color:var(--text)
 .nav-item[data-page="backup"].active     { background:linear-gradient(135deg,#6b7498,#4b5563);box-shadow:0 4px 14px rgba(107,116,152,0.3) }
 
 /* Hover colors by page */
+.nav-item[data-page="overview"]:hover   { color:#ec4899;background:rgba(236,72,153,0.1) }
 .nav-item[data-page="dashboard"]:hover  { color:#6c63ff;background:rgba(108,99,255,0.1) }
 .nav-item[data-page="students"]:hover   { color:#38bdf8;background:rgba(56,189,248,0.1) }
 .nav-item[data-page="attendance"]:hover { color:#00d68f;background:rgba(0,214,143,0.1) }
