@@ -9,10 +9,19 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.10.0';
+const APP_VERSION = '1.10.1';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.10.1', date: '2026-10-08',
+    title: 'New lesson plan printout',
+    items: [
+      ['improve', 'Lesson plans print on a clean A4 layout: header with logo, info boxes (class, grade, session, date, duration), objectives, language focus, activities table with total time, assessment, and teacher notes space.'],
+      ['improve', 'Lessons made from the curriculum print the full session plan automatically. Printing from Lessons and from the curriculum now looks the same.'],
+      ['fix', 'Lesson plans for one student show the student\'s name instead of an internal code.'],
+    ],
+  },
   {
     version: '1.10.0', date: '2026-10-08',
     title: 'Simpler share & print',

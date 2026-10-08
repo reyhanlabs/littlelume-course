@@ -364,8 +364,11 @@ function showEvalPrint(id){
 }
 
 // ── LESSON PRINT ──
-function showLessonPrint(id){
+async function showLessonPrint(id){
   const m = materiList.find(x=>x.id===id); if(!m) return;
+  // Lesson dari kurikulum → pastikan data kurikulum termuat untuk cetakan lengkap
+  if(m.kurikulum && typeof curLoad==='function'){ try{ await curLoad(); }catch(e){} }
+  const targetName = typeof _lpTargetName==='function' ? _lpTargetName(m.target) : (m.target==='Semua'?'All Students':m.target||'All Students');
   const statusLabel = m.status==='Selesai'?'✅ Completed':'🗓️ Planned';
   const bodyHTML=`
     <h1>📚 Lesson Plan</h1>
@@ -373,13 +376,14 @@ function showLessonPrint(id){
     <div class="row"><span>Topic</span><strong>${esc(m.topik)}</strong></div>
     <div class="row"><span>Date</span><strong>${tglFmt(m.tanggal)}</strong></div>
     <div class="row"><span>Status</span><strong>${statusLabel}</strong></div>
-    <div class="row"><span>Target</span><strong>${m.target==='Semua'?'All Students':m.target||'All Students'}</strong></div>
-    ${m.sumber?`<div class="row"><span>Reference</span><strong>${m.sumber}</strong></div>`:''}
+    <div class="row"><span>Target</span><strong>${esc(targetName)}</strong></div>
+    ${m.sumber?`<div class="row"><span>Reference</span><strong>${esc(m.sumber)}</strong></div>`:''}
     ${m.deskripsi?`<div class="section">Description & Activities</div><div class="block">${esc(m.deskripsi)}</div>`:''}
   `;
-  const txt=`📚 LESSON PLAN — LITTLELUME ENGLISH COURSE\n${'─'.repeat(36)}\nTopic    : ${m.topik}\nDate     : ${tglFmt(m.tanggal)}\nStatus   : ${m.status}\nTarget   : ${m.target==='Semua'?'All Students':m.target||'All Students'}\n${m.sumber?'Ref      : '+m.sumber+'\n':''}${m.deskripsi?'\n📝 Description:\n'+m.deskripsi+'\n':''}\n${'─'.repeat(36)}\nLittleLume English Course 🎓`;
+  const txt=`📚 LESSON PLAN — LITTLELUME ENGLISH COURSE\n${'─'.repeat(36)}\nTopic    : ${m.topik}\nDate     : ${tglFmt(m.tanggal)}\nStatus   : ${m.status}\nTarget   : ${targetName}\n${m.sumber?'Ref      : '+m.sumber+'\n':''}${m.deskripsi?'\n📝 Description:\n'+m.deskripsi+'\n':''}\n${'─'.repeat(36)}\nLittleLume English Course 🎓`;
   _docStore.lesson = { html:bodyHTML, text:txt, title:'Lesson-'+m.topik.replace(/\s+/g,'-').slice(0,30),
-    caption:`Lesson plan: *${m.topik}* (${tglFmt(m.tanggal)}) — LittleLume English Course.` };
+    caption:`Lesson plan: *${m.topik}* (${tglFmt(m.tanggal)}) — LittleLume English Course.`,
+    printData: typeof lessonPrintData==='function' ? lessonPrintData(m) : null };   // cetakan A4 (js/lesson-print.js)
   document.getElementById('lesson-print-content').innerHTML = `<div class="doc-preview">${bodyHTML}</div>`;
   document.getElementById('doc-status-lesson').style.display='none';
   openModal('modal-lesson-print');
@@ -442,6 +446,7 @@ function showReportPrint(siswaId){
 // ── SHARED PRINT/EXPORT ACTIONS ──
 function docPrint(type){
   const d=_docStore[type]; if(!d.html) return;
+  if(d.printData){ openLessonPlanPrint(d.printData, 400); return; }
   const w=window.open('','_blank','width=680,height=900');
   w.document.write(_docPrintHTML(d.html, d.title));
   w.document.write(`<script>window.onload=function(){window.print();}<\/script>`);
@@ -450,6 +455,7 @@ function docPrint(type){
 
 function docDownloadPDF(type){
   const d=_docStore[type]; if(!d.html) return;
+  if(d.printData){ openLessonPlanPrint(d.printData, 700); return; }
   const w=window.open('','_blank','width=680,height=900');
   w.document.write(_docPrintHTML(d.html, d.title));
   w.document.write(`<script>window.onload=function(){setTimeout(function(){window.print();},600);}<\/script>`);

@@ -227,27 +227,7 @@ function curAddLesson(key){
 // ── Cetak rencana sesi ──
 function curPrintMeeting(key){
   const r = curGetMeeting(key); if(!r) return;
-  const w = window.open('', '_blank'); if(!w) return;
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(r.m.num)} - ${esc(r.m.title)}</title>
-    <style>
-      body{font-family:Arial,Helvetica,sans-serif;color:#222;margin:24px;font-size:13px}
-      h1{font-size:18px;margin:0 0 4px} .sub{color:#666;margin-bottom:12px}
-      h3{font-size:12px;letter-spacing:.4px;text-transform:uppercase;color:#6c63ff;margin:16px 0 6px}
-      table{width:100%;border-collapse:collapse} td,th{border:1px solid #ccc;padding:5px 7px;text-align:left;vertical-align:top}
-      th{background:#f3f2ff} ul{margin:0;padding-left:18px} .chip{display:inline-block;border:1px solid #ccc;border-radius:10px;padding:1px 8px;margin:2px}
-      @page{size:A4;margin:14mm}
-    </style></head><body>
-    <img src="${APP_LOGO_URL}" style="height:40px;float:right">
-    <h1>${esc(r.m.num)}: ${esc(r.m.title)}</h1>
-    <div class="sub">LittleLume English Course · ${esc(CUR_GRADES[r.grade]||r.grade)} · Semester ${r.sem} · ${esc(r.m.duration||'')} · Class: ${esc(currentClassName||'')}</div>
-    <h3>Objectives</h3><ul>${(r.m.objectives||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
-    <h3>Grammar</h3><div><b>Pattern:</b> ${esc(r.m.grammarPattern)}<br>${r.m.grammarExample?`<b>Example:</b> <i>${esc(r.m.grammarExample)}</i><br>`:''}${esc(r.m.grammarNote||'')}</div>
-    <h3>Vocabulary</h3><div>${(r.m.vocab||[]).map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>
-    <h3>Media</h3><ul>${(r.m.media||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
-    <h3>Activities</h3><table><tr><th style="width:50px">Time</th><th style="width:130px">Activity</th><th>Description</th></tr>
-      ${(r.m.activities||[]).map(a=>`<tr><td>${esc(a.waktu)}</td><td><b>${esc(a.kegiatan)}</b></td><td>${esc(a.deskripsi)}</td></tr>`).join('')}</table>
-    <h3>Assessment</h3><ul>${(r.m.assessment||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
-    <script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script>
-    </body></html>`);
-  w.document.close();
+  // Desain cetakan sama dengan Lesson Plan di halaman Lessons (js/lesson-print.js)
+  const linked = materiList.find(l=>l.kurikulum===key);
+  openLessonPlanPrint(linked ? lessonPrintData(linked) : _lpFromCurriculum(r));
 }
