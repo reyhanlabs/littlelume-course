@@ -9,10 +9,17 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.10.1';
+const APP_VERSION = '1.10.2';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.10.2', date: '2026-10-08',
+    title: 'Lesson plan image',
+    items: [
+      ['improve', 'Lesson plan images (Send via WhatsApp and Save as image) now use the same new design as the printout.'],
+    ],
+  },
   {
     version: '1.10.1', date: '2026-10-08',
     title: 'New lesson plan printout',

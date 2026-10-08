@@ -444,6 +444,15 @@ function showReportPrint(siswaId){
 }
 
 // ── SHARED PRINT/EXPORT ACTIONS ──
+// Gambar dokumen. Lesson plan memakai desain cetakan baru (js/lesson-print.js).
+async function _docCanvas(d, panel){
+  if(d.printData && typeof renderLessonPlanCanvas==='function') return renderLessonPlanCanvas(d.printData);
+  panel.innerHTML = `<div style="font-family:Arial,sans-serif;color:#1a1f36">${d.html}<div style="text-align:center;margin-top:20px;padding-top:10px;border-top:2px dashed #ddd;font-size:0.72rem;color:#aaa">LittleLume English Course 🎓</div></div>`;
+  await new Promise(r=>setTimeout(r,150));
+  try{ return await html2canvas(panel,{scale:2.5,useCORS:true,backgroundColor:'#ffffff',width:560,windowWidth:560}); }
+  finally{ panel.innerHTML=''; }
+}
+
 function docPrint(type){
   const d=_docStore[type]; if(!d.html) return;
   if(d.printData){ openLessonPlanPrint(d.printData, 400); return; }
@@ -467,11 +476,8 @@ async function docDownloadJPG(type){
   const statusEl = document.getElementById('doc-status-'+type);
   statusEl.style.display='block'; statusEl.textContent='⏳ Generating image…';
   const panel = document.getElementById('doc-render-panel');
-  panel.innerHTML = `<div style="font-family:Arial,sans-serif;color:#1a1f36">${d.html}<div style="text-align:center;margin-top:20px;padding-top:10px;border-top:2px dashed #ddd;font-size:0.72rem;color:#aaa">LittleLume English Course 🎓</div></div>`;
-  await new Promise(r=>setTimeout(r,150));
   try{
-    const canvas = await html2canvas(panel,{scale:2.5,useCORS:true,backgroundColor:'#ffffff',width:560,windowWidth:560});
-    panel.innerHTML='';
+    const canvas = await _docCanvas(d, panel);
     const a=document.createElement('a');
     a.download=d.title+'.jpg';
     a.href=canvas.toDataURL('image/jpeg',0.92); a.click();
@@ -493,11 +499,8 @@ async function docWaImage(type){
   const statusEl = document.getElementById('doc-status-'+type);
   statusEl.style.display='block'; statusEl.textContent='⏳ Generating image…';
   const panel = document.getElementById('doc-render-panel');
-  panel.innerHTML = `<div style="font-family:Arial,sans-serif;color:#1a1f36">${d.html}<div style="text-align:center;margin-top:20px;padding-top:10px;border-top:2px dashed #ddd;font-size:0.72rem;color:#aaa">LittleLume English Course 🎓</div></div>`;
-  await new Promise(r=>setTimeout(r,150));
   try{
-    const canvas = await html2canvas(panel,{scale:2.5,useCORS:true,backgroundColor:'#ffffff',width:560,windowWidth:560});
-    panel.innerHTML='';
+    const canvas = await _docCanvas(d, panel);
     // Satu pesan WA: gambar + caption (js/share-bar.js)
     await shareImageToWA(canvas, d.title, d.caption || d.title.replace(/-/g,' '), d.phone, statusEl);
   }catch(e){

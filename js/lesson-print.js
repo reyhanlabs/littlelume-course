@@ -114,7 +114,9 @@ function buildLessonPlanPrintHTML(d){
     .sign{ text-align:center; color:#1f2340; font-size:9pt }
     .sign div{ width:160px; border-bottom:1px solid #1f2340; height:40px; margin-bottom:3px }
     @media screen{ body{ background:#eef0f6; padding:20px } .page{ background:#fff; padding:14mm; box-shadow:0 8px 30px rgba(0,0,0,.12); border-radius:6px } }
-  </style></head><body><div class="page">
+    body.img{ background:#fff; padding:0 } body.img .page{ box-shadow:none; border-radius:0; padding:28px 30px 22px; max-width:none }
+    body.img td.chk, body.img th:last-child{ display:none }   /* kolom ✓ hanya untuk cetakan */
+  </style></head><body class="${d.forImage?'img':''}"><div class="page">
 
   <div class="head">
     <img src="${e(typeof APP_LOGO_URL!=='undefined'?APP_LOGO_URL:'')}" alt="">
@@ -155,16 +157,17 @@ function buildLessonPlanPrintHTML(d){
 
   ${acts.length && d.description && !d.fromCurriculum ? sec('Notes', `<div class="desc">${e(d.description)}</div>`) : ''}
 
-  ${sec('Teacher Notes', `
+  ${d.forImage ? '' : sec('Teacher Notes', `
     <div class="notes-grid">
       <div><b style="font-size:9pt;color:#5c6180">What went well</b><div class="lines"><div></div><div></div><div></div></div></div>
       <div><b style="font-size:9pt;color:#5c6180">Follow up next session</b><div class="lines"><div></div><div></div><div></div></div></div>
     </div>`)}
 
+  ${d.forImage ? `<div class="foot" style="justify-content:center">LittleLume English Course 🎓</div>` : `
   <div class="foot">
     <div>LittleLume English Course · printed ${e(tglFmt(todayISO()))}</div>
     <div class="sign"><div></div>Teacher</div>
-  </div>
+  </div>`}
 
   </div></body></html>`;
 }
@@ -205,4 +208,27 @@ function openLessonPlanPrint(d, delay){
   w.document.write(buildLessonPlanPrintHTML(d) +
     `<script>window.onload=function(){setTimeout(function(){window.print()},${delay||500})}<\/script>`);
   w.document.close();
+}
+
+// ── Gambar (JPG/WA) dengan desain yang sama dengan cetakan ──
+// Dirender di iframe tersembunyi selebar A4 (794px) lalu difoto dengan html2canvas.
+async function renderLessonPlanCanvas(d){
+  const W = 794;
+  const ifr = document.createElement('iframe');
+  ifr.setAttribute('aria-hidden','true');
+  ifr.style.cssText = `position:fixed;left:-10000px;top:0;width:${W}px;height:400px;border:0;visibility:hidden`;
+  document.body.appendChild(ifr);
+  try{
+    const doc = ifr.contentDocument;
+    doc.open(); doc.write(buildLessonPlanPrintHTML({ ...d, forImage:true })); doc.close();
+    await new Promise(r=>{ if(doc.readyState==='complete') r(); else ifr.onload=()=>r(); setTimeout(r,2500); });
+    try{ await Promise.race([doc.fonts.ready, new Promise(r=>setTimeout(r,1500))]); }catch(e){}
+    const imgs=[...doc.images].filter(i=>!i.complete);
+    await Promise.race([Promise.all(imgs.map(i=>new Promise(r=>{i.onload=i.onerror=r;}))), new Promise(r=>setTimeout(r,2000))]);
+    const H = Math.ceil(doc.querySelector('.page').getBoundingClientRect().height);
+    ifr.style.height = H+'px';
+    return await html2canvas(doc.body, { scale:2, useCORS:true, backgroundColor:'#ffffff', width:W, height:H, windowWidth:W, windowHeight:H });
+  } finally {
+    ifr.remove();
+  }
 }
