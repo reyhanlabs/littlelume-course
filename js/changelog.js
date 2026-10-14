@@ -9,10 +9,18 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.10.4';
+const APP_VERSION = '1.10.5';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.10.5', date: '2026-10-14',
+    title: 'Colorful sidebar',
+    items: [
+      ['improve', 'Sidebar menus now each have their own soft color, so pages are easier to find at a glance. The selected menu is highlighted with a colored left edge.'],
+      ['improve', 'Cleaner sidebar background in light mode; menu colors adjusted for readability in dark mode.'],
+    ],
+  },
   {
     version: '1.10.4', date: '2026-10-08',
     title: 'Fix',
