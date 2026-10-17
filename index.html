@@ -143,30 +143,6 @@
         </div>
       </div>
 
-      <!-- Quick Actions -->
-      <div class="quick-actions">
-        <div class="quick-action qa-attendance" onclick="navigate('attendance')">
-          <div class="qa-icon">📋</div>
-          <div class="qa-label">Take Attendance</div>
-          <div class="qa-sub">Mark today's class</div>
-        </div>
-        <div class="quick-action qa-eval" onclick="navigate('evaluation');switchEvalTab('bulk')">
-          <div class="qa-icon">⚡</div>
-          <div class="qa-label">Bulk Evaluation</div>
-          <div class="qa-sub">Rate all students</div>
-        </div>
-        <div class="quick-action qa-payment" onclick="navigate('payment');openPaymentForm()">
-          <div class="qa-icon">💰</div>
-          <div class="qa-label">Record Payment</div>
-          <div class="qa-sub">Add tuition entry</div>
-        </div>
-        <div class="quick-action qa-report" onclick="navigate('reports')">
-          <div class="qa-icon">📤</div>
-          <div class="qa-label">Parent Report</div>
-          <div class="qa-sub">Share via WhatsApp</div>
-        </div>
-      </div>
-
       <div id="dash-alerts"></div>
       <div class="card-grid card-grid-4" style="margin-bottom:20px" id="dash-stats"></div>
 
@@ -207,7 +183,7 @@
         </div>
         <div>
           <!-- Payment Reminders -->
-          <div class="card" style="margin-bottom:20px;border-top:3px solid var(--red)">
+          <div class="card" id="dash-reminders-card" style="margin-bottom:20px;border-top:3px solid var(--red)">
             <div style="font-family:'Fredoka One',sans-serif;font-weight:800;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between">
               <span>🔔 Payment Reminders</span>
               <span class="chip chip-red" id="reminder-count" style="display:none"></span>
@@ -218,11 +194,6 @@
           <div class="card" style="border-top:3px solid var(--green)">
             <div style="font-family:'Fredoka One',sans-serif;font-weight:800;margin-bottom:16px">💰 Recent Payments</div>
             <div id="dash-payments"></div>
-          </div>
-          <!-- Monthly Revenue -->
-          <div class="card" style="border-top:3px solid var(--purple)">
-            <div style="font-family:'Fredoka One',sans-serif;font-weight:800;margin-bottom:12px">📊 Monthly Revenue</div>
-            <div class="chart-box" style="height:120px"><canvas id="chart-revenue"></canvas></div>
           </div>
         </div>
       </div>
@@ -272,12 +243,12 @@
                     <div class="day-btn" data-day="Thursday"  onclick="toggleDay(this)">Thu</div>
                     <div class="day-btn" data-day="Friday"    onclick="toggleDay(this)">Fri</div>
                     <div class="day-btn" data-day="Saturday"  onclick="toggleDay(this)">Sat</div>
-                  </div>
+        </div>
                   <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
                     <div class="form-group" style="margin:0;flex:1"><label style="font-size:0.7rem">Time</label><input type="time" id="sched-jam" style="width:100%"></div>
                     <div class="form-group" style="margin:0;flex:1"><label style="font-size:0.7rem">Duration (min)</label><input type="number" id="sched-durasi" value="60" min="15" step="15" style="width:100%"></div>
                     <div style="padding-top:20px"><button class="btn sm primary" onclick="addScheduleSlot()">+ Add</button></div>
-                  </div>
+        </div>
                 </div>
               </div>
             </div>

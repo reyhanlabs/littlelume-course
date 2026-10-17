@@ -59,7 +59,7 @@ function renderDashboard(){
       });
       const _mpi = getMonthlyPayInfo(s.id);
       const paidMonths = _mpi.paid;
-      sessionMonths.forEach(ym=>{ if(!paidMonths.has(ym)) unpaid++; });
+      if([...sessionMonths].some(ym=>!paidMonths.has(ym))) unpaid++;   // dihitung per murid
     } else {
       const unpaidSessions = absensiList.filter(a => {
         if(a.siswaId!==s.id || a.status!=='Hadir') return false;
@@ -89,11 +89,18 @@ function renderDashboard(){
     });
   }
 
+  // Total tagihan (sama dengan daftar Payment Reminders, sudah dikurangi deposit)
+  const owed = (typeof computePaymentReminders==='function')
+    ? computePaymentReminders().reduce((t,r)=>t+(r.total||0),0) : null;
+
   document.getElementById('dash-stats').innerHTML = `
-    <div class="stat-card s-purple"><div class="ico">👤</div><div class="val">${totalStudents}</div><div class="lbl">Total Students</div></div>
-    <div class="stat-card s-green"><div class="ico">💰</div><div class="val" style="font-size:${totalRevenue>9999999?'1rem':'1.3rem'}">${fmt(totalRevenue)}</div><div class="lbl">Revenue${filterLabel}</div></div>
-    <div class="stat-card s-red"><div class="ico">⚠️</div><div class="val">${unpaid}</div><div class="lbl">Unpaid Bills${filterLabel}</div><div class="trend ${unpaid>0?'trend-dn':'trend-up'}">${unpaid>0?'Needs attention':'All clear!'}</div></div>
-    <div class="stat-card s-blue"><div class="ico">📋</div><div class="val">${isFiltered?presentFiltered+'/'+filteredAtt.length:presentToday+'/'+(todayAtt.length||totalStudents)}</div><div class="lbl">${isFiltered?'Present (filtered)':'Present Today'}</div></div>
+    <div class="stat-card s-purple" style="cursor:pointer" onclick="navigate('students')" title="Go to Students"><div class="ico">👤</div><div class="val">${totalStudents}</div><div class="lbl">Total Students</div></div>
+    <div class="stat-card s-green" style="cursor:pointer" onclick="navigate('analytics')" title="See revenue by month"><div class="ico">💰</div><div class="val" style="font-size:${totalRevenue>9999999?'1rem':'1.3rem'}">${fmt(totalRevenue)}</div><div class="lbl">Revenue${filterLabel}</div></div>
+    <div class="stat-card s-red" style="cursor:pointer" onclick="document.getElementById('dash-reminders-card')?.scrollIntoView({behavior:'smooth',block:'center'})" title="See who to bill">
+      <div class="ico">⚠️</div><div class="val">${unpaid}</div><div class="lbl">Students to Bill${filterLabel}</div>
+      <div class="trend ${unpaid>0?'trend-dn':'trend-up'}">${owed ? fmt(owed)+' outstanding in total' : (unpaid>0 ? 'Needs attention' : 'All clear!')}</div>
+    </div>
+    <div class="stat-card s-blue" style="cursor:pointer" onclick="navigate('attendance')" title="Go to Attendance"><div class="ico">📋</div><div class="val">${isFiltered?presentFiltered+'/'+filteredAtt.length:presentToday+'/'+(todayAtt.length||totalStudents)}</div><div class="lbl">${isFiltered?'Present (filtered)':'Present Today'}</div></div>
     <div class="stat-card s-yellow" style="cursor:pointer" onclick="navigate('deposits')" title="Go to Deposits">
       <div class="ico">🏦</div>
       <div class="val" style="font-size:${totalDepositBalance>9999999?'1rem':'1.3rem'}">${fmt(totalDepositBalance)}</div>
@@ -102,14 +109,13 @@ function renderDashboard(){
     </div>
   `;
 
+  // Hanya peringatan yang belum terlihat di kartu lain (tagihan & deposit sudah ada di kartu di atas)
   const alerts=[];
-  if(unpaid>0) alerts.push(`<div class="alert-card alert-danger">⚠️ <span>${unpaid} student(s) have unpaid bills${isFiltered?' in selected period':''}.  <a href="#" onclick="navigate('payment');return false" style="color:inherit;text-decoration:underline">View Payment</a></span></div>`);
-  if(studentsWithDeposit>0) alerts.push(`<div class="alert-card alert-warn">🏦 <span>${studentsWithDeposit} student(s) have deposit balance totaling <strong>${fmt(totalDepositBalance)}</strong>.  <a href="#" onclick="navigate('deposits');return false" style="color:inherit;text-decoration:underline">View Deposits</a></span></div>`);
   const noEvalThisWeek = siswaList.filter(s=>{
     const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-7);
     return !evaluasiList.find(e=>e.siswaId===s.id && new Date(e.tanggal)>=weekAgo);
   });
-  if(noEvalThisWeek.length>0 && siswaList.length>0) alerts.push(`<div class="alert-card alert-warn">📝 ${noEvalThisWeek.length} student(s) have no evaluation this week.</div>`);
+  if(noEvalThisWeek.length>0 && siswaList.length>0) alerts.push(`<div class="alert-card alert-warn" style="cursor:pointer" onclick="navigate('evaluation');switchEvalTab('bulk')">📝 ${noEvalThisWeek.length} student(s) have no evaluation this week. <a href="javascript:void(0)" style="color:inherit;font-weight:800;margin-left:6px">Evaluate now →</a></div>`);
   document.getElementById('dash-alerts').innerHTML = alerts.join('');
 
   // Weekly schedule grid
@@ -129,7 +135,6 @@ function renderDashboard(){
         </div>
       </div>`).join('');
   }
-  renderRevenueChart('chart-revenue', fDari, fSampai, fPeriode);
 }
 
 function getMonthlyRevenue(fDari='', fSampai='', fPeriode=''){

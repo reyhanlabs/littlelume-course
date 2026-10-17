@@ -9,10 +9,19 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.11.0';
+const APP_VERSION = '1.11.1';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.11.1', date: '2026-10-17',
+    title: 'Tidier dashboard',
+    items: [
+      ['improve', 'Removed duplicate dashboard blocks: the 4 shortcut cards (same as the sidebar menu), the unpaid-bills and deposit warning bars (same as the stat cards) and the small Monthly Revenue chart (full chart is in Analytics).'],
+      ['improve', 'Stat cards are now clickable: Students, Revenue → Analytics, Students to Bill → Payment Reminders list, Attendance, Deposits.'],
+      ['fix', '"Students to Bill" now counts students (matching the Payment Reminders list) and shows the total outstanding amount.'],
+    ],
+  },
   {
     version: '1.11.0', date: '2026-10-17',
     title: 'More lively',
