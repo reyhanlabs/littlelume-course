@@ -9,10 +9,22 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.10.5';
+const APP_VERSION = '1.11.0';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.11.0', date: '2026-10-17',
+    title: 'More lively',
+    items: [
+      ['improve', 'Sidebar menus slide in when the app opens; icons wiggle on hover, pop when selected, and the selected menu has a soft glow and shine.'],
+      ['improve', 'Tap feedback: a ripple effect on menu taps and a gentle bounce on buttons.'],
+      ['improve', 'Pages fade in smoothly; cards, table rows and progress bars appear one after another.'],
+      ['improve', 'Dashboard numbers count up when shown; stat icons gently float.'],
+      ['improve', 'Windows pop in with a bounce; the ✕ button spins on hover.'],
+      ['improve', 'All animations switch off automatically if your device is set to "reduce motion".'],
+    ],
+  },
   {
     version: '1.10.5', date: '2026-10-14',
     title: 'Colorful sidebar',
