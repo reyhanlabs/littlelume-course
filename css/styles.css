@@ -1639,3 +1639,39 @@ tbody tr { transition:background .15s }
   .dh-box{flex:1 1 0;min-width:0;padding:8px 10px}
   .dh-box b{font-size:1.15rem} .dh-box span{font-size:0.66rem;line-height:1.2;display:block}
 }
+
+/* ════════ ALL CLASSES — gaya sama dengan Dashboard ════════ */
+.page-content:has(#page-overview.active){
+  background-color:var(--dash-bg);
+  background-image:radial-gradient(var(--dash-dot) 1.5px,transparent 1.5px); background-size:22px 22px;
+}
+#page-overview .dash-card{background:var(--bg2);border:2px solid var(--dash-line);border-radius:22px;box-shadow:0 5px 0 var(--dash-line);padding:16px;margin-bottom:16px}
+#page-overview .dash-card:hover{box-shadow:0 5px 0 var(--dash-line);border-color:var(--dash-line)}
+.ov-month-pill{display:inline-flex;align-items:center;gap:6px;background:var(--bg2);border:2px solid var(--dash-line);box-shadow:0 3px 0 var(--dash-line);
+  border-radius:20px;padding:3px 6px 3px 12px;font-size:0.82rem;font-weight:800;cursor:pointer}
+.ov-month-pill input{border:0!important;background:transparent!important;padding:4px 6px!important;font-weight:800;font-size:0.82rem;width:auto;color:var(--text);box-shadow:none!important}
+.ov-classes{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.ov-class{border:2px solid color-mix(in srgb,var(--cc) 35%,transparent);background:color-mix(in srgb,var(--cc) 7%,var(--bg2));
+  border-radius:18px;padding:12px 14px;cursor:pointer;box-shadow:0 4px 0 color-mix(in srgb,var(--cc) 35%,transparent);
+  transition:transform .25s var(--ease-spring), box-shadow .25s}
+.ov-class:hover{transform:translateY(-3px);box-shadow:0 7px 0 color-mix(in srgb,var(--cc) 35%,transparent)}
+.ov-class-hd{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.ov-class-hd b{font-family:'Fredoka One',sans-serif;font-size:0.98rem;font-weight:800}
+.ov-dot{width:10px;height:10px;border-radius:50%;background:var(--cc);flex-shrink:0}
+.ov-active{font-size:0.62rem;font-weight:900;border-radius:20px;padding:2px 8px;background:var(--cc);color:#fff}
+.ov-open{margin-left:auto;font-size:0.72rem;font-weight:800;color:var(--muted)}
+.ov-kv{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px}
+.ov-kv div{display:flex;flex-direction:column}
+.ov-kv span{font-size:0.66rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.ov-kv b{font-size:0.9rem;font-weight:900}
+.ov-kv b.g{color:#16a34a} .ov-kv b.r{color:#e11d48}
+[data-theme="dark"] .ov-kv b.g{color:#6ee7b7} [data-theme="dark"] .ov-kv b.r{color:#fda4af}
+#ov-bill-card .dp-row .btn{flex-shrink:0;border-radius:12px}
+#ov-bill-card .dp-row .btn.wa{box-shadow:0 3px 0 #128C7E}
+.ov-week{display:grid;gap:10px;overflow-x:auto}
+.ov-day{background:var(--bg3);border-radius:16px;padding:10px;min-width:0}
+.ov-day.today{background:color-mix(in srgb,#ec4899 10%,var(--bg2));box-shadow:inset 0 0 0 2px rgba(236,72,153,.35)}
+.ov-day-hd{font-weight:900;font-size:0.8rem;margin-bottom:8px;color:var(--muted)}
+.ov-day.today .ov-day-hd{color:#db2777}
+.ov-slot{border-left:4px solid var(--cc);background:var(--bg2);border-radius:8px 12px 12px 8px;padding:6px 9px;margin-bottom:6px;font-size:0.78rem}
+.ov-slot b{display:block;font-weight:900} .ov-slot small{color:var(--muted);font-size:0.68rem}

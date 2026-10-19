@@ -119,12 +119,21 @@
 
     <!-- ══════════════════ DASHBOARD ══════════════════ -->
     <div class="page" id="page-overview">
-      <div class="sec-hd">
-        <div><h2>🌐 All Classes</h2><div class="sub">One overview of every class — revenue, outstanding bills and schedule</div></div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input type="month" id="ov-month" onchange="renderOverview()" style="width:auto">
-          <button class="btn sm" onclick="renderOverview(true)" title="Reload all classes">↻ Refresh</button>
+      <div class="dash-hero" id="ov-hero">
+        <div class="dh-left">
+          <h2>🌐 All Classes</h2>
+          <p id="ov-hero-sub">Every class in one place</p>
+          <button class="dh-cta" onclick="renderOverview(true)">↻ Refresh all classes</button>
         </div>
+        <div class="dh-boxes">
+          <div class="dh-box"><b id="ov-h-classes">0</b><span>classes</span></div>
+          <div class="dh-box" onclick="document.getElementById('ov-today-card')?.scrollIntoView({behavior:'smooth',block:'center'})"><b id="ov-h-today">0</b><span>sessions today</span></div>
+          <div class="dh-box" onclick="document.getElementById('ov-bill-card')?.scrollIntoView({behavior:'smooth',block:'center'})"><b id="ov-h-bill">0</b><span>students to bill</span></div>
+        </div>
+      </div>
+      <div class="dash-toolbar">
+        <div class="dash-toolbar-title">Overview</div>
+        <label class="ov-month-pill">📅 <input type="month" id="ov-month" onchange="renderOverview()"></label>
       </div>
       <div id="ov-body"></div>
     </div>

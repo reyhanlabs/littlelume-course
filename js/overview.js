@@ -81,60 +81,74 @@ function _ovHTML(results, failed, ym){
   const sum = k => results.reduce((t,r)=>t+r[k],0);
   const allRem = results.flatMap(r=>r.reminders).sort((a,b)=>b.total-a.total);
   const owing = allRem.filter(r=>r.total>0);
+  const owed = owing.reduce((t,r)=>t+r.total,0);
+  const mLabel = _ovMonthLabel(ym);
+
+  // Sesi hari ini di semua kelas (dari jadwal)
+  const now = new Date();
+  const todayName = now.toLocaleDateString('en-US',{weekday:'long'});
+  const today = results.flatMap(r=>r.schedule).filter(s=>s.days.includes(todayName))
+    .sort((a,b)=>(a.jam||'99').localeCompare(b.jam||'99'));
+
+  // Hero
+  const set = (id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
+  set('ov-h-classes', results.length);
+  set('ov-h-today', today.length);
+  set('ov-h-bill', owing.length);
+  set('ov-hero-sub', `${now.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})} · ${sum('students')} students in ${results.length} classes`);
 
   const cards = `
-    <div class="card-grid card-grid-4" style="margin-bottom:20px">
-      <div class="stat-card s-purple"><div class="ico">👤</div><div class="val">${sum('students')}</div><div class="lbl">Students · ${results.length} classes</div></div>
-      <div class="stat-card s-green"><div class="ico">💰</div><div class="val" style="font-size:1.2rem">${fmt(sum('revenue'))}</div><div class="lbl">Revenue · ${_ovMonthLabel(ym)}</div></div>
-      <div class="stat-card s-red"><div class="ico">⚠️</div><div class="val" style="font-size:1.2rem">${fmt(owing.reduce((t,r)=>t+r.total,0))}</div><div class="lbl">Outstanding</div>
-        <div class="trend ${owing.length?'trend-dn':'trend-up'}">${owing.length?owing.length+' student(s) to bill':'All clear!'}</div></div>
-      <div class="stat-card s-blue"><div class="ico">📋</div><div class="val">${sum('sessions')}</div><div class="lbl">Sessions attended · ${_ovMonthLabel(ym)}</div></div>
-      <div class="stat-card s-yellow"><div class="ico">🏦</div><div class="val" style="font-size:1.2rem">${fmt(sum('depositHeld'))}</div><div class="lbl">Deposit balance held</div></div>
+    <div class="card-grid card-grid-4 dash-stats">
+      <div class="stat-card s-purple"><div class="ico">👤</div><div class="val">${sum('students')}</div><div class="lbl">Students</div><div class="trend">${results.length} classes</div></div>
+      <div class="stat-card s-green"><div class="ico">💰</div><div class="val">${fmt(sum('revenue'))}</div><div class="lbl">Revenue</div><div class="trend">${mLabel}</div></div>
+      <div class="stat-card s-red" style="cursor:pointer" onclick="document.getElementById('ov-bill-card')?.scrollIntoView({behavior:'smooth',block:'center'})"><div class="ico">⚠️</div><div class="val">${fmt(owed)}</div><div class="lbl">Outstanding</div><div class="trend">${owing.length?owing.length+' student(s) to bill':'All clear!'}</div></div>
+      <div class="stat-card s-blue"><div class="ico">📋</div><div class="val">${sum('sessions')}</div><div class="lbl">Sessions attended</div><div class="trend">${mLabel}</div></div>
+      <div class="stat-card s-yellow"><div class="ico">🏦</div><div class="val">${fmt(sum('depositHeld'))}</div><div class="lbl">Deposit held</div></div>
     </div>`;
 
   const perClass = `
-    <div class="card" style="margin-top:0">
-      <div style="font-family:'Fredoka One',sans-serif;font-weight:800;margin-bottom:12px">🏫 Per Class · ${_ovMonthLabel(ym)}</div>
-      <div class="tbl-wrap"><table>
-        <thead><tr><th>Class</th><th style="text-align:right">Students</th><th style="text-align:right">Sessions</th><th style="text-align:right">Revenue</th><th style="text-align:right">Outstanding</th><th style="text-align:right">Deposit</th><th></th></tr></thead>
-        <tbody>${results.map(r=>`
-          <tr>
-            <td>${_ovDot(r.cls)}<strong>${esc(r.cls.name)}</strong>${r.cls.id===currentClassId?' <span class="chip chip-purple" style="font-size:0.62rem">Active</span>':''}</td>
-            <td style="text-align:right">${r.students}</td>
-            <td style="text-align:right">${r.sessions}</td>
-            <td style="text-align:right">${fmt(r.revenue)}</td>
-            <td style="text-align:right;color:${r.outstanding>0?'var(--red)':'var(--muted)'};font-weight:${r.outstanding>0?700:400}">${fmt(r.outstanding)}</td>
-            <td style="text-align:right">${fmt(r.depositHeld)}</td>
-            <td style="text-align:right"><button class="btn sm" onclick="ovOpenClass('${r.cls.id}','dashboard')">Open →</button></td>
-          </tr>`).join('')}
-          <tr style="font-weight:800;border-top:2px solid var(--border)">
-            <td>Total</td><td style="text-align:right">${sum('students')}</td><td style="text-align:right">${sum('sessions')}</td>
-            <td style="text-align:right">${fmt(sum('revenue'))}</td><td style="text-align:right;color:var(--red)">${fmt(sum('outstanding'))}</td>
-            <td style="text-align:right">${fmt(sum('depositHeld'))}</td><td></td>
-          </tr>
-        </tbody>
-      </table></div>
+    <div class="card dash-card">
+      <div class="dash-card-hd"><b>🏫 Per Class</b><span>${mLabel}</span></div>
+      <div class="ov-classes">
+        ${results.map(r=>`
+        <div class="ov-class" style="--cc:${esc(r.cls.color||'#6c63ff')}" onclick="ovOpenClass('${r.cls.id}','dashboard')" title="Open ${esc(r.cls.name)}">
+          <div class="ov-class-hd"><span class="ov-dot"></span><b>${esc(r.cls.name)}</b>${r.cls.id===currentClassId?'<span class="ov-active">Active</span>':''}<span class="ov-open">Open →</span></div>
+          <div class="ov-kv">
+            <div><span>Students</span><b>${r.students}</b></div>
+            <div><span>Sessions</span><b>${r.sessions}</b></div>
+            <div><span>Revenue</span><b class="g">${fmt(r.revenue)}</b></div>
+            <div><span>Outstanding</span><b class="${r.outstanding>0?'r':''}">${fmt(r.outstanding)}</b></div>
+          </div>
+        </div>`).join('')}
+      </div>
       ${failed.length?`<div style="margin-top:8px;font-size:0.8rem;color:var(--red)">⚠️ Could not load: ${failed.map(c=>esc(c.name)).join(', ')} — tap Refresh.</div>`:''}
     </div>`;
 
+  const todayCard = `
+    <div class="card dash-card" id="ov-today-card">
+      <div class="dash-card-hd"><b>🎈 Today in All Classes</b><span>${today.length} session${today.length===1?'':'s'}</span></div>
+      ${!today.length ? '<div class="dash-empty">🌈 No classes scheduled today.</div>' :
+        today.map(s=>`
+        <div class="dt-row" onclick="ovOpenClass('${s.cls.id}','dashboard')">
+          <div class="dt-time">${esc(s.jam||'—')}</div>
+          <div class="dt-info"><div class="dt-name">${esc(s.nama)}</div><div class="dt-sub">${_ovDot(s.cls)}${esc(s.cls.name)}</div></div>
+        </div>`).join('')}
+    </div>`;
+
   const unpaid = `
-    <div class="card" style="margin-top:0">
-      <div style="font-family:'Fredoka One',sans-serif;font-weight:800;margin-bottom:12px">💳 To Bill — All Classes ${owing.length?`<span class="chip chip-red" style="font-size:0.7rem">${owing.length}</span>`:''}</div>
-      ${!owing.length ? '<div style="color:var(--muted);font-size:0.85rem;text-align:center;padding:12px">✅ All payments are up to date in every class.</div>' :
+    <div class="card dash-card" id="ov-bill-card">
+      <div class="dash-card-hd"><b>🔔 To Bill</b>${owing.length?`<span class="chip chip-red">${fmt(owed)}</span>`:''}</div>
+      ${!owing.length ? '<div class="dash-empty">🎉 All payments are up to date in every class.</div>' :
         owing.map((r,i)=>`
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
-          <div style="min-width:0">
-            <div style="font-weight:700">${esc(r.siswa.nama)} <span style="font-size:0.72rem;font-weight:600;color:var(--muted)">${_ovDot(r.cls)}${esc(r.cls.name)}</span></div>
-            <div style="font-size:0.78rem;color:var(--muted)">
-              ${r.isMonthly ? `${r.unpaidCount} unpaid month(s)` : `${r.unpaidCount} unpaid session(s)`}${r.daysSince>14?` · oldest ${r.daysSince} days ago`:''}
-              ${r.depBal>0?` · <span style="color:var(--yellow)">deposit ${fmt(r.depBal)} already deducted</span>`:''}
-            </div>
+        <div class="dp-row">
+          <div class="dash-av" style="background:${typeof _dashColor==='function'?_dashColor(r.siswa.nama):'#8b5cf6'}">${esc((r.siswa.nama||'?').trim()[0]||'?')}</div>
+          <div class="dp-info">
+            <div class="dp-name">${esc(r.siswa.nama)}</div>
+            <div class="dp-sub">${_ovDot(r.cls)}${esc(r.cls.name)} · ${r.isMonthly ? `${r.unpaidCount} unpaid month(s)` : `${r.unpaidCount} unpaid session(s)`}${r.depBal>0?` · deposit ${fmt(r.depBal)} deducted`:''}</div>
           </div>
-          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-            <strong style="color:var(--red)">${fmt(r.total)}</strong>
-            <button class="btn wa sm" onclick="ovSendReminder(${i})" title="Send reminder via WhatsApp">💬</button>
-            <button class="btn sm" onclick="ovOpenClass('${r.cls.id}','payment')" title="Record payment in this class">💰</button>
-          </div>
+          <div class="dp-amt" style="color:var(--red)">${fmt(r.total)}</div>
+          <button class="btn wa sm" onclick="ovSendReminder(${i})" title="Send reminder via WhatsApp">💬</button>
+          <button class="btn sm" onclick="ovOpenClass('${r.cls.id}','payment')" title="Record payment in this class">💰</button>
         </div>`).join('')}
     </div>`;
 
@@ -144,28 +158,27 @@ function _ovHTML(results, failed, ym){
   const slots = results.flatMap(r=>r.schedule);
   const usedDays = DAYS.filter(d=>slots.some(s=>s.days.includes(d)));
   const schedule = `
-    <div class="card" style="margin-top:0">
-      <div style="font-family:'Fredoka One',sans-serif;font-weight:800;margin-bottom:12px">🗓️ Weekly Schedule — All Classes</div>
-      ${!usedDays.length ? '<div style="color:var(--muted);font-size:0.85rem">No schedules set yet.</div>' : `
-      <div style="display:grid;grid-template-columns:repeat(${usedDays.length},minmax(120px,1fr));gap:10px;overflow-x:auto">
+    <div class="card dash-card">
+      <div class="dash-card-hd"><b>🗓️ Weekly Schedule</b><span>all classes</span></div>
+      ${!usedDays.length ? '<div class="dash-empty">No schedules set yet.</div>' : `
+      <div class="ov-week" style="grid-template-columns:repeat(${usedDays.length},minmax(120px,1fr))">
         ${usedDays.map(d=>{
           const list = slots.filter(s=>s.days.includes(d)).sort((a,b)=>a.jam.localeCompare(b.jam));
-          // tandai jam yang dipakai lebih dari satu kelas
           const clash = {}; list.forEach(s=>{ const k=s.jam; clash[k]=clash[k]||new Set(); clash[k].add(s.cls.id); });
-          return `<div style="background:var(--bg3);border-radius:10px;padding:10px">
-            <div style="font-weight:800;font-size:0.82rem;margin-bottom:8px">${SHORT[d]}</div>
+          return `<div class="ov-day${d===todayName?' today':''}">
+            <div class="ov-day-hd">${SHORT[d]}${d===todayName?' ★':''}</div>
             ${list.map(s=>`
-              <div style="border-left:3px solid ${esc(s.cls.color||'#6c63ff')};padding:4px 8px;margin-bottom:6px;background:var(--bg2,transparent);border-radius:4px;font-size:0.78rem">
-                <div style="font-weight:700">${esc(s.jam||'—')}${s.jam && clash[s.jam].size>1?' <span title="Same time in another class" style="color:var(--red)">⚠️</span>':''}</div>
+              <div class="ov-slot" style="--cc:${esc(s.cls.color||'#6c63ff')}">
+                <b>${esc(s.jam||'—')}${s.jam && clash[s.jam].size>1?' <span title="Same time in another class" style="color:var(--red)">⚠️</span>':''}</b>
                 <div>${esc(s.nama)}</div>
-                <div style="color:var(--muted);font-size:0.7rem">${esc(s.cls.name)}</div>
+                <small>${esc(s.cls.name)}</small>
               </div>`).join('')}
           </div>`;
         }).join('')}
       </div>`}
     </div>`;
 
-  return cards + perClass + unpaid + schedule;
+  return cards + perClass + `<div class="dash-main"><div class="dash-col">${unpaid}</div><div class="dash-col">${todayCard}</div></div>` + schedule;
 }
 
 // ── Aksi ──

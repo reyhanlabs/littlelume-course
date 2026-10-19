@@ -144,7 +144,7 @@ auth.onAuthStateChanged(async user => {
     // Init calendar with correct current date immediately
     _calYear = new Date().getFullYear();
     _calMonth = new Date().getMonth();
-    if(document.getElementById('cal-grid')) renderCalendar();
+    if(document.getElementById('cal-grid') && typeof renderCalendar==='function') renderCalendar();
     // Load classes, then load first/last used class
     await loadClasses();
     console.log('✅ Logged in:', user.email);

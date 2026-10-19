@@ -9,10 +9,20 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.12.1';
+const APP_VERSION = '1.12.2';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.12.2', date: '2026-10-19',
+    title: 'All Classes matches the dashboard',
+    items: [
+      ['improve', 'All Classes page uses the same look as the dashboard: colorful banner (classes, sessions today, students to bill), compact pastel stat cards and rounded cards.'],
+      ['improve', 'Per-class summary shown as colored class cards — tap one to open that class.'],
+      ['new', '"Today in All Classes": every session scheduled today across all classes, in time order.'],
+      ['improve', 'To Bill and weekly schedule restyled; today\'s column is highlighted.'],
+    ],
+  },
   {
     version: '1.12.1', date: '2026-10-19',
     title: 'Compact dashboard',
