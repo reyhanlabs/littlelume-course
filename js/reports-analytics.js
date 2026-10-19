@@ -41,11 +41,11 @@ function renderReports(){
         <div style="font-size:0.82rem;color:rgba(255,255,255,0.8);margin-top:3px">${esc(siswa.kelas)||''} · ${esc(siswa.level)} · ${esc(siswa.hari)||''}</div>
       </div>
       <div style="padding:20px 24px">
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-bottom:18px">
-          ${avgScore!==null?`<div class="stat-card"><div class="val" style="color:${sc}">${avgScore}</div><div class="lbl">Avg Score</div></div>`:''}
-          ${attPct!==null?`<div class="stat-card"><div class="val" style="color:var(--blue)">${attPct}%</div><div class="lbl">Attendance</div></div>`:''}
-          ${evals.length?`<div class="stat-card"><div class="val" style="color:var(--purple)">${evals.length}</div><div class="lbl">Evaluations</div></div>`:''}
-          ${latEval?`<div class="stat-card"><div class="val" style="font-size:1.1rem">${stars(latEval.rating)}</div><div class="lbl">Participation</div></div>`:''}
+        <div class="card-grid dash-stats" style="margin-bottom:18px!important">
+          ${avgScore!==null?`<div class="stat-card s-purple"><div class="ico">🏆</div><div class="val" style="color:${sc}!important">${avgScore}</div><div class="lbl">Avg Score</div></div>`:''}
+          ${attPct!==null?`<div class="stat-card s-blue"><div class="ico">📋</div><div class="val">${attPct}%</div><div class="lbl">Attendance</div></div>`:''}
+          ${evals.length?`<div class="stat-card s-green"><div class="ico">📝</div><div class="val">${evals.length}</div><div class="lbl">Evaluations</div></div>`:''}
+          ${latEval?`<div class="stat-card s-yellow"><div class="ico">⭐</div><div class="val" style="font-size:0.95rem!important">${stars(latEval.rating)}</div><div class="lbl">Participation</div></div>`:''}
         </div>
         ${attPct!==null?`<div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Attendance Rate</div><div class="pbar-wrap" style="margin-bottom:16px"><div class="pbar-fill" style="width:${attPct}%"></div></div>`:''}
         ${latEval?`<div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">⭐ Latest Evaluation (${tglFmt(latEval.tanggal)})</div><div style="background:var(--bg3);border-radius:10px;padding:14px;font-size:0.87rem;margin-bottom:16px">${latEval.progress?`<div><strong>Progress:</strong> ${esc(latEval.progress)}</div>`:''} ${latEval.catatan?`<div style="margin-top:5px"><strong>Notes:</strong> ${esc(latEval.catatan)}</div>`:`<span style="color:var(--muted)">No details.</span>`}</div>`:''}
@@ -249,13 +249,13 @@ function renderBackupSummary(){
       📂 Active class: <strong style="color:var(--accent)">${currentClassName||'—'}</strong>
       &nbsp;·&nbsp; ${classesList.length} total class(es)
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px">
-      <div class="stat-card s-purple"><div class="val">${siswaList.length}</div><div class="lbl">Students</div></div>
-      <div class="stat-card s-blue"><div class="val">${absensiList.length}</div><div class="lbl">Attendance Records</div></div>
-      <div class="stat-card s-green"><div class="val">${materiList.length}</div><div class="lbl">Lessons</div></div>
-      <div class="stat-card s-yellow"><div class="val">${evaluasiList.length}</div><div class="lbl">Evaluations</div></div>
-      <div class="stat-card s-red"><div class="val">${bayarList.length}</div><div class="lbl">Payments</div></div>
-      <div class="stat-card s-green"><div class="val">${depositList.length}</div><div class="lbl">Deposit Entries</div></div>
+    <div class="card-grid dash-stats">
+      <div class="stat-card s-purple"><div class="ico">👤</div><div class="val">${siswaList.length}</div><div class="lbl">Students</div></div>
+      <div class="stat-card s-blue"><div class="ico">📋</div><div class="val">${absensiList.length}</div><div class="lbl">Attendance Records</div></div>
+      <div class="stat-card s-green"><div class="ico">📚</div><div class="val">${materiList.length}</div><div class="lbl">Lessons</div></div>
+      <div class="stat-card s-yellow"><div class="ico">⭐</div><div class="val">${evaluasiList.length}</div><div class="lbl">Evaluations</div></div>
+      <div class="stat-card s-red"><div class="ico">💰</div><div class="val">${bayarList.length}</div><div class="lbl">Payments</div></div>
+      <div class="stat-card s-green"><div class="ico">🏦</div><div class="val">${depositList.length}</div><div class="lbl">Deposit Entries</div></div>
     </div>`;
 }
 

@@ -9,10 +9,18 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.12.2';
+const APP_VERSION = '1.12.3';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.12.3', date: '2026-10-19',
+    title: 'One look on every page',
+    items: [
+      ['improve', 'Stat cards on Students, Payment, Deposits, Analytics, Reports and Backup now use the same compact pastel style as the dashboard.'],
+      ['improve', 'All cards across the app use the rounded dashboard style with the soft dotted background.'],
+    ],
+  },
   {
     version: '1.12.2', date: '2026-10-19',
     title: 'All Classes matches the dashboard',

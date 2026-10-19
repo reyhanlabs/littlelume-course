@@ -518,7 +518,7 @@ function renderStudents(){
   siswaList.forEach(s=>levels[s.level]=(levels[s.level]||0)+1);
   stats.innerHTML=`
     <div class="stat-card s-purple"><div class="ico">👤</div><div class="val">${siswaList.length}</div><div class="lbl">Total Students</div></div>
-    ${Object.entries(levels).map(([l,n])=>`<div class="stat-card s-blue"><div class="val">${n}</div><div class="lbl">${l}</div></div>`).join('')}
+    ${Object.entries(levels).map(([l,n])=>`<div class="stat-card s-blue"><div class="ico">🎓</div><div class="val">${n}</div><div class="lbl">${esc(l||'—')}</div></div>`).join('')}
   `;
   let __html0='';  // buffer: satu kali tulis ke DOM, bukan per baris
   siswaList.forEach((s,i)=>{

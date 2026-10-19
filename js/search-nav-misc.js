@@ -531,12 +531,12 @@ function renderAnalyticsKPIs(){
   };
 
   el.innerHTML = `
-    <div class="kpi-card" style="background:linear-gradient(135deg,#00d68f,#00b371);box-shadow:0 6px 20px rgba(0,214,143,0.35)"><div class="kpi-val" title="${fmt(totalRev)}">Rp ${fmtCompact(totalRev)}</div><div class="kpi-lbl">Total Revenue</div></div>
-    <div class="kpi-card" style="background:linear-gradient(135deg,#a78bfa,#8b5cf6);box-shadow:0 6px 20px rgba(167,139,250,0.35)"><div class="kpi-val">${avgScore}<span style="font-size:1rem;opacity:0.75">/100</span></div><div class="kpi-lbl">Avg Score</div></div>
-    <div class="kpi-card" style="background:linear-gradient(135deg,#38bdf8,#0284c7);box-shadow:0 6px 20px rgba(56,189,248,0.35)"><div class="kpi-val">${attRate}%</div><div class="kpi-lbl">Attendance Rate</div></div>
-    <div class="kpi-card" style="background:${unpaidCount?'linear-gradient(135deg,#ff4f6d,#e11d48);box-shadow:0 6px 20px rgba(255,79,109,0.35)':'linear-gradient(135deg,#00d68f,#00b371);box-shadow:0 6px 20px rgba(0,214,143,0.35)'}"><div class="kpi-val">${unpaidCount}</div><div class="kpi-lbl">Students w/ Unpaid</div></div>
-    <div class="kpi-card" style="background:linear-gradient(135deg,#6c63ff,#9c8fff);box-shadow:0 6px 20px rgba(108,99,255,0.35)"><div class="kpi-val">${siswaList.length}</div><div class="kpi-lbl">Total Students</div></div>
-    <div class="kpi-card" style="background:linear-gradient(135deg,#ffb347,#f59e0b);box-shadow:0 6px 20px rgba(255,179,71,0.35)"><div class="kpi-val">${evaluasiList.length}</div><div class="kpi-lbl">Evaluations</div></div>
+    <div class="stat-card s-green"><div class="ico">💰</div><div class="val" title="${fmt(totalRev)}">Rp ${fmtCompact(totalRev)}</div><div class="lbl">Total Revenue</div></div>
+    <div class="stat-card s-purple"><div class="ico">⭐</div><div class="val">${avgScore}<span style="font-size:0.8rem;color:var(--muted)">/100</span></div><div class="lbl">Avg Score</div></div>
+    <div class="stat-card s-blue"><div class="ico">📋</div><div class="val">${attRate}%</div><div class="lbl">Attendance Rate</div></div>
+    <div class="stat-card ${unpaidCount?'s-red':'s-green'}"><div class="ico">⚠️</div><div class="val">${unpaidCount}</div><div class="lbl">Students w/ Unpaid</div></div>
+    <div class="stat-card s-purple"><div class="ico">👤</div><div class="val">${siswaList.length}</div><div class="lbl">Total Students</div></div>
+    <div class="stat-card s-yellow"><div class="ico">📝</div><div class="val">${evaluasiList.length}</div><div class="lbl">Evaluations</div></div>
   `;
 }
 

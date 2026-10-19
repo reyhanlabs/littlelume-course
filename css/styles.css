@@ -1675,3 +1675,14 @@ tbody tr { transition:background .15s }
 .ov-day.today .ov-day-hd{color:#db2777}
 .ov-slot{border-left:4px solid var(--cc);background:var(--bg2);border-radius:8px 12px 12px 8px;padding:6px 9px;margin-bottom:6px;font-size:0.78rem}
 .ov-slot b{display:block;font-weight:900} .ov-slot small{color:var(--muted);font-size:0.68rem}
+
+/* ══ v1.12.3 — semua halaman pakai gaya kartu Dashboard ══ */
+.page-content{
+  background-color:var(--dash-bg);
+  background-image:radial-gradient(var(--dash-dot) 1.5px,transparent 1.5px); background-size:22px 22px;
+}
+.page .card{background:var(--bg2);border:2px solid var(--dash-line);border-radius:22px;box-shadow:0 5px 0 var(--dash-line);padding:18px}
+.page .card:hover{box-shadow:0 5px 0 var(--dash-line);border-color:var(--dash-line)}
+.page .card .card{box-shadow:none}
+.dash-stats .stat-card .val span{font-family:inherit}
+@media(max-width:768px){ .page .card{padding:14px;border-radius:18px} }
