@@ -1,12 +1,62 @@
 //  ATTENDANCE
 // ════════════════════════════════════════════════
+const _ATT_ST = { Hadir:['✅','Present','p'], Izin:['📝','Excused','e'], Alpha:['❌','Absent','a'] };
+function attShiftDate(n){
+  const el=document.getElementById('absen-date');
+  const base = el.value ? new Date(el.value+'T00:00:00') : new Date();
+  base.setDate(base.getDate()+n);
+  el.value = `${base.getFullYear()}-${String(base.getMonth()+1).padStart(2,'0')}-${String(base.getDate()).padStart(2,'0')}`;
+  loadAbsensi();
+}
+function attGoToday(){ document.getElementById('absen-date').value = todayISO(); loadAbsensi(); }
+function attSet(id, status){
+  const inp=document.getElementById('att-'+id); if(!inp) return;
+  inp.value=status;
+  const card=document.getElementById('attc-'+id);
+  if(card){
+    card.dataset.st=status;
+    card.querySelectorAll('.att-opt').forEach(b=>b.classList.toggle('on', b.dataset.st===status));
+  }
+  _attUpdateHead();
+}
+function attAll(status, onlyScheduled){
+  document.querySelectorAll('#absen-grid .att-card').forEach(c=>{
+    if(onlyScheduled && c.dataset.sched!=='1') return;
+    attSet(c.dataset.id, status);
+  });
+}
+function _attUpdateHead(){
+  const head=document.getElementById('att-head'); if(!head) return;
+  const cards=[...document.querySelectorAll('#absen-grid .att-card')];
+  if(!cards.length){ head.innerHTML=''; return; }
+  const cnt={Hadir:0,Izin:0,Alpha:0};
+  cards.forEach(c=>{ cnt[c.dataset.st]=(cnt[c.dataset.st]||0)+1; });
+  const nSched=cards.filter(c=>c.dataset.sched==='1').length;
+  const saved=cards.filter(c=>c.dataset.saved==='1').length;
+  head.innerHTML=`
+    <div class="att-counts">
+      <span class="att-count p">✅ ${cnt.Hadir} present</span>
+      <span class="att-count e">📝 ${cnt.Izin} excused</span>
+      <span class="att-count a">❌ ${cnt.Alpha} absent</span>
+      <span class="att-saved ${saved?'yes':''}">${saved?'💾 Saved for this date':'Not saved yet'}</span>
+    </div>
+    <div class="att-quick">
+      ${nSched&&nSched<cards.length?`<button class="btn sm" onclick="attAll('Hadir',true)">✅ Scheduled present</button>`:''}
+      <button class="btn sm" onclick="attAll('Hadir')">✅ All present</button>
+    </div>`;
+}
 function loadAbsensi(){
   const d=document.getElementById('absen-date').value; if(!d) return;
-  const dt=new Date(d), day=dt.getDay();
+  const dt=new Date(d+'T00:00:00'), day=dt.getDay();
   const mon=new Date(dt); mon.setDate(dt.getDate()-(day===0?6:day-1));
   const sun=new Date(mon); sun.setDate(mon.getDate()+6);
   document.getElementById('week-label').textContent=
-    `Week: ${mon.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} – ${sun.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`;
+    `Week ${mon.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} – ${sun.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`;
+  const dTxt=document.getElementById('att-date-text');
+  if(dTxt){
+    const isToday = d===todayISO();
+    dTxt.textContent = (isToday?'Today · ':'') + dt.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  }
 
   // Schedule hint
   const dayName = dt.toLocaleDateString('en-US',{weekday:'long'});
@@ -28,33 +78,40 @@ function loadAbsensi(){
   }
 
   const grid=document.getElementById('absen-grid');
-  if(!siswaList.length){ grid.innerHTML='<div class="empty"><div class="ei">📋</div><p>Add students first.</p></div>'; return; }
+  if(!siswaList.length){ grid.innerHTML='<div class="empty"><div class="ei">📋</div><p>Add students first.</p></div>'; _attUpdateHead(); return; }
   const existing={};
   absensiList.filter(a=>a.tanggal===d).forEach(a=>existing[a.siswaId]=a);
 
-  // Sort: scheduled students for this day first
+  // Sort: scheduled students for this day first (by time)
   const scheduledIds = new Set(scheduledToday.map(s=>s.id));
-  const sorted = [...siswaList].sort((a,b)=>{
-    const aS = scheduledIds.has(a.id)?0:1;
-    const bS = scheduledIds.has(b.id)?0:1;
-    return aS-bS || a.nama.localeCompare(b.nama);
-  });
+  const jamOf = s => (scheduleList.find(x=>x.siswaId===s.id && (x.days||[]).includes(dayName))?.jam)||'';
+  const sched = [...siswaList].filter(s=>scheduledIds.has(s.id)).sort((a,b)=>jamOf(a).localeCompare(jamOf(b)) || a.nama.localeCompare(b.nama));
+  const others = [...siswaList].filter(s=>!scheduledIds.has(s.id)).sort((a,b)=>a.nama.localeCompare(b.nama));
 
-  grid.innerHTML=sorted.map(s=>{
+  const card = s => {
     const isScheduled = scheduledIds.has(s.id);
-    const sc = scheduleList.find(x=>x.siswaId===s.id && x.days.includes(dayName));
+    const ex = existing[s.id];
+    const st = ex?.status || 'Hadir';
+    const jam = jamOf(s);
     return `
-    <div class="absen-card" ${isScheduled?'':'style="opacity:0.65"'}>
-      <div class="a-name">👤 ${esc(s.nama)}${isScheduled?` <span style="font-size:0.65rem;background:rgba(108,99,255,0.15);color:var(--accent);border-radius:4px;padding:1px 5px;font-weight:700">📅 ${esc(sc?.jam)||'Scheduled'}</span>`:''}</div>
-      ${s.nick?`<div class="a-nick">${esc(s.nick)}</div>`:''}
-      <select id="att-${s.id}">
-        <option value="Hadir" ${existing[s.id]?.status==='Hadir'?'selected':''}>✅ Present</option>
-        <option value="Izin"  ${existing[s.id]?.status==='Izin'?'selected':''}>📝 Excused</option>
-        <option value="Alpha" ${existing[s.id]?.status==='Alpha'?'selected':''}>❌ Absent</option>
-      </select>
-      <input type="text" placeholder="Note (optional)" id="att-ket-${s.id}" value="${esc(existing[s.id]?.keterangan)||''}">
+    <div class="att-card" id="attc-${s.id}" data-id="${s.id}" data-st="${st}" data-sched="${isScheduled?1:0}" data-saved="${ex?1:0}">
+      <div class="att-card-hd">
+        <div class="dash-av" style="background:${_dashColor(s.nama)}">${esc((s.nama||'?').trim()[0]||'?')}</div>
+        <div class="att-who"><div class="a-name">${esc(s.nama)}</div><div class="a-nick">${s.nick?esc(s.nick)+' · ':''}${esc(s.level||'')}</div></div>
+        ${isScheduled?`<span class="att-time">${esc(jam)||'Scheduled'}</span>`:''}
+      </div>
+      <input type="hidden" id="att-${s.id}" value="${st}">
+      <div class="att-opts" role="group" aria-label="Status for ${esc(s.nama)}">
+        ${Object.entries(_ATT_ST).map(([k,[ico,lbl,c]])=>`<button type="button" class="att-opt ${c} ${st===k?'on':''}" data-st="${k}" onclick="attSet('${s.id}','${k}')">${ico}<span>${lbl}</span></button>`).join('')}
+      </div>
+      <input type="text" class="att-note" placeholder="Note (optional)" id="att-ket-${s.id}" value="${esc(ex?.keterangan)||''}">
     </div>`;
-  }).join('');
+  };
+  let html='';
+  if(sched.length) html += `<div class="att-group">📅 Scheduled ${esc(dayName)} <b>${sched.length}</b></div><div class="absen-grid">${sched.map(card).join('')}</div>`;
+  if(others.length) html += `<div class="att-group ${sched.length?'muted':''}">${sched.length?'👥 Other students':'👥 All students'} <b>${others.length}</b>${sched.length?'<small>not scheduled this day — set their status before saving</small>':''}</div><div class="absen-grid ${sched.length?'att-others':''}">${others.map(card).join('')}</div>`;
+  grid.innerHTML = html;
+  _attUpdateHead();
 }
 function saveAbsensi(){
   const d=document.getElementById('absen-date').value;
@@ -113,13 +170,13 @@ function onSingleAttSiswaChange(){
 
   const existing = absensiList.find(a=>a.siswaId===siswaId && a.tanggal===tanggal);
   if(existing){
-    infoEl.innerHTML = `<span style="color:var(--yellow)">⚠️ Sudah ada record untuk tanggal ini: <strong>${esc(existing.status)}</strong>${existing.keterangan?' · '+esc(existing.keterangan):''}. Akan ditimpa jika disimpan.</span>`;
+    infoEl.innerHTML = `<span style="color:var(--yellow)">⚠️ A record already exists for this date: <strong>${esc(existing.status)}</strong>${existing.keterangan?' · '+esc(existing.keterangan):''}. Saving will replace it.</span>`;
     document.getElementById('single-att-status').value = existing.status;
     document.getElementById('single-att-ket').value    = existing.keterangan||'';
   } else {
     const isFuture = tanggal > todayISO();
     infoEl.innerHTML = isFuture
-      ? `<span style="color:var(--teal)">📅 Tanggal mendatang — cocok untuk catat sesi yang sudah dibayar di muka.</span>`
+      ? `<span style="color:var(--teal)">📅 Future date — handy for sessions that were paid in advance.</span>`
       : '';
   }
 }
@@ -225,12 +282,13 @@ function renderAttendance(){
     const excused = list.filter(a=>a.status==='Izin').length;
     const absent  = list.filter(a=>a.status==='Alpha').length;
     const total   = list.length;
+    const rate = total ? Math.round((present/total)*100) : 0;
     sumEl.innerHTML = total ? `
-      <span class="chip chip-muted">${total} records</span>
-      <span class="chip chip-green">✅ Present: ${present}</span>
-      <span class="chip chip-yellow">📝 Excused: ${excused}</span>
-      <span class="chip chip-red">❌ Absent: ${absent}</span>
-      ${total>0?`<span class="chip chip-blue">📊 Rate: ${Math.round((present/total)*100)}%</span>`:''}
+      <div class="att-sum"><b>${total}</b><span>records</span></div>
+      <div class="att-sum p"><b>${present}</b><span>present</span></div>
+      <div class="att-sum e"><b>${excused}</b><span>excused</span></div>
+      <div class="att-sum a"><b>${absent}</b><span>absent</span></div>
+      <div class="att-sum r"><b>${rate}%</b><span>attendance</span><i style="width:${rate}%"></i></div>
     ` : '';
   }
 
@@ -239,13 +297,13 @@ function renderAttendance(){
 
   let __html0='';  // buffer: satu kali tulis ke DOM, bukan per baris
   list.forEach(a=>{
-    const c=a.status==='Hadir'?'chip-green':a.status==='Izin'?'chip-yellow':'chip-red';
-    const l=a.status==='Hadir'?'Present':a.status==='Izin'?'Excused':'Absent';
+    const [ico,l,c]=_ATT_ST[a.status]||['❔',a.status,''];
+    const dt=new Date(a.tanggal+'T00:00:00');
     __html0+=`<tr>
-      <td>${tglFmt(a.tanggal)}</td>
-      <td><strong>${esc(a.namaSiswa)}</strong></td>
-      <td>${chip(l,c)}</td>
-      <td style="color:var(--muted);font-size:0.83rem">${esc(a.keterangan)||'-'}</td>
+      <td><div class="att-dt"><b>${dt.getDate()}</b><span>${dt.toLocaleDateString('en-GB',{month:'short'})} · ${dt.toLocaleDateString('en-GB',{weekday:'short'})}</span></div></td>
+      <td><div class="st-who"><div class="dash-av st-av" style="background:${_dashColor(a.namaSiswa)}">${esc((a.namaSiswa||'?').trim()[0]||'?')}</div><strong>${esc(a.namaSiswa)}</strong></div></td>
+      <td><span class="att-badge ${c}">${ico} ${l}</span></td>
+      <td style="color:var(--muted);font-size:0.83rem">${esc(a.keterangan)||'—'}</td>
       <td class="nowrap">
         <button class="btn sm icon-only" title="Edit" onclick="editAttendance('${a.id}')" style="margin-right:4px">✏️</button>
         <button class="btn danger sm icon-only" title="Delete" onclick="deleteAttendance('${a.id}')">🗑️</button>

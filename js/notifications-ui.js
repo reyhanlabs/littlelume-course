@@ -195,6 +195,7 @@ saveAbsensi = function(){
   });
   DB.set('absensi', absensiList);
   renderAttendance();
+  loadAbsensi();
   updateUnpaidBadge(); updateMbnBadge();
   if(document.getElementById('page-dashboard').classList.contains('active')) renderDashboard();
   showToast('✅ Attendance saved!', 'success');

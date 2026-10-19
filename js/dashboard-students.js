@@ -507,53 +507,127 @@ function onBillingTypeChange(){
     if(lbl) lbl.textContent='Fee / Session (Rp)';
   }
 }
+let _stLevel = '';
+let _stView = (()=>{ try{ return localStorage.getItem('studentView')||'cards'; }catch(e){ return 'cards'; } })();
+function setStudentView(v){
+  _stView = v==='list' ? 'list' : 'cards';
+  try{ localStorage.setItem('studentView', _stView); }catch(e){}
+  renderStudents();
+}
+function setStudentLevel(l){ _stLevel = (_stLevel===l) ? '' : l; renderStudents(); }
+function _stWaUrl(hp){
+  const d = String(hp||'').replace(/\D/g,'');
+  if(!d) return '';
+  return 'https://wa.me/' + (d.startsWith('62') ? d : '62'+d.replace(/^0/,''));
+}
+function _stSlots(s){
+  const ab={Monday:'Mon',Tuesday:'Tue',Wednesday:'Wed',Thursday:'Thu',Friday:'Fri',Saturday:'Sat',Sunday:'Sun'};
+  const slots = scheduleList.filter(sc=>sc.siswaId===s.id);
+  if(!slots.length) return s.hari ? [esc(s.hari)] : [];
+  return slots.flatMap(sc=>(sc.days||[]).map(d=>`${ab[d]||esc(d)}${sc.jam?' '+esc(sc.jam):''}`));
+}
 function renderStudents(){
   const tbody=document.getElementById('tbody-students');
+  const grid=document.getElementById('st-grid');
   const empty=document.getElementById('empty-students');
+  const emptyF=document.getElementById('empty-students-filter');
   const stats=document.getElementById('student-stats');
-  tbody.innerHTML='';
-  if(!siswaList.length){ empty.style.display='block'; stats.innerHTML=''; return; }
-  empty.style.display='none';
-  const levels={};
-  siswaList.forEach(s=>levels[s.level]=(levels[s.level]||0)+1);
+  const chipsEl=document.getElementById('st-level-chips');
+  const tblWrap=document.getElementById('st-table-wrap');
+  const toolbar=document.querySelector('#page-students .st-toolbar');
+  tbody.innerHTML=''; if(grid) grid.innerHTML='';
+  if(emptyF) emptyF.style.display='none';
+  if(!siswaList.length){
+    empty.style.display='block'; stats.innerHTML='';
+    if(toolbar) toolbar.style.display='none'; if(tblWrap) tblWrap.style.display='none';
+    return;
+  }
+  empty.style.display='none'; if(toolbar) toolbar.style.display='';
+
+  // ── Ringkasan ──
+  const ym = todayISO().slice(0,7);
+  const monthAtt = absensiList.filter(a=>a.status==='Hadir' && (a.tanggal||'').startsWith(ym));
+  const activeIds = new Set(monthAtt.map(a=>a.siswaId));
+  const monthly = siswaList.filter(s=>s.billingType==='monthly').length;
+  const noSched = siswaList.filter(s=>!scheduleList.some(sc=>sc.siswaId===s.id) && !s.hari).length;
   stats.innerHTML=`
-    <div class="stat-card s-purple"><div class="ico">👤</div><div class="val">${siswaList.length}</div><div class="lbl">Total Students</div></div>
-    ${Object.entries(levels).map(([l,n])=>`<div class="stat-card s-blue"><div class="ico">🎓</div><div class="val">${n}</div><div class="lbl">${esc(l||'—')}</div></div>`).join('')}
-  `;
-  let __html0='';  // buffer: satu kali tulis ke DOM, bukan per baris
-  siswaList.forEach((s,i)=>{
-    const isMonthly = s.billingType==='monthly';
-    const feeDisplay = isMonthly
-      ? `<span class="chip chip-purple" style="font-size:0.75rem">📅 ${fmt(s.feeMonthly||0)}<span style="font-weight:400">/bln</span></span>`
-      : (s.feePerSesi ? `<span style="font-size:0.83rem">${fmt(s.feePerSesi)}<span style="color:var(--muted)">/session</span></span>` : '<span style="color:var(--muted);font-size:0.8rem">-</span>');
-    const billingChip = isMonthly
-      ? `<span class="chip chip-purple" style="font-size:0.72rem">📅 Monthly</span>`
-      : `<span class="chip chip-muted" style="font-size:0.72rem">💳 Per Session</span>`;
-    __html0+=`<tr>
-      <td style="color:var(--muted)">${i+1}</td>
-      <td><strong>${esc(s.nama)}</strong></td>
-      <td>${s.nick?`<span class="chip chip-yellow">${esc(s.nick)}</span>`:'-'}</td>
-      <td style="color:var(--muted);font-size:0.83rem">${esc(s.kelas)||'-'}</td>
-      <td>${levelChip(s.level)}</td>
-      <td style="font-size:0.83rem;color:var(--muted)">${
-        (()=>{
-          const dayAbbr={Monday:'Mon',Tuesday:'Tue',Wednesday:'Wed',Thursday:'Thu',Friday:'Fri',Saturday:'Sat'};
-          const slots=scheduleList.filter(sc=>sc.siswaId===s.id);
-          if(!slots.length) return s.hari||'—';
-          return slots.map(sc=>sc.days.map(d=>dayAbbr[d]||d).join('&')+' '+(sc.jam||'')).join(', ');
-        })()
-      }</td>
-      <td>${billingChip}</td>
-      <td>${feeDisplay}</td>
-      <td style="font-size:0.83rem">${esc(s.namaOrtu)||'-'}</td>
-      <td style="font-size:0.83rem;color:var(--muted)">${esc(s.hp)||'-'}</td>
-      <td class="nowrap">
-        <button class="btn sm" onclick="openEditStudent('${s.id}')" style="margin-right:4px">✏️</button>
-        <button class="btn danger sm" onclick="deleteStudent('${s.id}')">🗑️</button>
-      </td>
-    </tr>`;
+    <div class="stat-card s-purple"><div class="ico">👤</div><div class="val">${siswaList.length}</div><div class="lbl">Students</div></div>
+    <div class="stat-card s-green"><div class="ico">✅</div><div class="val">${activeIds.size}</div><div class="lbl">Came this month</div><div class="trend">${monthAtt.length} session(s)</div></div>
+    <div class="stat-card s-blue"><div class="ico">💳</div><div class="val">${siswaList.length-monthly}<span style="font-size:0.8rem;color:var(--muted)"> / ${monthly}</span></div><div class="lbl">Per session / Monthly</div></div>
+    <div class="stat-card ${noSched?'s-yellow':'s-green'}"><div class="ico">📅</div><div class="val">${noSched}</div><div class="lbl">Without schedule</div></div>`;
+
+  // ── Filter level ──
+  const levels={};
+  siswaList.forEach(s=>{ const l=s.level||'—'; levels[l]=(levels[l]||0)+1; });
+  if(_stLevel && !levels[_stLevel]) _stLevel='';
+  if(chipsEl){
+    chipsEl.innerHTML = `<button class="st-chip ${_stLevel?'':'on'}" onclick="setStudentLevel('')">All <b>${siswaList.length}</b></button>` +
+      Object.entries(levels).map(([l,n])=>`<button class="st-chip ${_stLevel===l?'on':''}" onclick="setStudentLevel('${esc(l).replace(/'/g,"\\'")}')">${esc(l)} <b>${n}</b></button>`).join('');
+  }
+  document.getElementById('st-view-cards')?.classList.toggle('primary', _stView==='cards');
+  document.getElementById('st-view-list')?.classList.toggle('primary', _stView==='list');
+
+  const q=(document.getElementById('st-q')?.value||'').trim().toLowerCase();
+  const list = siswaList.filter(s=>{
+    if(_stLevel && (s.level||'—')!==_stLevel) return false;
+    if(!q) return true;
+    return [s.nama,s.nick,s.kelas,s.namaOrtu,s.hp].some(v=>String(v||'').toLowerCase().includes(q));
   });
-  tbody.innerHTML += __html0;
+  if(!list.length){
+    if(emptyF) emptyF.style.display='block';
+    if(tblWrap) tblWrap.style.display='none'; if(grid) grid.style.display='none';
+    return;
+  }
+  const attCount = {}; monthAtt.forEach(a=>attCount[a.siswaId]=(attCount[a.siswaId]||0)+1);
+
+  const feeOf = s => s.billingType==='monthly'
+    ? `<span class="st-fee">${fmt(s.feeMonthly||0)}<small>/month</small></span>`
+    : (s.feePerSesi ? `<span class="st-fee">${fmt(s.feePerSesi)}<small>/session</small></span>` : '<span class="st-fee muted">No fee set</span>');
+  const billOf = s => s.billingType==='monthly' ? '📅 Monthly' : '💳 Per session';
+  const av = s => `<div class="dash-av st-av" style="background:${_dashColor(s.nama)}">${esc((s.nama||'?').trim()[0]||'?')}</div>`;
+  const actions = s => `
+      <button class="btn sm icon-only" title="Edit" onclick="event.stopPropagation();openEditStudent('${s.id}')">✏️</button>
+      <button class="btn danger sm icon-only" title="Delete" onclick="event.stopPropagation();deleteStudent('${s.id}')">🗑️</button>`;
+
+  if(_stView==='list'){
+    if(grid) grid.style.display='none'; tblWrap.style.display='';
+    tbody.innerHTML = list.map(s=>{
+      const wa=_stWaUrl(s.hp); const slots=_stSlots(s);
+      return `<tr class="st-row" onclick="openStudentProfile('${s.id}')">
+        <td><div class="st-who">${av(s)}<div><strong>${esc(s.nama)}</strong>${s.nick?` <span class="st-nick">${esc(s.nick)}</span>`:''}<div class="st-sub">${esc(s.kelas)||'—'}</div></div></div></td>
+        <td>${levelChip(s.level)}</td>
+        <td><div class="st-slots">${slots.length?slots.map(t=>`<span class="st-slot">${t}</span>`).join(''):'<span class="st-sub">—</span>'}</div></td>
+        <td><div class="st-sub">${billOf(s)}</div>${feeOf(s)}</td>
+        <td>${esc(s.namaOrtu)||'—'}${s.hp?`<div class="st-sub">${wa?`<a href="${wa}" target="_blank" rel="noopener" onclick="event.stopPropagation()">💬 ${esc(s.hp)}</a>`:esc(s.hp)}</div>`:''}</td>
+        <td class="nowrap">${actions(s)}</td>
+      </tr>`;
+    }).join('');
+    return;
+  }
+
+  tblWrap.style.display='none'; grid.style.display='';
+  grid.innerHTML = list.map(s=>{
+    const wa=_stWaUrl(s.hp); const slots=_stSlots(s); const n=attCount[s.id]||0;
+    return `<div class="st-card" style="--cc:${_dashColor(s.nama)}" onclick="openStudentProfile('${s.id}')" title="Open profile">
+      <div class="st-card-hd">
+        ${av(s)}
+        <div class="st-card-name">
+          <div class="st-name">${esc(s.nama)}</div>
+          <div class="st-sub">${s.nick?`<span class="st-nick">${esc(s.nick)}</span> · `:''}${esc(s.kelas)||'No school set'}</div>
+        </div>
+        ${levelChip(s.level)}
+      </div>
+      <div class="st-slots">${slots.length?slots.map(t=>`<span class="st-slot">📅 ${t}</span>`).join(''):'<span class="st-slot none">No schedule yet</span>'}</div>
+      <div class="st-kv">
+        <div><span>${billOf(s)}</span>${feeOf(s)}</div>
+        <div><span>This month</span><b class="${n?'g':''}">${n} session${n===1?'':'s'}</b></div>
+      </div>
+      <div class="st-card-ft">
+        <div class="st-parent">${(s.namaOrtu||s.hp)?`👪 ${esc(s.namaOrtu)||'Parent'}${wa?` <a href="${wa}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Chat on WhatsApp">💬 ${esc(s.hp)}</a>`:(s.hp?` · ${esc(s.hp)}`:'')}`:'<span style="opacity:.7">No parent contact</span>'}</div>
+        <div class="st-actions">${actions(s)}</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ════════════════════════════════════════════════

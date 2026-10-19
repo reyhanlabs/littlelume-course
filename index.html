@@ -308,51 +308,63 @@
           </div>
           <hr style="border:none;border-top:1px solid var(--border);margin:20px 0">
         </div>
-        <div class="tbl-wrap">
-          <table>
+        <div class="st-toolbar">
+          <label class="st-search">🔍 <input type="text" id="st-q" placeholder="Search name, nickname, school or parent…" oninput="renderStudents()"></label>
+          <div class="st-chips" id="st-level-chips"></div>
+          <div class="seg" role="group" aria-label="View">
+            <button class="btn sm" id="st-view-cards" onclick="setStudentView('cards')" title="Card view">▦ Cards</button>
+            <button class="btn sm" id="st-view-list" onclick="setStudentView('list')" title="List view">☰ List</button>
+          </div>
+        </div>
+        <div class="st-grid" id="st-grid"></div>
+        <div class="tbl-wrap" id="st-table-wrap" style="display:none">
+          <table class="st-table">
             <thead><tr>
-              <th>#</th><th>Name</th><th>Nickname</th><th>School / Class</th>
-              <th>Level</th><th>Class Days</th><th>Billing</th><th>Fee</th><th>Parent</th><th>Phone</th><th>Actions</th>
+              <th>Student</th><th>Level</th><th>Schedule</th><th>Billing</th><th>Parent</th><th></th>
             </tr></thead>
             <tbody id="tbody-students"></tbody>
           </table>
         </div>
-        <div class="empty" id="empty-students"><div class="ei">👤</div><p>No students yet. Click "Add Student".</p></div>
+        <div class="empty" id="empty-students"><div class="ei">👤</div><p>No students yet. Tap <b>＋ Add Student</b> at the top.</p></div>
+        <div class="empty" id="empty-students-filter" style="display:none"><div class="ei">🔍</div><p>No students match your search.</p></div>
       </div>
     </div>
 
     <!-- ══════════════════ ATTENDANCE ══════════════════ -->
     <div class="page" id="page-attendance">
       <div class="sec-hd">
-        <div><h2>📋 Attendance</h2><div class="sub">Weekly class attendance tracker</div></div>
+        <div><h2>📋 Attendance</h2><div class="sub">Mark who came to class</div></div>
         <button class="btn primary" onclick="saveAbsensi()">💾 Save Attendance</button>
       </div>
-      <div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px">
-        <div class="form-group" style="margin:0;flex:1;min-width:160px"><label>Select Date</label><input type="date" id="absen-date" onchange="loadAbsensi()"></div>
-        <div style="font-size:0.82rem;color:var(--muted);font-weight:600" id="week-label"></div>
-        <div id="sched-hint" style="font-size:0.78rem;color:var(--accent);font-weight:700;display:none">📅 <span id="sched-hint-text"></span> scheduled today</div>
-        <!-- Mode toggle -->
-        <div style="display:flex;gap:6px;margin-left:auto">
-          <button id="att-mode-all" class="btn sm primary" onclick="setAttMode('all')">👥 All Students</button>
-          <button id="att-mode-single" class="btn sm" onclick="setAttMode('single')">👤 Single Student</button>
+      <div class="card att-bar">
+        <div class="att-date">
+          <button class="att-nav" onclick="attShiftDate(-1)" title="Previous day" aria-label="Previous day">‹</button>
+          <label class="att-date-pill"><span id="att-date-text">Select date</span><input type="date" id="absen-date" onchange="loadAbsensi()" onclick="try{this.showPicker()}catch(e){}" aria-label="Select date"></label>
+          <button class="att-nav" onclick="attShiftDate(1)" title="Next day" aria-label="Next day">›</button>
+          <button class="btn sm" onclick="attGoToday()">Today</button>
+        </div>
+        <div class="att-meta">
+          <div id="week-label"></div>
+          <div id="sched-hint" style="display:none">📅 <span id="sched-hint-text"></span> scheduled</div>
+        </div>
+        <div class="seg" role="group" aria-label="Mode">
+          <button id="att-mode-all" class="btn sm primary" onclick="setAttMode('all')">👥 Whole class</button>
+          <button id="att-mode-single" class="btn sm" onclick="setAttMode('single')">👤 One student</button>
         </div>
       </div>
 
       <!-- SINGLE STUDENT PANEL -->
-      <div id="single-att-panel" class="card" style="display:none;margin-bottom:16px;border:1.5px solid var(--teal)">
-        <div style="font-family:'Fredoka One',sans-serif;font-weight:800;color:var(--teal);margin-bottom:14px;font-size:0.95rem">
-          👤 Single Student Attendance
-          <span style="font-size:0.72rem;font-weight:600;background:rgba(0,201,167,0.15);color:var(--teal);border-radius:20px;padding:2px 10px;margin-left:6px">Bisa tanggal mendatang</span>
-        </div>
+      <div id="single-att-panel" class="card att-single" style="display:none">
+        <div class="att-single-hd">👤 One Student <span class="att-pill">Future dates allowed</span></div>
         <div class="form-row" style="margin-bottom:12px">
           <div class="form-group" style="margin-bottom:0">
-            <label>Siswa *</label>
+            <label>Student *</label>
             <select id="single-att-siswa" onchange="onSingleAttSiswaChange()">
-              <option value="">-- Pilih Siswa --</option>
+              <option value="">-- Select Student --</option>
             </select>
           </div>
           <div class="form-group" style="margin-bottom:0">
-            <label>Tanggal *</label>
+            <label>Date *</label>
             <input type="date" id="single-att-tanggal" onchange="onSingleAttSiswaChange()">
           </div>
           <div class="form-group" style="margin-bottom:0">
@@ -364,46 +376,47 @@
             </select>
           </div>
           <div class="form-group" style="margin-bottom:0">
-            <label>Catatan</label>
-            <input type="text" id="single-att-ket" placeholder="Opsional…">
+            <label>Note</label>
+            <input type="text" id="single-att-ket" placeholder="Optional…">
           </div>
         </div>
         <div id="single-att-info" style="font-size:0.8rem;color:var(--muted);margin-bottom:10px"></div>
         <div class="btn-row" style="margin:0">
-          <button class="btn primary" onclick="saveSingleAtt()">💾 Simpan</button>
+          <button class="btn primary" onclick="saveSingleAtt()">💾 Save</button>
           <button class="btn" onclick="setAttMode('all')">Cancel</button>
         </div>
       </div>
 
       <div class="card" id="all-att-grid-card">
-        <div class="absen-grid" id="absen-grid"><div class="empty"><div class="ei">📋</div><p>Add students first.</p></div></div>
+        <div class="att-head" id="att-head"></div>
+        <div id="absen-grid"><div class="empty"><div class="ei">📋</div><p>Add students first.</p></div></div>
       </div>
+
       <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <div style="font-family:'Fredoka One',sans-serif;font-weight:800">Attendance Record</div>
-            <button class="btn sm" onclick="openAttReportModal()" title="Export monthly attendance report">📊 Export Report</button>
+        <div class="att-rec-hd">
+          <div class="att-rec-title">🗂️ Attendance Record</div>
+          <button class="btn sm" onclick="openAttReportModal()" title="Export monthly attendance report">📊 Export Report</button>
+        </div>
+        <div class="att-filters">
+          <div class="form-group"><label>From</label><input type="date" id="att-f-dari" onchange="renderAttendance()"></div>
+          <div class="form-group"><label>To</label><input type="date" id="att-f-sampai" onchange="renderAttendance()"></div>
+          <div class="form-group"><label>Student</label><input type="text" id="att-f-nama" placeholder="Search name…" oninput="renderAttendance()"></div>
+          <div class="form-group"><label>Status</label>
+            <select id="att-f-status" onchange="renderAttendance()">
+              <option value="">All</option>
+              <option value="Hadir">✅ Present</option>
+              <option value="Izin">📝 Excused</option>
+              <option value="Alpha">❌ Absent</option>
+            </select>
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-            <div class="form-group" style="margin:0;min-width:120px"><label style="font-size:0.7rem">📅 From</label><input type="date" id="att-f-dari" onchange="renderAttendance()" style="padding:6px 10px;font-size:0.82rem"></div>
-            <div class="form-group" style="margin:0;min-width:120px"><label style="font-size:0.7rem">📅 To</label><input type="date" id="att-f-sampai" onchange="renderAttendance()" style="padding:6px 10px;font-size:0.82rem"></div>
-            <div class="form-group" style="margin:0;min-width:130px"><label style="font-size:0.7rem">👤 Student</label><input type="text" id="att-f-nama" placeholder="Search name…" oninput="renderAttendance()" style="padding:6px 10px;font-size:0.82rem"></div>
-            <div class="form-group" style="margin:0"><label style="font-size:0.7rem">📊 Status</label>
-              <select id="att-f-status" onchange="renderAttendance()" style="padding:6px 10px;font-size:0.82rem;border-radius:9px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
-                <option value="">All</option>
-                <option value="Hadir">✅ Present</option>
-                <option value="Izin">📝 Excused</option>
-                <option value="Alpha">❌ Absent</option>
-              </select>
-            </div>
-            <button class="btn sm" onclick="setCurrentMonthAttFilter()" title="Show current month only" style="white-space:nowrap">📅 This Month</button>
-            <button class="btn sm" onclick="clearAttFilter()" style="margin-bottom:0">✕ Clear</button>
+          <div class="att-filter-btns">
+            <button class="btn sm" onclick="setCurrentMonthAttFilter()" title="Show current month only">📅 This Month</button>
+            <button class="btn sm" onclick="clearAttFilter()">✕ Clear</button>
           </div>
         </div>
-        <!-- Summary chips -->
-        <div id="att-summary" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"></div>
+        <div id="att-summary" class="att-summary"></div>
         <div class="tbl-wrap">
-          <table><thead><tr><th>Date</th><th>Student</th><th>Status</th><th>Note</th><th></th></tr></thead>
+          <table class="att-table"><thead><tr><th>Date</th><th>Student</th><th>Status</th><th>Note</th><th></th></tr></thead>
           <tbody id="tbody-attendance"></tbody></table>
         </div>
         <div class="empty" id="empty-attendance"><div class="ei">📋</div><p>No records yet.</p></div>

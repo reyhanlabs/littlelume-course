@@ -9,10 +9,21 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.12.3';
+const APP_VERSION = '1.13.0';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.13.0', date: '2026-10-19',
+    title: 'Fresh Students & Attendance',
+    items: [
+      ['improve', 'Students: each student is now a colorful card with schedule, fee, sessions this month and a WhatsApp link to the parent. Tap a card to open the profile.'],
+      ['new', 'Students: search box and level filter, plus a compact List view if you prefer a table.'],
+      ['improve', 'Attendance: tap Present / Excused / Absent instead of using a dropdown; cards change color with the status.'],
+      ['new', 'Attendance: ‹ › buttons and Today to move between days, live present/excused/absent counter, and "All present" in one tap.'],
+      ['improve', 'Attendance: scheduled students come first in time order; others are grouped below. Records list has a cleaner summary and status badges.'],
+    ],
+  },
   {
     version: '1.12.3', date: '2026-10-19',
     title: 'One look on every page',
