@@ -9,10 +9,18 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.12.0';
+const APP_VERSION = '1.12.1';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.12.1', date: '2026-10-19',
+    title: 'Compact dashboard',
+    items: [
+      ['improve', 'Smaller, compact stat cards (icon beside the number) and slightly tighter banner and cards.'],
+      ['fix', 'Remaining Indonesian text switched to English: greeting and date, calendar holiday names, attendance and sync messages, WhatsApp share tips.'],
+    ],
+  },
   {
     version: '1.12.0', date: '2026-10-19',
     title: 'New dashboard look',

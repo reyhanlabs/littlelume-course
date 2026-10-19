@@ -279,7 +279,7 @@ function updateSelects(){
   fill('eval-filter-siswa','<option value="">All Students</option>');
   // Single attendance dropdown hanya diisi ulang jika panel sedang terbuka
   const singleSel=document.getElementById('single-att-siswa');
-  if(singleSel && singleSel.options.length > 1) fill('single-att-siswa','<option value="">-- Pilih Siswa --</option>');
+  if(singleSel && singleSel.options.length > 1) fill('single-att-siswa','<option value="">-- Select Student --</option>');
 }
 
 // ════════════════════════════════════════════════

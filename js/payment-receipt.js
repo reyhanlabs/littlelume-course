@@ -150,7 +150,7 @@ function updateSesiCount(){
 
     if(countEl) countEl.textContent =
       `${checked} session(s) × ${fmt(feePerSesi)} = ${fmt(totalAmount)}` +
-      (_paymentAmountManuallyEdited ? ' (nominal diisi manual)' : '');
+      (_paymentAmountManuallyEdited ? ' (amount entered manually)' : '');
 
   } else if(checked === 0){
     if(!_paymentAmountManuallyEdited){
@@ -856,7 +856,7 @@ function renderHutangSesi(){
               <div>
                 <div class="st-name">👤 ${esc(siswa.nama)}${siswa.nick?` <span style="color:var(--muted);font-weight:500;font-size:0.8rem">(${esc(siswa.nick)})</span>`:''} <span class="chip chip-purple" style="font-size:0.7rem;vertical-align:middle">📅 Monthly</span></div>
                 <div style="font-size:0.75rem;color:var(--muted);margin-top:2px">${unpaidMonths.length} unpaid month(s) · ${pctPaid}% months paid</div>
-                <div style="margin-top:4px;font-size:0.8rem">${feeMonthly?`<span style="color:var(--red);font-weight:700">Total: ${fmt(totalHutang)}</span>`:`<span style="color:var(--muted);font-size:0.75rem">⚠️ Set Monthly Fee di profil siswa</span>`}</div>
+                <div style="margin-top:4px;font-size:0.8rem">${feeMonthly?`<span style="color:var(--red);font-weight:700">Total: ${fmt(totalHutang)}</span>`:`<span style="color:var(--muted);font-size:0.75rem">⚠️ Set the monthly fee in the student profile</span>`}</div>
               </div>
               <button class="btn sm primary" onclick="openPaymentFormForStudent('${siswa.id}')">💰 Pay Monthly</button>
             </div>
@@ -1355,7 +1355,7 @@ async function _waShareNow(){
   const rep=c.rep;
   try{
     await navigator.share({ files:[c.file], text:c.caption });
-    rep.msg('✅ Shared. Pilih kontak di WhatsApp lalu kirim.', 5000);
+    rep.msg('✅ Shared. Choose the contact in WhatsApp, then send.', 5000);
   }catch(e){
     if(e.name==='AbortError'){ rep.hide(); return; }   // user batal
     if(e.name==='NotAllowedError'){ rep.needTap(); return; } // gesture kedaluwarsa → tap lagi
@@ -1377,8 +1377,8 @@ async function _waShareFallback(){
   await new Promise(r=>setTimeout(r,600));
   window.open(c.hp?`https://wa.me/62${c.hp.replace(/^0/,'')}`:'https://wa.me/','_blank');
   c.rep.msg(copied
-    ? '✅ Image saved & caption copied → di WhatsApp tap 📎 → pilih gambar → <b>paste</b> di kolom caption → kirim.'
-    : '✅ Image saved → di WhatsApp tap 📎 → pilih gambar, lalu ketik caption.', 10000);
+    ? '✅ Image saved & caption copied → in WhatsApp tap 📎, pick the image, <b>paste</b> the caption, send.'
+    : '✅ Image saved → in WhatsApp tap 📎 and pick the image.', 10000);
 }
 
 function copyReceipt(){

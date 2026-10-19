@@ -125,8 +125,8 @@ auth.onAuthStateChanged(async user => {
       // Tetap login (sesi Google tersimpan), cukup muat ulang saat koneksi kembali
       document.getElementById('login-screen').style.display = 'flex';
       document.getElementById('login-err').innerHTML =
-        '⚠️ Tidak bisa memverifikasi akses — periksa koneksi internet. ' +
-        '<button class="btn sm primary" style="margin-top:8px" onclick="location.reload()">🔄 Coba lagi</button>';
+        '⚠️ Could not verify access — please check your internet connection. ' +
+        '<button class="btn sm primary" style="margin-top:8px" onclick="location.reload()">🔄 Try again</button>';
       return;
     }
     currentUser = user;
@@ -258,7 +258,7 @@ async function switchClass(classId){
   if(_savePending){
     const ok = await _flushToFirestore();
     if(!ok && _savePending){
-      showToast('⚠️ Perubahan di kelas ini belum tersimpan (koneksi?). Tunggu status "Synced" lalu coba pindah kelas lagi.', 'warn', 6000);
+      showToast('⚠️ Changes in this class are not saved yet (connection?). Wait for "Synced", then switch class again.', 'warn', 6000);
       return;
     }
   }
@@ -520,7 +520,7 @@ async function loadFromFirestore(){
   } catch(e){
     _loadOk = false;   // ← penting: blok semua save sampai load berhasil
     setSyncErr(e.code || e.message);
-    showToast('⚠️ Gagal memuat data kelas. Perubahan TIDAK akan disimpan sampai koneksi pulih — tekan Retry.', 'warn', 8000);
+    showToast('⚠️ Could not load class data. Changes will NOT be saved until the connection is back — tap Retry.', 'warn', 8000);
     console.error('Load error', e);
     _setLists(_dataFromDoc({})); _base = null;
     renderAll(); setCurrentMonthDashFilter(); loadAbsensi();
@@ -566,7 +566,7 @@ function subscribeToClassUpdates(){
       _setLists(_clone(remote)); _base = _clone(remote); _serverRev = rev;
       _loadOk = true; _dataClassId = currentClassId;
       renderAll(); setCurrentMonthDashFilter(); loadAbsensi();
-      setSynced(); showToast('✅ Koneksi pulih, data kelas berhasil dimuat', 'success', 3500);
+      setSynced(); showToast('✅ Connection restored, class data loaded', 'success', 3500);
       return;
     }
 
@@ -575,7 +575,7 @@ function subscribeToClassUpdates(){
     if(_isEditFormOpen() && !_savePending){
       // Tunda: diterapkan begitu form ditutup (lihat _applyDeferredRemote)
       _deferredRemote = { remote, rev, classId: currentClassId };
-      showToast('🔄 Ada perubahan dari device lain — akan diterapkan setelah form ditutup.', 'info', 5000);
+      showToast('🔄 Changes from another device will be applied after you close this form.', 'info', 5000);
       return;
     }
 
@@ -588,7 +588,7 @@ function subscribeToClassUpdates(){
       _setLists(_clone(remote)); _base = _clone(remote); _serverRev = rev;
     }
     renderAll(); setCurrentMonthDashFilter(); loadAbsensi();
-    showToast('🔄 Data diperbarui dari device lain', 'info', 3500);
+    showToast('🔄 Data updated from another device', 'info', 3500);
   }, err => {
     console.error('[Snapshot listener error]', err);
   });
@@ -609,7 +609,7 @@ function _applyDeferredRemote(){
   }
   _base = _clone(d.remote); _serverRev = d.rev;
   renderAll(); setCurrentMonthDashFilter(); loadAbsensi();
-  showToast('🔄 Data diperbarui dari device lain', 'info', 3000);
+  showToast('🔄 Data updated from another device', 'info', 3000);
 }
 setInterval(_applyDeferredRemote, 1000);
 
@@ -623,7 +623,7 @@ function _saveBlocked(){
   if(!userDocRef) return true;
   if(!_loadOk || _dataClassId !== currentClassId){
     setSyncErr('data not loaded');
-    showToast('⛔ Perubahan tidak disimpan: data kelas belum berhasil dimuat. Tekan Retry lalu ulangi.', 'error', 7000);
+    showToast('⛔ Not saved: class data has not loaded yet. Tap Retry, then try again.', 'error', 7000);
     return true;
   }
   return false;
@@ -688,7 +688,7 @@ async function _flushToFirestore(opts={}){
         const finalData = _sameData(now, local) ? _clone(written) : _mergeAll(local, now, written);
         _setLists(finalData);
         renderAll(); setCurrentMonthDashFilter(); loadAbsensi();
-        showToast('🔀 Perubahan Anda digabung dengan perubahan dari device lain.', 'info', 4000);
+        showToast('🔀 Your changes were merged with changes from another device.', 'info', 4000);
         if(!_sameData(finalData, written)) _flushAgain = true;
       }
     }

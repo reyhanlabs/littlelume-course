@@ -95,12 +95,12 @@ function renderDashboard(){
 
   document.getElementById('dash-stats').innerHTML = `
     <div class="stat-card s-purple" style="cursor:pointer" onclick="navigate('students')" title="Go to Students"><div class="ico">👤</div><div class="val">${totalStudents}</div><div class="lbl">Total Students</div></div>
-    <div class="stat-card s-green" style="cursor:pointer" onclick="navigate('analytics')" title="See revenue by month"><div class="ico">💰</div><div class="val" style="font-size:${totalRevenue>9999999?'1rem':'1.3rem'}">${fmt(totalRevenue)}</div><div class="lbl">Revenue${filterLabel}</div></div>
+    <div class="stat-card s-green" style="cursor:pointer" onclick="navigate('analytics')" title="See revenue by month"><div class="ico">💰</div><div class="val" style="font-size:${totalRevenue>9999999?'1rem':'1.3rem'}">${fmt(totalRevenue)}</div><div class="lbl">Revenue</div></div>
     <div class="stat-card s-red" style="cursor:pointer" onclick="document.getElementById('dash-reminders-card')?.scrollIntoView({behavior:'smooth',block:'center'})" title="See who to bill">
-      <div class="ico">⚠️</div><div class="val">${unpaid}</div><div class="lbl">Students to Bill${filterLabel}</div>
-      <div class="trend ${unpaid>0?'trend-dn':'trend-up'}">${owed ? fmt(owed)+' outstanding in total' : (unpaid>0 ? 'Needs attention' : 'All clear!')}</div>
+      <div class="ico">⚠️</div><div class="val">${unpaid}</div><div class="lbl">Students to Bill</div>
+      <div class="trend ${unpaid>0?'trend-dn':'trend-up'}">${owed ? fmt(owed)+' due' : (unpaid>0 ? 'Needs attention' : 'All clear!')}</div>
     </div>
-    <div class="stat-card s-blue" style="cursor:pointer" onclick="navigate('attendance')" title="Go to Attendance"><div class="ico">📋</div><div class="val">${isFiltered?presentFiltered+'/'+filteredAtt.length:presentToday+'/'+(todayAtt.length||totalStudents)}</div><div class="lbl">${isFiltered?'Present (filtered)':'Present Today'}</div></div>
+    <div class="stat-card s-blue" style="cursor:pointer" onclick="navigate('attendance')" title="Go to Attendance"><div class="ico">📋</div><div class="val">${isFiltered?presentFiltered+'/'+filteredAtt.length:presentToday+'/'+(todayAtt.length||totalStudents)}</div><div class="lbl">${isFiltered?'Present':'Present Today'}</div></div>
     <div class="stat-card s-yellow" style="cursor:pointer" onclick="navigate('deposits')" title="Go to Deposits">
       <div class="ico">🏦</div>
       <div class="val" style="font-size:${totalDepositBalance>9999999?'1rem':'1.3rem'}">${fmt(totalDepositBalance)}</div>
@@ -594,14 +594,14 @@ function getTodaySessions(){
 
 function _renderDashHero(info){
   const now = new Date(), h = now.getHours();
-  const greet = h<11 ? 'Selamat pagi' : h<15 ? 'Selamat siang' : h<18 ? 'Selamat sore' : 'Selamat malam';
-  const icon  = h<11 ? '☀️' : h<15 ? '🌤️' : h<18 ? '🌇' : '🌙';
+  const greet = h<12 ? 'Good morning' : h<17 ? 'Good afternoon' : 'Good evening';
+  const icon  = h<12 ? '☀️' : h<17 ? '🌤️' : '🌙';
   const name  = (typeof currentUser!=='undefined' && currentUser?.displayName) ? currentUser.displayName.split(' ')[0] : 'Teacher';
   const sessions = getTodaySessions();
   const bill = (typeof computePaymentReminders==='function') ? computePaymentReminders().filter(r=>r.total>0).length : 0;
   const set = (id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
   set('dh-greet', `${greet}, ${name}! ${icon}`);
-  set('dh-date', now.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long'}) + (currentClassName ? ' · '+currentClassName : ''));
+  set('dh-date', now.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'}) + (currentClassName ? ' · '+currentClassName : ''));
   set('dh-sessions', sessions.length);
   set('dh-bill', bill);
   set('dh-eval', info.noEval||0);

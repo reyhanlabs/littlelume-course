@@ -277,32 +277,32 @@ let _calMonth = new Date().getMonth();    // always current month on init
 // ── Indonesian National Holidays & Cuti Bersama 2026 (SKB 3 Menteri) ──
 const HOLIDAYS_ID = {
   // === 2026 - Libur Nasional ===
-  '2026-01-01': {name:'Tahun Baru Masehi', type:'libur'},
-  '2026-01-16': {name:'Isra Mi\'raj Nabi Muhammad SAW', type:'libur'},
-  '2026-02-17': {name:'Tahun Baru Imlek 2577 Kongzili', type:'libur'},
-  '2026-03-19': {name:'Hari Suci Nyepi (Tahun Baru Saka 1948)', type:'libur'},
-  '2026-03-21': {name:'Hari Raya Idul Fitri 1447 H', type:'libur'},
-  '2026-03-22': {name:'Hari Raya Idul Fitri 1447 H', type:'libur'},
-  '2026-04-03': {name:'Wafat Yesus Kristus (Jumat Agung)', type:'libur'},
-  '2026-04-05': {name:'Kebangkitan Yesus Kristus (Paskah)', type:'libur'},
-  '2026-05-01': {name:'Hari Buruh Internasional', type:'libur'},
-  '2026-05-14': {name:'Kenaikan Yesus Kristus', type:'libur'},
-  '2026-05-27': {name:'Hari Raya Idul Adha 1447 H', type:'libur'},
-  '2026-05-31': {name:'Hari Raya Waisak 2570 BE', type:'libur'},
-  '2026-06-01': {name:'Hari Lahir Pancasila', type:'libur'},
-  '2026-06-16': {name:'Tahun Baru Islam 1448 H', type:'libur'},
-  '2026-08-17': {name:'Hari Kemerdekaan RI ke-81', type:'libur'},
-  '2026-08-25': {name:'Maulid Nabi Muhammad SAW', type:'libur'},
-  '2026-12-25': {name:'Hari Natal', type:'libur'},
+  '2026-01-01': {name:'New Year\'s Day', type:'libur'},
+  '2026-01-16': {name:'Isra Mi\'raj of Prophet Muhammad', type:'libur'},
+  '2026-02-17': {name:'Chinese New Year 2577', type:'libur'},
+  '2026-03-19': {name:'Nyepi (Balinese New Year 1948)', type:'libur'},
+  '2026-03-21': {name:'Eid al-Fitr 1447 H', type:'libur'},
+  '2026-03-22': {name:'Eid al-Fitr 1447 H', type:'libur'},
+  '2026-04-03': {name:'Good Friday', type:'libur'},
+  '2026-04-05': {name:'Easter Sunday', type:'libur'},
+  '2026-05-01': {name:'Labour Day', type:'libur'},
+  '2026-05-14': {name:'Ascension Day', type:'libur'},
+  '2026-05-27': {name:'Eid al-Adha 1447 H', type:'libur'},
+  '2026-05-31': {name:'Vesak Day 2570 BE', type:'libur'},
+  '2026-06-01': {name:'Pancasila Day', type:'libur'},
+  '2026-06-16': {name:'Islamic New Year 1448 H', type:'libur'},
+  '2026-08-17': {name:'Indonesian Independence Day (81st)', type:'libur'},
+  '2026-08-25': {name:'Prophet Muhammad\'s Birthday', type:'libur'},
+  '2026-12-25': {name:'Christmas Day', type:'libur'},
   // === 2026 - Cuti Bersama ===
-  '2026-02-16': {name:'Cuti Bersama Imlek', type:'cuti'},
-  '2026-03-18': {name:'Cuti Bersama Nyepi', type:'cuti'},
-  '2026-03-20': {name:'Cuti Bersama Idul Fitri', type:'cuti'},
-  '2026-03-23': {name:'Cuti Bersama Idul Fitri', type:'cuti'},
-  '2026-03-24': {name:'Cuti Bersama Idul Fitri', type:'cuti'},
-  '2026-05-15': {name:'Cuti Bersama Kenaikan Yesus Kristus', type:'cuti'},
-  '2026-05-28': {name:'Cuti Bersama Idul Adha', type:'cuti'},
-  '2026-12-24': {name:'Cuti Bersama Natal', type:'cuti'},
+  '2026-02-16': {name:'Joint leave – Chinese New Year', type:'cuti'},
+  '2026-03-18': {name:'Joint leave – Nyepi', type:'cuti'},
+  '2026-03-20': {name:'Joint leave – Eid al-Fitr', type:'cuti'},
+  '2026-03-23': {name:'Joint leave – Eid al-Fitr', type:'cuti'},
+  '2026-03-24': {name:'Joint leave – Eid al-Fitr', type:'cuti'},
+  '2026-05-15': {name:'Joint leave – Ascension Day', type:'cuti'},
+  '2026-05-28': {name:'Joint leave – Eid al-Adha', type:'cuti'},
+  '2026-12-24': {name:'Joint leave – Christmas', type:'cuti'},
 };
 
 function renderCalendar(){
@@ -376,10 +376,10 @@ function renderCalendar(){
         <div class="cal-holiday-item">
           <div class="chi-date ${h.type}">${h.date}</div>
           <div class="chi-label">${esc(h.name)}</div>
-          <div class="chi-type ${h.type}">${h.type==='libur'?'Libur':'Cuti'}</div>
+          <div class="chi-type ${h.type}">${h.type==='libur'?'Holiday':'Joint leave'}</div>
         </div>`).join('');
     } else {
-      infoEl.innerHTML = `<div style="text-align:center;padding:8px;font-size:0.72rem;color:var(--muted)">Tidak ada hari libur bulan ini</div>`;
+      infoEl.innerHTML = `<div style="text-align:center;padding:8px;font-size:0.72rem;color:var(--muted)">No public holidays this month</div>`;
     }
   }
 }

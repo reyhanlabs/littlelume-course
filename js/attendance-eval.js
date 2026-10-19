@@ -96,7 +96,7 @@ function setAttMode(mode){
     // Isi dropdown siswa
     const sel = document.getElementById('single-att-siswa');
     const opts = siswaList.map(s=>`<option value="${s.id}">${esc(s.nama)}${s.nick?' ('+esc(s.nick)+')':''}</option>`).join('');
-    sel.innerHTML = '<option value="">-- Pilih Siswa --</option>' + opts;
+    sel.innerHTML = '<option value="">-- Select Student --</option>' + opts;
     // Default tanggal = hari ini
     if(!document.getElementById('single-att-tanggal').value){
       document.getElementById('single-att-tanggal').value = todayISO();
@@ -130,8 +130,8 @@ function saveSingleAtt(){
   const status  = document.getElementById('single-att-status').value;
   const ket     = document.getElementById('single-att-ket').value.trim();
 
-  if(!siswaId){ showToast('Pilih siswa terlebih dahulu!','warn'); return; }
-  if(!tanggal){ showToast('Pilih tanggal!','warn'); return; }
+  if(!siswaId){ showToast('Please select a student first!','warn'); return; }
+  if(!tanggal){ showToast('Please select a date!','warn'); return; }
 
   const siswa = siswaList.find(s=>s.id===siswaId);
 
@@ -143,7 +143,7 @@ function saveSingleAtt(){
     const existingId = absensiList[existingIdx].id;
     const linkedPayment = bayarList.find(b=>b.sesiIds && b.sesiIds.includes(existingId));
     if(linkedPayment && absensiList[existingIdx].status === 'Hadir'){
-      showToast(`⚠️ Status tidak bisa diubah — sesi ini sudah terhubung ke payment (${esc(linkedPayment.namaSiswa)}).`,'warn');
+      showToast(`⚠️ Status can't be changed — this session is already linked to a payment (${esc(linkedPayment.namaSiswa)}).`,'warn');
       return;
     }
   }
