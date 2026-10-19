@@ -9,10 +9,19 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.13.0';
+const APP_VERSION = '1.13.1';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.13.1', date: '2026-10-19',
+    title: 'Tidier All Classes',
+    items: [
+      ['improve', 'All Classes uses smaller, lighter text so more fits on screen.'],
+      ['improve', 'Long lists (To Bill, Today, each day of the weekly schedule) show about 5 rows; scroll inside the card to see the rest.'],
+      ['fix', 'Class cards no longer overlap when a class name is long or marked Active; all four numbers fit on one line (large amounts shortened, e.g. Rp 12,6 Jt — hover to see the full amount).'],
+    ],
+  },
   {
     version: '1.13.0', date: '2026-10-19',
     title: 'Fresh Students & Attendance',

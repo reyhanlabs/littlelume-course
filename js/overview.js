@@ -77,6 +77,12 @@ function _ovDot(cls){
   return `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${esc(cls.color||'#6c63ff')};margin-right:6px;vertical-align:middle"></span>`;
 }
 
+function _ovMoney(n){
+  n = +n||0; const a=Math.abs(n);
+  if(a>=1e9) return 'Rp '+(n/1e9).toFixed(1).replace(/\.0$/,'').replace('.',',')+' M';
+  if(a>=1e6) return 'Rp '+(n/1e6).toFixed(a>=1e7?1:2).replace(/0+$/,'').replace(/\.$/,'').replace('.',',')+' Jt';
+  return fmt(n);
+}
 function _ovHTML(results, failed, ym){
   const sum = k => results.reduce((t,r)=>t+r[k],0);
   const allRem = results.flatMap(r=>r.reminders).sort((a,b)=>b.total-a.total);
@@ -100,10 +106,10 @@ function _ovHTML(results, failed, ym){
   const cards = `
     <div class="card-grid card-grid-4 dash-stats">
       <div class="stat-card s-purple"><div class="ico">👤</div><div class="val">${sum('students')}</div><div class="lbl">Students</div><div class="trend">${results.length} classes</div></div>
-      <div class="stat-card s-green"><div class="ico">💰</div><div class="val">${fmt(sum('revenue'))}</div><div class="lbl">Revenue</div><div class="trend">${mLabel}</div></div>
-      <div class="stat-card s-red" style="cursor:pointer" onclick="document.getElementById('ov-bill-card')?.scrollIntoView({behavior:'smooth',block:'center'})"><div class="ico">⚠️</div><div class="val">${fmt(owed)}</div><div class="lbl">Outstanding</div><div class="trend">${owing.length?owing.length+' student(s) to bill':'All clear!'}</div></div>
+      <div class="stat-card s-green"><div class="ico">💰</div><div class="val" title="${fmt(sum('revenue'))}">${_ovMoney(sum('revenue'))}</div><div class="lbl">Revenue</div><div class="trend">${mLabel}</div></div>
+      <div class="stat-card s-red" style="cursor:pointer" onclick="document.getElementById('ov-bill-card')?.scrollIntoView({behavior:'smooth',block:'center'})"><div class="ico">⚠️</div><div class="val" title="${fmt(owed)}">${_ovMoney(owed)}</div><div class="lbl">Outstanding</div><div class="trend">${owing.length?owing.length+' student(s) to bill':'All clear!'}</div></div>
       <div class="stat-card s-blue"><div class="ico">📋</div><div class="val">${sum('sessions')}</div><div class="lbl">Sessions attended</div><div class="trend">${mLabel}</div></div>
-      <div class="stat-card s-yellow"><div class="ico">🏦</div><div class="val">${fmt(sum('depositHeld'))}</div><div class="lbl">Deposit held</div></div>
+      <div class="stat-card s-yellow"><div class="ico">🏦</div><div class="val" title="${fmt(sum('depositHeld'))}">${_ovMoney(sum('depositHeld'))}</div><div class="lbl">Deposit held</div></div>
     </div>`;
 
   const perClass = `
@@ -112,12 +118,12 @@ function _ovHTML(results, failed, ym){
       <div class="ov-classes">
         ${results.map(r=>`
         <div class="ov-class" style="--cc:${esc(r.cls.color||'#6c63ff')}" onclick="ovOpenClass('${r.cls.id}','dashboard')" title="Open ${esc(r.cls.name)}">
-          <div class="ov-class-hd"><span class="ov-dot"></span><b>${esc(r.cls.name)}</b>${r.cls.id===currentClassId?'<span class="ov-active">Active</span>':''}<span class="ov-open">Open →</span></div>
+          <div class="ov-class-hd"><span class="ov-dot"></span><b title="${esc(r.cls.name)}">${esc(r.cls.name)}</b>${r.cls.id===currentClassId?'<span class="ov-active">Active</span>':''}<span class="ov-open">→</span></div>
           <div class="ov-kv">
             <div><span>Students</span><b>${r.students}</b></div>
             <div><span>Sessions</span><b>${r.sessions}</b></div>
-            <div><span>Revenue</span><b class="g">${fmt(r.revenue)}</b></div>
-            <div><span>Outstanding</span><b class="${r.outstanding>0?'r':''}">${fmt(r.outstanding)}</b></div>
+            <div><span>Revenue</span><b class="g" title="${fmt(r.revenue)}">${_ovMoney(r.revenue)}</b></div>
+            <div><span>Outstanding</span><b class="${r.outstanding>0?'r':''}" title="${fmt(r.outstanding)}">${_ovMoney(r.outstanding)}</b></div>
           </div>
         </div>`).join('')}
       </div>
@@ -128,28 +134,28 @@ function _ovHTML(results, failed, ym){
     <div class="card dash-card" id="ov-today-card">
       <div class="dash-card-hd"><b>🎈 Today in All Classes</b><span>${today.length} session${today.length===1?'':'s'}</span></div>
       ${!today.length ? '<div class="dash-empty">🌈 No classes scheduled today.</div>' :
-        today.map(s=>`
+        '<div class="ov-scroll">'+today.map(s=>`
         <div class="dt-row" onclick="ovOpenClass('${s.cls.id}','dashboard')">
           <div class="dt-time">${esc(s.jam||'—')}</div>
           <div class="dt-info"><div class="dt-name">${esc(s.nama)}</div><div class="dt-sub">${_ovDot(s.cls)}${esc(s.cls.name)}</div></div>
-        </div>`).join('')}
+        </div>`).join('')+'</div>'}
     </div>`;
 
   const unpaid = `
     <div class="card dash-card" id="ov-bill-card">
-      <div class="dash-card-hd"><b>🔔 To Bill</b>${owing.length?`<span class="chip chip-red">${fmt(owed)}</span>`:''}</div>
+      <div class="dash-card-hd"><b>🔔 To Bill</b>${owing.length?`<span class="chip chip-red">${owing.length} · ${fmt(owed)}</span>`:''}</div>
       ${!owing.length ? '<div class="dash-empty">🎉 All payments are up to date in every class.</div>' :
-        owing.map((r,i)=>`
+        '<div class="ov-scroll">'+owing.map((r,i)=>`
         <div class="dp-row">
           <div class="dash-av" style="background:${typeof _dashColor==='function'?_dashColor(r.siswa.nama):'#8b5cf6'}">${esc((r.siswa.nama||'?').trim()[0]||'?')}</div>
           <div class="dp-info">
             <div class="dp-name">${esc(r.siswa.nama)}</div>
             <div class="dp-sub">${_ovDot(r.cls)}${esc(r.cls.name)} · ${r.isMonthly ? `${r.unpaidCount} unpaid month(s)` : `${r.unpaidCount} unpaid session(s)`}${r.depBal>0?` · deposit ${fmt(r.depBal)} deducted`:''}</div>
           </div>
-          <div class="dp-amt" style="color:var(--red)">${fmt(r.total)}</div>
+          <div class="dp-amt" style="color:var(--red)" title="${fmt(r.total)}">${_ovMoney(r.total)}</div>
           <button class="btn wa sm" onclick="ovSendReminder(${i})" title="Send reminder via WhatsApp">💬</button>
           <button class="btn sm" onclick="ovOpenClass('${r.cls.id}','payment')" title="Record payment in this class">💰</button>
-        </div>`).join('')}
+        </div>`).join('')+'</div>'}
     </div>`;
 
   // Jadwal mingguan gabungan
@@ -161,18 +167,18 @@ function _ovHTML(results, failed, ym){
     <div class="card dash-card">
       <div class="dash-card-hd"><b>🗓️ Weekly Schedule</b><span>all classes</span></div>
       ${!usedDays.length ? '<div class="dash-empty">No schedules set yet.</div>' : `
-      <div class="ov-week" style="grid-template-columns:repeat(${usedDays.length},minmax(120px,1fr))">
+      <div class="ov-week" style="grid-template-columns:repeat(${usedDays.length},minmax(110px,1fr))">
         ${usedDays.map(d=>{
           const list = slots.filter(s=>s.days.includes(d)).sort((a,b)=>a.jam.localeCompare(b.jam));
           const clash = {}; list.forEach(s=>{ const k=s.jam; clash[k]=clash[k]||new Set(); clash[k].add(s.cls.id); });
           return `<div class="ov-day${d===todayName?' today':''}">
-            <div class="ov-day-hd">${SHORT[d]}${d===todayName?' ★':''}</div>
-            ${list.map(s=>`
+            <div class="ov-day-hd">${SHORT[d]}${d===todayName?' ★':''} <small>${list.length}</small></div>
+            <div class="ov-day-list">${list.map(s=>`
               <div class="ov-slot" style="--cc:${esc(s.cls.color||'#6c63ff')}">
                 <b>${esc(s.jam||'—')}${s.jam && clash[s.jam].size>1?' <span title="Same time in another class" style="color:var(--red)">⚠️</span>':''}</b>
                 <div>${esc(s.nama)}</div>
                 <small>${esc(s.cls.name)}</small>
-              </div>`).join('')}
+              </div>`).join('')}</div>
           </div>`;
         }).join('')}
       </div>`}

@@ -1845,3 +1845,66 @@ tbody tr { transition:background .15s }
 .st-kv .st-fee{text-transform:none;letter-spacing:0;font-size:0.88rem;font-weight:900;color:var(--text)}
 .st-kv .st-fee small{font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:none}
 .st-kv .st-fee.muted{color:var(--muted)}
+
+/* ══ v1.13.1 — All Classes lebih ringkas ══ */
+#page-overview .dash-hero{padding:16px 20px;margin-bottom:14px}
+#page-overview .dash-hero h2{font-size:1.25rem}
+#page-overview .dash-hero p{font-size:0.8rem}
+#page-overview .dh-cta{font-size:0.78rem;padding:6px 12px}
+#page-overview .dh-box{padding:8px 12px;min-width:84px}
+#page-overview .dh-box b{font-size:1.15rem}
+#page-overview .dh-box span{font-size:0.68rem}
+#page-overview .dash-toolbar{margin-bottom:10px}
+#page-overview .dash-toolbar-title{font-size:0.95rem}
+#page-overview .dash-stats{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))!important;gap:10px!important;margin-bottom:14px!important}
+#page-overview .dash-stats .stat-card{padding:9px 12px!important;column-gap:10px}
+#page-overview .dash-stats .stat-card .ico{width:32px;height:32px;font-size:0.95rem}
+#page-overview .dash-stats .stat-card .val{font-size:1.02rem!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#page-overview .dash-stats .stat-card .lbl{font-size:0.7rem}
+#page-overview .dash-stats .stat-card .trend{font-size:0.64rem!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#page-overview .dash-card{padding:13px 14px;margin-bottom:14px;border-radius:18px}
+#page-overview .dash-card-hd{margin-bottom:8px}
+#page-overview .dash-card-hd b{font-size:0.92rem}
+#page-overview .dash-card-hd span{font-size:0.72rem}
+#page-overview .dash-main{gap:14px}
+
+/* Per class: tidak tumpang tindih, angka 1 baris */
+.ov-classes{grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.ov-class{padding:10px 12px;border-radius:14px;min-width:0}
+.ov-class-hd{gap:6px;margin-bottom:6px;min-width:0}
+.ov-class-hd b{flex:1 1 auto;min-width:0;font-size:0.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ov-active{flex-shrink:0;font-size:0.58rem;padding:1px 7px}
+.ov-open{flex-shrink:0;margin-left:0;font-size:0.8rem}
+.ov-kv{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.ov-kv div{min-width:0}
+.ov-kv span{font-size:0.56rem;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ov-kv b{font-size:0.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Daftar panjang: maks ~5 baris, sisanya scroll */
+.ov-scroll{max-height:290px;overflow-y:auto;margin-right:-6px;padding-right:6px;scrollbar-width:thin}
+#page-overview .dp-row,#page-overview .dt-row{padding:7px 0}
+#page-overview .dp-name,#page-overview .dt-name{font-size:0.84rem}
+#page-overview .dp-sub,#page-overview .dt-sub{font-size:0.7rem}
+#page-overview .dp-amt{font-size:0.82rem;white-space:nowrap}
+#page-overview .dash-av{width:30px;height:30px;font-size:0.74rem}
+#page-overview .dt-time{font-size:0.74rem;padding:4px 0;width:52px;border-radius:10px}
+#page-overview .dp-row .btn{padding:4px 8px;font-size:0.8rem}
+.ov-day{padding:8px;border-radius:12px}
+.ov-day-hd{font-size:0.74rem;margin-bottom:6px;display:flex;align-items:center;gap:4px}
+.ov-day-hd small{margin-left:auto;background:var(--bg2);border-radius:999px;padding:0 7px;font-size:0.66rem}
+.ov-day-list{max-height:270px;overflow-y:auto;scrollbar-width:thin;padding-right:2px}
+.ov-slot{padding:4px 8px;margin-bottom:5px;font-size:0.72rem}
+.ov-slot div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ov-slot small{font-size:0.62rem;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:600px){
+  .ov-classes{grid-template-columns:1fr}
+  #page-overview .dash-stats{grid-template-columns:1fr 1fr!important}
+}
+.ov-kv{grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 10px}
+.ov-kv div{flex-direction:row;align-items:baseline;justify-content:space-between;gap:6px;background:var(--bg2);border-radius:8px;padding:3px 7px}
+.ov-kv span{font-size:0.6rem;flex-shrink:0}
+.ov-kv b{font-size:0.8rem;text-align:right}
+#page-overview .dp-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#page-overview .dp-info{min-width:0}
+.ov-kv div{flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:0;padding:4px 8px}
+.ov-kv b{text-align:left;font-size:0.82rem}
