@@ -9,10 +9,21 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.11.1';
+const APP_VERSION = '1.12.0';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.12.0', date: '2026-10-19',
+    title: 'New dashboard look',
+    items: [
+      ['new', 'Colorful welcome banner with a greeting, today\'s date and class, a "Take attendance now" button, and today\'s numbers: sessions, students to bill, evaluations needed.'],
+      ['new', '"Today\'s Classes": today\'s scheduled students in time order with status (Present, Now, Not marked, Upcoming) and today\'s lesson topic. This week\'s schedule is one tap away.'],
+      ['improve', 'Playful style: warm dotted background, soft pastel stat cards, rounded cards with a raised edge, round calendar days. Works in Dark Mode too.'],
+      ['improve', 'The period filter is now a small "📅 October 2026 ▾" button instead of a full row.'],
+      ['improve', 'Recent payments show colored initials; To Bill is a clean list with Remind and Record Payment buttons.'],
+    ],
+  },
   {
     version: '1.11.1', date: '2026-10-17',
     title: 'Tidier dashboard',

@@ -124,17 +124,20 @@ function renderDashboard(){
   const recentPay = filteredPay.sort((a,b)=>b.tanggal.localeCompare(a.tanggal)).slice(0,5);
   const payEl = document.getElementById('dash-payments');
   if(recentPay.length===0){
-    payEl.innerHTML=`<div style="color:var(--muted);font-size:0.87rem;text-align:center;padding:20px">No payments${isFiltered?' in selected period':''} recorded.</div>`;
+    payEl.innerHTML=`<div class="dash-empty">No payments${isFiltered?' in this period':''} yet.</div>`;
   } else {
     payEl.innerHTML = recentPay.map(b=>`
-      <div class="schedule-row">
-        <div><div style="font-weight:700;font-size:0.87rem">${esc(b.namaSiswa)}</div><div style="font-size:0.75rem;color:var(--muted)">${tglFmt(b.tanggal)} · ${esc(b.periode)||'-'}</div></div>
-        <div style="margin-left:auto;text-align:right">
-          <div style="font-weight:800;font-size:0.9rem;color:var(--green)">${fmt(b.jumlah)}</div>
-          ${b.status==='Lunas'?chip('Paid','chip-green'):b.status==='Cicil'?chip('Partial','chip-yellow'):chip('Unpaid','chip-red')}
-        </div>
+      <div class="dp-row">
+        <div class="dash-av" style="background:${_dashColor(b.namaSiswa)}">${esc((b.namaSiswa||'?').trim()[0]||'?')}</div>
+        <div class="dp-info"><div class="dp-name">${esc(b.namaSiswa)}</div><div class="dp-sub">${tglFmt(b.tanggal)} · ${esc(b.periode)||'-'}</div></div>
+        <div class="dp-amt">${fmt(b.jumlah)}
+          ${b.status==='Lunas'?'':b.status==='Cicil'?chip('Partial','chip-yellow'):chip('Unpaid','chip-red')}</div>
       </div>`).join('');
   }
+
+  // ── Hero & kelas hari ini ──
+  _renderDashHero({ noEval: noEvalThisWeek.length });
+  _renderDashPeriodLabel(fDari, fSampai, fPeriode);
 }
 
 function getMonthlyRevenue(fDari='', fSampai='', fPeriode=''){
@@ -554,3 +557,86 @@ function renderStudents(){
 }
 
 // ════════════════════════════════════════════════
+
+
+// ════════════════════════════════════════════════
+//  DASHBOARD: HERO, KELAS HARI INI, LABEL PERIODE
+// ════════════════════════════════════════════════
+const _DASH_COLORS = ['#8b5cf6','#f43f5e','#10b981','#3b82f6','#f59e0b','#06b6d4','#ec4899','#6366f1'];
+function _dashColor(name){
+  let h=0; for(const ch of String(name||'')) h=(h*31+ch.charCodeAt(0))>>>0;
+  return _DASH_COLORS[h % _DASH_COLORS.length];
+}
+function _dashMinutes(jam){ const m=String(jam||'').match(/(\d{1,2})[:.](\d{2})/); return m ? (+m[1])*60+(+m[2]) : null; }
+
+// Sesi hari ini: dari jadwal + murid yang sudah diabsen hari ini (walau tidak terjadwal)
+function getTodaySessions(){
+  const now = new Date(), today = todayISO();
+  const dayName = now.toLocaleDateString('en-US',{weekday:'long'});
+  const nowMin = now.getHours()*60 + now.getMinutes();
+  const rows = getStudentsForDay(dayName).map(s=>({ s, jam:s.schedJam||'', dur:+s.schedDurasi||60 }));
+  absensiList.filter(a=>a.tanggal===today).forEach(a=>{
+    if(!rows.some(r=>r.s.id===a.siswaId)){
+      const s = siswaList.find(x=>x.id===a.siswaId); if(s) rows.push({ s, jam:'', dur:60 });
+    }
+  });
+  rows.forEach(r=>{
+    const att = absensiList.find(a=>a.siswaId===r.s.id && a.tanggal===today);
+    const start = _dashMinutes(r.jam);
+    if(att) r.state = att.status==='Hadir' ? 'done' : att.status==='Izin' ? 'excused' : 'absent';
+    else if(start!=null && nowMin>=start && nowMin<start+r.dur) r.state='now';
+    else if(start!=null && nowMin>=start+r.dur) r.state='late';
+    else r.state='next';
+    r.lesson = materiList.find(m=>m.tanggal===today && (m.target==='Semua' || m.target===r.s.id));
+  });
+  return rows.sort((a,b)=>(_dashMinutes(a.jam)??9999)-(_dashMinutes(b.jam)??9999));
+}
+
+function _renderDashHero(info){
+  const now = new Date(), h = now.getHours();
+  const greet = h<11 ? 'Selamat pagi' : h<15 ? 'Selamat siang' : h<18 ? 'Selamat sore' : 'Selamat malam';
+  const icon  = h<11 ? '☀️' : h<15 ? '🌤️' : h<18 ? '🌇' : '🌙';
+  const name  = (typeof currentUser!=='undefined' && currentUser?.displayName) ? currentUser.displayName.split(' ')[0] : 'Teacher';
+  const sessions = getTodaySessions();
+  const bill = (typeof computePaymentReminders==='function') ? computePaymentReminders().filter(r=>r.total>0).length : 0;
+  const set = (id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
+  set('dh-greet', `${greet}, ${name}! ${icon}`);
+  set('dh-date', now.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long'}) + (currentClassName ? ' · '+currentClassName : ''));
+  set('dh-sessions', sessions.length);
+  set('dh-bill', bill);
+  set('dh-eval', info.noEval||0);
+  set('dash-today-label', sessions.length ? sessions.length+' session'+(sessions.length>1?'s':'') : now.toLocaleDateString('en-GB',{weekday:'long'}));
+
+  const el = document.getElementById('dash-today'); if(!el) return;
+  if(!sessions.length){
+    el.innerHTML = `<div class="dash-empty">🌈 No classes scheduled today.<br><a href="javascript:void(0)" onclick="navigate('students')">Set student schedules →</a></div>`;
+    return;
+  }
+  const TAG = { done:['✓ Present','done'], excused:['Excused','excused'], absent:['Absent','absent'],
+                now:['● Now','now'], late:['Not marked','late'], next:['Upcoming','next'] };
+  el.innerHTML = sessions.map(r=>{
+    const [label, cls] = TAG[r.state];
+    const sub = r.lesson ? '📚 '+esc(r.lesson.topik) : [r.s.kelas?('Class '+esc(r.s.kelas)):'', esc(r.s.level||'')].filter(Boolean).join(' · ');
+    const act = (r.state==='now'||r.state==='late') ? `<button class="btn sm primary dt-mark" onclick="event.stopPropagation();navigate('attendance')">Mark</button>` : '';
+    return `<div class="dt-row" onclick="openStudentProfile('${r.s.id}')">
+      <div class="dt-time">${r.jam ? esc(r.jam) : '—'}</div>
+      <div class="dt-info"><div class="dt-name">${esc(r.s.nama)}</div><div class="dt-sub">${sub||'&nbsp;'}</div></div>
+      <span class="dt-tag ${cls}">${label}</span>${act}
+    </div>`;
+  }).join('');
+}
+
+function _renderDashPeriodLabel(dari, sampai, periode){
+  const el = document.getElementById('dash-period-label'); if(!el) return;
+  let txt;
+  if(periode) txt = '🏷️ ' + periode;
+  else if(!dari && !sampai) txt = '📅 All time';
+  else {
+    const d1 = dari ? new Date(dari+'T00:00:00') : null, d2 = sampai ? new Date(sampai+'T00:00:00') : null;
+    const fullMonth = d1 && d2 && d1.getDate()===1 && d1.getMonth()===d2.getMonth() && d1.getFullYear()===d2.getFullYear()
+                      && new Date(d2.getFullYear(), d2.getMonth()+1, 0).getDate()===d2.getDate();
+    txt = '📅 ' + (fullMonth ? d1.toLocaleDateString('en-GB',{month:'long',year:'numeric'})
+                             : [dari?tglFmt(dari):'…', sampai?tglFmt(sampai):'…'].join(' – '));
+  }
+  el.textContent = txt;
+}

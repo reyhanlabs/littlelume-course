@@ -130,8 +130,28 @@
     </div>
 
     <div class="page active" id="page-dashboard">
-      <!-- Period Filter -->
-      <div class="filter-bar" style="margin-bottom:20px">
+
+      <!-- HERO: ringkasan hari ini -->
+      <div class="dash-hero" id="dash-hero">
+        <div class="dh-left">
+          <h2 id="dh-greet">Selamat pagi, Teacher! ☀️</h2>
+          <p id="dh-date"></p>
+          <button class="dh-cta" onclick="navigate('attendance')">📋 Take attendance now</button>
+        </div>
+        <div class="dh-boxes">
+          <div class="dh-box" onclick="document.getElementById('dash-today-card')?.scrollIntoView({behavior:'smooth',block:'center'})"><b id="dh-sessions">0</b><span>sessions today</span></div>
+          <div class="dh-box" onclick="document.getElementById('dash-reminders-card')?.scrollIntoView({behavior:'smooth',block:'center'})"><b id="dh-bill">0</b><span>students to bill</span></div>
+          <div class="dh-box" onclick="navigate('evaluation');switchEvalTab('bulk')"><b id="dh-eval">0</b><span>needs evaluation</span></div>
+        </div>
+      </div>
+
+      <!-- Periode (ringkas; buka untuk mengubah) -->
+      <div class="dash-toolbar">
+        <div class="dash-toolbar-title">Overview</div>
+        <details class="dash-filter" id="dash-filter">
+          <summary><span id="dash-period-label">📅 This month</span> ▾</summary>
+          <div class="dash-filter-pop">
+            <div class="filter-bar" style="margin-bottom:20px">
         <div class="form-group"><label>📅 From</label><input type="date" id="dash-dari" onchange="renderDashboard()"></div>
         <div class="form-group"><label>📅 To</label><input type="date" id="dash-sampai" onchange="renderDashboard()"></div>
         <div class="form-group"><label title="Filter by payment period label, e.g. 'June 2026'">🏷️ Period Label <span style="font-size:0.65rem;color:var(--muted);font-weight:500">(payment label)</span></label><input type="text" id="dash-periode" placeholder="e.g. June 2026" oninput="renderDashboard()"></div>
@@ -142,15 +162,35 @@
           </div>
         </div>
       </div>
+          </div>
+        </details>
+      </div>
 
-      <div id="dash-alerts"></div>
-      <div class="card-grid card-grid-4" style="margin-bottom:20px" id="dash-stats"></div>
+      <div id="dash-alerts" style="display:none"></div>
+      <div class="card-grid card-grid-4 dash-stats" id="dash-stats"></div>
 
-      <!-- Main dashboard grid -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;min-width:0" id="dash-grid">
-        <div style="min-width:0;overflow:hidden">
-          <!-- Calendar -->
-          <div class="cal-wrap">
+      <!-- Konten utama -->
+      <div class="dash-main" id="dash-grid">
+        <div class="dash-col">
+          <!-- Kelas hari ini -->
+          <div class="card dash-card" id="dash-today-card">
+            <div class="dash-card-hd"><b>🎈 Today's Classes</b><span id="dash-today-label"></span></div>
+            <div id="dash-today"></div>
+            <details class="dash-week">
+              <summary>📅 This week's schedule <span id="week-range-label"></span></summary>
+              <div class="week-grid" id="dash-week-grid"></div>
+            </details>
+            <div id="dash-schedule" style="display:none"></div>
+          </div>
+          <!-- Tagihan -->
+          <div class="card dash-card" id="dash-reminders-card">
+            <div class="dash-card-hd"><b>🔔 To Bill</b><span class="chip chip-red" id="reminder-count" style="display:none"></span></div>
+            <div id="dash-reminders"><div class="dash-empty">🎉 All payments are up to date!</div></div>
+          </div>
+        </div>
+        <div class="dash-col">
+          <!-- Kalender -->
+          <div class="cal-wrap dash-card">
             <div class="cal-header">
               <h3 id="cal-month-label"></h3>
               <div class="cal-nav">
@@ -159,40 +199,18 @@
                 <button class="cal-nav-btn" onclick="calNav(1)">›</button>
               </div>
             </div>
-            <div class="cal-body">
-              <div class="cal-grid" id="cal-grid"></div>
-            </div>
+            <div class="cal-body"><div class="cal-grid" id="cal-grid"></div></div>
             <div class="cal-legend">
               <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--green)"></div>Attendance</div>
               <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--yellow)"></div>Payment</div>
               <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--red)"></div>Holiday</div>
               <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--orange)"></div>Cuti Bersama</div>
-              <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#fff;border:2px solid #6c63ff"></div>Today</div>
             </div>
             <div class="cal-holiday-info" id="cal-holiday-info"></div>
           </div>
-          <!-- Weekly Schedule -->
-          <div class="card" style="margin-bottom:0;border-top:3px solid var(--accent)">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <div style="font-family:'Fredoka One',sans-serif;font-weight:800;background:linear-gradient(135deg,#6c63ff,#9c8fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent">📅 This Week's Schedule</div>
-              <div style="font-size:0.72rem;color:var(--muted);font-weight:600" id="week-range-label"></div>
-            </div>
-            <div class="week-grid" id="dash-week-grid"></div>
-            <div id="dash-schedule" style="display:none"></div>
-          </div>
-        </div>
-        <div>
-          <!-- Payment Reminders -->
-          <div class="card" id="dash-reminders-card" style="margin-bottom:20px;border-top:3px solid var(--red)">
-            <div style="font-family:'Fredoka One',sans-serif;font-weight:800;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between">
-              <span>🔔 Payment Reminders</span>
-              <span class="chip chip-red" id="reminder-count" style="display:none"></span>
-            </div>
-            <div id="dash-reminders"><div style="color:var(--muted);font-size:0.85rem;text-align:center;padding:16px">No payment reminders.</div></div>
-          </div>
-          <!-- Recent Payments -->
-          <div class="card" style="border-top:3px solid var(--green)">
-            <div style="font-family:'Fredoka One',sans-serif;font-weight:800;margin-bottom:16px">💰 Recent Payments</div>
+          <!-- Pembayaran terakhir -->
+          <div class="card dash-card">
+            <div class="dash-card-hd"><b>💰 Recent Payments</b><a href="javascript:void(0)" onclick="navigate('payment')">See all →</a></div>
             <div id="dash-payments"></div>
           </div>
         </div>
