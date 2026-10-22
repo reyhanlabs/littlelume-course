@@ -274,7 +274,7 @@ async function switchClass(classId){
     updateClassSwitcherUI(cls);
     renderClassListUI();
     closeAllFormsAndModals();
-    siswaList=[];absensiList=[];materiList=[];evaluasiList=[];bayarList=[];scheduleList=[];
+    siswaList=[];absensiList=[];materiList=[];evaluasiList=[];bayarList=[];scheduleList=[];depositList=[];raporList=[];
     const lastPage = localStorage.getItem('lastPage_' + classId) || 'dashboard';
     _navigateRaw('dashboard');
     renderAll(); setCurrentMonthDashFilter();
@@ -447,7 +447,7 @@ async function renderAccessPanel(){
 // ════════════════════════════════════════════════
 //  FIRESTORE DATA LAYER — CLASS-SCOPED
 // ════════════════════════════════════════════════
-const COLS = ['siswa','absensi','materi','evaluasi','bayar','schedules','deposits'];
+const COLS = ['siswa','absensi','materi','evaluasi','bayar','schedules','deposits','rapor'];
 
 // ════════════════════════════════════════════════
 //  SINKRONISASI AMAN ANTAR-DEVICE
@@ -465,7 +465,7 @@ const _clone = o => JSON.parse(JSON.stringify(o));
 
 function _currentData(){
   return { siswa:siswaList, absensi:absensiList, materi:materiList, evaluasi:evaluasiList,
-           bayar:bayarList, schedules:scheduleList, deposits:depositList };
+           bayar:bayarList, schedules:scheduleList, deposits:depositList, rapor:raporList };
 }
 function _dataFromDoc(d){
   d = d || {};
@@ -476,7 +476,7 @@ function _dataFromDoc(d){
 function _setLists(d){
   siswaList    = d.siswa;    absensiList  = d.absensi;  materiList  = d.materi;
   evaluasiList = d.evaluasi; bayarList    = d.bayar;    scheduleList = d.schedules;
-  depositList  = d.deposits;
+  depositList  = d.deposits; raporList = d.rapor || [];
 }
 // Gabung 3 arah untuk satu array record:
 //   base = versi acuan, local = versi device ini, remote = versi server terbaru.
@@ -740,6 +740,7 @@ const DB = {
     if(k==='bayar')     bayarList    = v;
     if(k==='schedules') scheduleList = v;
     if(k==='deposits')  depositList  = v;
+    if(k==='rapor')     raporList    = v;
     saveToFirestore();
   }
 };
@@ -753,6 +754,7 @@ let materiList   = [];
 let evaluasiList = [];
 let bayarList    = [];
 let scheduleList = [];  // { id, siswaId, days:['Monday','Wednesday'], jam:'15:00', durasi:60 }
+let raporList    = [];  // progress report per grade (js/progress-report.js)
 let depositList  = [];  // { id, siswaId, namaSiswa, tanggal, jumlah, tipe:'topup'|'refund', metode, catatan }
 
 // ════════════════════════════════════════════════

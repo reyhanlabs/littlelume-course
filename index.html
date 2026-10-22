@@ -468,6 +468,7 @@
         <div style="display:flex;gap:6px;background:var(--bg3);padding:4px;border-radius:10px;border:1px solid var(--border)">
           <button id="eval-tab-single" onclick="switchEvalTab('single')" style="padding:7px 16px;border-radius:7px;border:none;font-family:'Fredoka One',sans-serif;font-size:0.82rem;font-weight:700;cursor:pointer;background:var(--accent);color:#fff;transition:all .18s">✏️ Single</button>
           <button id="eval-tab-bulk" onclick="switchEvalTab('bulk')" style="padding:7px 16px;border-radius:7px;border:none;font-family:'Fredoka One',sans-serif;font-size:0.82rem;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);transition:all .18s">⚡ Bulk Entry</button>
+          <button id="eval-tab-report" onclick="switchEvalTab('report')" style="padding:7px 16px;border-radius:7px;border:none;font-family:'Fredoka One',sans-serif;font-size:0.82rem;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);transition:all .18s">📄 Progress Report</button>
         </div>
       </div>
 
@@ -524,6 +525,22 @@
         <div id="eval-list-wrap">
           <div class="eval-list" id="eval-list"></div>
           <div class="empty" id="empty-eval"><div class="ei">⭐</div><p>No evaluations yet.</p></div>
+        </div>
+      </div>
+
+      <!-- PROGRESS REPORT PANEL (js/progress-report.js) -->
+      <div id="eval-report-panel" style="display:none">
+        <div class="card pr-form" id="pr-form-card" style="display:none"></div>
+        <div id="pr-list-wrap">
+          <div class="card pr-toolbar">
+            <div><b>📄 Progress Reports</b><span>Report card per grade — Kindergarten · Grade 1–3 · Grade 4–6. Units come from your Lessons.</span></div>
+            <div class="pr-toolbar-act">
+              <select id="pr-filter-siswa" onchange="renderProgressReports()"><option value="">All Students</option></select>
+              <button class="btn primary" onclick="prOpenForm()">＋ New Report</button>
+            </div>
+          </div>
+          <div class="pr-list" id="pr-list"></div>
+          <div class="empty" id="pr-empty"><div class="ei">📄</div><p>No progress reports yet. Tap <b>＋ New Report</b>.</p></div>
         </div>
       </div>
 
@@ -1212,6 +1229,7 @@
 <script src="js/curriculum.js"></script>
 <script src="js/share-bar.js"></script>
 <script src="js/lesson-print.js"></script>
+<script src="js/progress-report.js"></script>
 <script src="js/motion.js"></script>
 
 

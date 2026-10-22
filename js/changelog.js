@@ -9,10 +9,21 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.13.1';
+const APP_VERSION = '1.14.0';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.14.0', date: '2026-10-22',
+    title: 'Progress reports per grade',
+    items: [
+      ['new', 'Evaluation → 📄 Progress Report: fill in a report card for each student with a form that matches their grade — Kindergarten, Grade 1–3 or Grade 4–6.'],
+      ['new', 'Units / topics are loaded from your Lessons in the report period; rate each one, rename, reorder or add your own.'],
+      ['new', 'Beautiful A4 report in the LittleLume design: print, download PDF, save as images, or send the PDF to the parent via WhatsApp.'],
+      ['improve', 'Teacher\'s notes, attitude and parent message come pre-filled with suggestions; attendance is filled from your records.'],
+      ['improve', 'Copy a report into the next period to save time. Reports are included in backups and restore points.'],
+    ],
+  },
   {
     version: '1.13.1', date: '2026-10-19',
     title: 'Tidier All Classes',

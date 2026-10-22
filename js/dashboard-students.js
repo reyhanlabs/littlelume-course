@@ -365,6 +365,7 @@ function deleteStudent(id){
       evaluasiList = evaluasiList.filter(e=>e.siswaId!==id);
       scheduleList = scheduleList.filter(sc=>sc.siswaId!==id);
       depositList  = depositList.filter(d=>d.siswaId!==id);
+      raporList    = raporList.filter(r=>r.siswaId!==id);
       saveToFirestore();
       renderStudents(); updateSelects(); updateUnpaidBadge(); updateMbnBadge();
       if(document.getElementById('page-dashboard').classList.contains('active')) renderDashboard();

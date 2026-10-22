@@ -99,12 +99,12 @@ function renderAnalytics(){
 // Validasi file backup sebelum restore
 function _validateBackup(data){
   const errors=[], warnings=[];
-  const KEYS=['siswa','absensi','materi','evaluasi','bayar','schedules','deposits'];
-  const LABEL={siswa:'students',absensi:'attendance',materi:'lessons',evaluasi:'evaluations',bayar:'payments',schedules:'schedules',deposits:'deposits'};
+  const KEYS=['siswa','absensi','materi','evaluasi','bayar','schedules','deposits','rapor'];
+  const LABEL={siswa:'students',absensi:'attendance',materi:'lessons',evaluasi:'evaluations',bayar:'payments',schedules:'schedules',deposits:'deposits',rapor:'progress reports'};
   if(!data || typeof data!=='object' || Array.isArray(data)){ errors.push('not a LittleLume backup'); return {errors,warnings}; }
   if(!Array.isArray(data.siswa)){ errors.push('missing "siswa" (students) list — not a LittleLume class backup'); return {errors,warnings}; }
   KEYS.forEach(k=>{
-    if(data[k]===undefined){ if(k!=='siswa') warnings.push(`File has no ${LABEL[k]} data → ${LABEL[k]} in this class will be emptied.`); return; }
+    if(data[k]===undefined){ if(k!=='siswa' && k!=='rapor') warnings.push(`File has no ${LABEL[k]} data → ${LABEL[k]} in this class will be emptied.`); return; }
     if(!Array.isArray(data[k])){ errors.push(`"${k}" is not a list`); return; }
     const bad=data[k].filter(r=>!r||typeof r!=='object'||r.id===undefined||r.id===null||r.id==='').length;
     if(bad) errors.push(`${bad} ${LABEL[k]} record(s) have no id`);
@@ -113,7 +113,7 @@ function _validateBackup(data){
   });
   if(errors.length) return {errors,warnings};
   const sIds=new Set(data.siswa.map(x=>x.id));
-  ['absensi','evaluasi','bayar','schedules','deposits'].forEach(k=>{
+  ['absensi','evaluasi','bayar','schedules','deposits','rapor'].forEach(k=>{
     const orphan=(data[k]||[]).filter(r=>r.siswaId && !sIds.has(r.siswaId)).length;
     if(orphan) warnings.push(`${orphan} ${LABEL[k]} record(s) refer to students not in this backup.`);
   });
@@ -127,7 +127,7 @@ function exportBackup(tag){
     classId:   currentClassId,
     siswa:siswaList, absensi:absensiList, materi:materiList,
     evaluasi:evaluasiList, bayar:bayarList, schedules:scheduleList,
-    deposits:depositList,
+    deposits:depositList, rapor:raporList,
     exportedAt:new Date().toISOString(),
     appVersion:(typeof APP_VERSION!=='undefined'?APP_VERSION:null)
   };
@@ -196,6 +196,7 @@ function importBackup(e){
           bayarList    = pick('bayar');
           scheduleList = pick('schedules');
           depositList  = pick('deposits');
+          raporList    = pick('rapor');
           statusEl.innerHTML='<span style="color:var(--yellow)">⏳ Saving to cloud… <strong>do not refresh!</strong></span>';
           await _flushToFirestore({ force:true });
           statusEl.innerHTML=`<span style="color:var(--green)">✅ <strong>Import complete!</strong> ${siswaList.length} students, ${bayarList.length} payments saved to cloud.<br><span style="font-size:0.8rem;opacity:0.8">You can now refresh safely.</span></span>`;
@@ -233,7 +234,7 @@ function clearAllData(){
         '⚠️ Final Confirmation',
         `Last chance! You are about to erase all data in <strong>${currentClassName||'this class'}</strong>. Click Delete to confirm.`,
         ()=>{
-          siswaList=[];absensiList=[];materiList=[];evaluasiList=[];bayarList=[];scheduleList=[];depositList=[];
+          siswaList=[];absensiList=[];materiList=[];evaluasiList=[];bayarList=[];scheduleList=[];depositList=[];raporList=[];
           saveToFirestore();
           renderAll(); renderBackupSummary(); showToast('✅ All data cleared.','success');
         },
@@ -524,16 +525,14 @@ let _currentEvalTab = 'single';
 
 function switchEvalTab(tab){
   _currentEvalTab = tab;
-  const isBulk = tab === 'bulk';
-  document.getElementById('eval-single-panel').style.display = isBulk ? 'none' : 'block';
-  document.getElementById('eval-bulk-panel').style.display   = isBulk ? 'block' : 'none';
-  const btnSingle = document.getElementById('eval-tab-single');
-  const btnBulk   = document.getElementById('eval-tab-bulk');
-  btnSingle.style.background = isBulk ? 'transparent' : 'var(--accent)';
-  btnSingle.style.color      = isBulk ? 'var(--muted)'  : '#fff';
-  btnBulk.style.background   = isBulk ? 'var(--accent)' : 'transparent';
-  btnBulk.style.color        = isBulk ? '#fff' : 'var(--muted)';
-  if(isBulk) renderBulkEvalGrid();
+  const panels = { single:'eval-single-panel', bulk:'eval-bulk-panel', report:'eval-report-panel' };
+  Object.entries(panels).forEach(([k,id])=>{
+    const p=document.getElementById(id); if(p) p.style.display = k===tab ? 'block' : 'none';
+    const b=document.getElementById('eval-tab-'+k);
+    if(b){ b.style.background = k===tab ? 'var(--accent)' : 'transparent'; b.style.color = k===tab ? '#fff' : 'var(--muted)'; }
+  });
+  if(tab==='bulk') renderBulkEvalGrid();
+  if(tab==='report' && typeof renderProgressReports==='function') renderProgressReports();
 }
 
 // ── Templates stored in memory ──
