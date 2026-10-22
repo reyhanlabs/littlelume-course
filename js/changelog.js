@@ -9,10 +9,18 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.14.1';
+const APP_VERSION = '1.14.2';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.14.2', date: '2026-10-22',
+    title: 'Updated Grade 3 curriculum',
+    items: [
+      ['improve', 'Grade 3 curriculum updated: Semester 1 now has 16 sessions (8 themes × 2, incl. My Home and Daily Routine); Semester 2 has 18 sessions (9 themes × 2, incl. Hobbies & Sports, Weather & Months, My Town & Directions).'],
+      ['new', 'Curriculum sessions now show Grammar Corner and Pronunciation Drill, also in lesson plans and prints.'],
+    ],
+  },
   {
     version: '1.14.1', date: '2026-10-22',
     title: 'Neater progress report PDF',

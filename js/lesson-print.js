@@ -144,6 +144,9 @@ function buildLessonPlanPrintHTML(d){
         <div class="pat">${e(d.grammar.pattern)}</div>
         ${d.grammar.example?`<div class="ex">“${e(d.grammar.example)}”</div>`:''}
         ${d.grammar.note?`<div class="note">${e(d.grammar.note)}</div>`:''}
+        ${d.grammar.corner?`<div class="note">✏️ <b>Grammar Corner:</b> ${e(d.grammar.corner)}</div>`:''}
+        ${d.grammar.pron?`<div class="note">🔊 <b>Pronunciation:</b> ${e(d.grammar.pron)}</div>`:''}
+        ${d.grammar.rw?`<div class="note">📖 <b>Reading & Writing:</b> ${e(d.grammar.rw)}</div>`:''}
       </div>` : '<div></div>'}
       ${list(d.vocab).length ? `<div class="chips">${list(d.vocab).map(v=>`<span>${e(v)}</span>`).join('')}</div>` : ''}
     </div>`) : ''}
@@ -188,7 +191,7 @@ function _lpFromCurriculum(r, extra){
     target: 'All Students',
     reference: 'LittleLume Curriculum',
     objectives: m.objectives, vocab: m.vocab, media: m.media, activities: m.activities, assessment: m.assessment,
-    grammar: { pattern:m.grammarPattern, example:m.grammarExample, note:m.grammarNote },
+    grammar: { pattern:m.grammarPattern, example:m.grammarExample, note:m.grammarNote, corner:m.grammarCorner, pron:m.pronunciation, rw:m.readingWriting },
     fromCurriculum: true,
   }, extra||{});
 }
@@ -303,7 +306,7 @@ function lessonPreviewHTML(d){
 
     ${sec('🎯 Objectives', L(d.objectives).length?`<ul class="lp-checks">${L(d.objectives).map(x=>`<li>${e(x)}</li>`).join('')}</ul>`:'')}
     ${sec('🗣️ Language Focus', (d.grammar&&d.grammar.pattern)||L(d.vocab).length ? `
-      ${d.grammar&&d.grammar.pattern?`<div class="lp-gram"><b>${e(d.grammar.pattern)}</b>${d.grammar.example?`<i>“${e(d.grammar.example)}”</i>`:''}</div>`:''}
+      ${d.grammar&&d.grammar.pattern?`<div class="lp-gram"><b>${e(d.grammar.pattern)}</b>${d.grammar.example?`<i>“${e(d.grammar.example)}”</i>`:''}${d.grammar.corner?`<i>✏️ ${e(d.grammar.corner)}</i>`:''}${d.grammar.pron?`<i>🔊 ${e(d.grammar.pron)}</i>`:''}${d.grammar.rw?`<i>📖 ${e(d.grammar.rw)}</i>`:''}</div>`:''}
       ${L(d.vocab).length?`<div class="lp-chips">${L(d.vocab).map(v=>`<span>${e(v)}</span>`).join('')}</div>`:''}`:'')}
     ${sec('🧩 Activities', acts.length?`<div class="lp-acts">${acts.map(a=>`
         <div class="lp-act"><span class="t">${e(a.waktu)}</span><div><b>${e(a.kegiatan)}</b><div>${e(a.deskripsi)}</div></div></div>`).join('')}

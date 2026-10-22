@@ -14,7 +14,7 @@ let _curData = null, _curLoading = null;
 function curLoad(){
   if(_curData) return Promise.resolve(_curData);
   if(!_curLoading){
-    _curLoading = fetch(CUR_URL)
+    _curLoading = fetch(CUR_URL, { cache:'no-cache' })   // selalu cek versi terbaru di server
       .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
       .then(j=>{ _curData = j; return j; })
       .finally(()=>{ _curLoading = null; });
@@ -165,7 +165,12 @@ function _curMeetingBody(m){
         <div><b>Pattern:</b> ${esc(m.grammarPattern)}</div>
         ${m.grammarExample?`<div><b>Example:</b> <i>${esc(m.grammarExample)}</i></div>`:''}
         ${m.grammarNote?`<div style="color:var(--muted);margin-top:4px">${esc(m.grammarNote)}</div>`:''}
+        ${m.grammarCorner?`<div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--border)">✏️ <b>Grammar Corner:</b> ${esc(m.grammarCorner)}</div>`:''}
       </div>`)}
+    ${m.pronunciation||m.readingWriting ? _curSec('Pronunciation & Reading', `<div style="background:var(--bg3);border-radius:8px;padding:10px 12px;font-size:0.86rem;line-height:1.5">
+        ${m.pronunciation?`<div>🔊 <b>Pronunciation Drill:</b> ${esc(m.pronunciation)}</div>`:''}
+        ${m.readingWriting?`<div ${m.pronunciation?'style="margin-top:4px"':''}>📖 <b>Reading & Writing:</b> ${esc(m.readingWriting)}</div>`:''}
+      </div>`) : ''}
     ${_curSec('Vocabulary', _curChips(m.vocab))}
     ${_curSec('Media', _curList(m.media))}
     ${_curSec('Activities', `<div class="tbl-wrap"><table style="font-size:0.82rem">
@@ -215,6 +220,9 @@ function curAddLesson(key){
   document.getElementById('m-deskripsi').value = [
     'Objectives:', ...(m.objectives||[]).map(x=>'- '+x), '',
     `Grammar: ${m.grammarPattern||''}${m.grammarExample?' (e.g. '+m.grammarExample+')':''}`,
+    ...(m.grammarCorner?[`Grammar Corner: ${m.grammarCorner}`]:[]),
+    ...(m.pronunciation?[`Pronunciation Drill: ${m.pronunciation}`]:[]),
+    ...(m.readingWriting?[`Reading & Writing: ${m.readingWriting}`]:[]),
     `Vocabulary: ${(m.vocab||[]).join(', ')}`, '',
     'Activities:', ...(m.activities||[]).map(a=>`• ${a.waktu} ${a.kegiatan} — ${a.deskripsi}`),
   ].join('\n');
