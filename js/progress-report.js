@@ -141,6 +141,7 @@ function prAttendance(siswaId, dari, sampai){
 //  LIST (tab "Progress Report" di Evaluation)
 // ════════════════════════════════════════════════
 function renderProgressReports(){
+  try{ prLoadAssets(); }catch(e){}   // siapkan font & logo rapor lebih awal
   const wrap = document.getElementById('pr-list'); if(!wrap) return;
   const fs = document.getElementById('pr-filter-siswa');
   if(fs){
@@ -405,23 +406,42 @@ function _prBars(lv){
 }
 function _prLvTxt(lv){ const l=PR_LEVELS[lv-1]; return l?`<span class="lvt" style="color:${_PR_LV_COL[lv][2]}">${l.name}</span>`:'<span class="lvt" style="color:#9aa3b5">Not rated</span>'; }
 
-function _prMascot(kind){
-  if(kind==='sun') return `<svg viewBox="0 0 100 100" width="92" height="92">
-    <g stroke="#ffc928" stroke-width="5" stroke-linecap="round">${Array.from({length:12},(_,i)=>{const a=i*Math.PI/6, x1=50+Math.cos(a)*34, y1=50+Math.sin(a)*34, x2=50+Math.cos(a)*44, y2=50+Math.sin(a)*44; return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"/>`;}).join('')}</g>
-    <circle cx="50" cy="50" r="28" fill="#ffd43b"/><circle cx="40" cy="46" r="3.6" fill="#3b2f2f"/><circle cx="60" cy="46" r="3.6" fill="#3b2f2f"/>
-    <circle cx="34" cy="56" r="5" fill="#ff9aa8" opacity=".8"/><circle cx="66" cy="56" r="5" fill="#ff9aa8" opacity=".8"/>
-    <path d="M42 58 Q50 66 58 58" stroke="#3b2f2f" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`;
-  if(kind==='bee') return `<svg viewBox="0 0 100 100" width="92" height="92">
-    <ellipse cx="30" cy="40" rx="15" ry="11" fill="#cfefff" opacity=".9" transform="rotate(-25 30 40)"/><ellipse cx="70" cy="40" rx="15" ry="11" fill="#cfefff" opacity=".9" transform="rotate(25 70 40)"/>
-    <path d="M37 18 Q33 10 28 9 M63 18 Q67 10 72 9" stroke="#1f3b57" stroke-width="2.5" fill="none" stroke-linecap="round"/><circle cx="28" cy="9" r="3.5" fill="#ffd43b"/><circle cx="72" cy="9" r="3.5" fill="#ffd43b"/>
-    <ellipse cx="50" cy="70" rx="15" ry="19" fill="#ffd43b"/><path d="M36 66 H64 M36 76 H64" stroke="#f2a900" stroke-width="4"/>
-    <circle cx="50" cy="38" r="20" fill="#2bb7c7"/><circle cx="42" cy="36" r="6" fill="#fff"/><circle cx="58" cy="36" r="6" fill="#fff"/><circle cx="43" cy="37" r="3" fill="#1f3b57"/><circle cx="57" cy="37" r="3" fill="#1f3b57"/>
-    <circle cx="36" cy="45" r="3" fill="#ff9aa8"/><circle cx="64" cy="45" r="3" fill="#ff9aa8"/><path d="M44 47 Q50 52 56 47" stroke="#1f3b57" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>`;
-  return `<svg viewBox="0 0 100 100" width="92" height="92">
-    <path fill="#ffd43b" stroke="#f2a900" stroke-width="2" d="M50 8l11.5 24.5 26.8 3.5-19.6 18.6 4.9 26.6L50 68.4 26.4 81.2l4.9-26.6L11.7 36l26.8-3.5z"/>
-    <circle cx="41" cy="45" r="7" fill="#fff" stroke="#1f2a44" stroke-width="2.5"/><circle cx="59" cy="45" r="7" fill="#fff" stroke="#1f2a44" stroke-width="2.5"/><path d="M48 45h4" stroke="#1f2a44" stroke-width="2.5"/>
-    <circle cx="41" cy="46" r="2.6" fill="#1f2a44"/><circle cx="59" cy="46" r="2.6" fill="#1f2a44"/><circle cx="34" cy="56" r="3.5" fill="#ff9aa8"/><circle cx="66" cy="56" r="3.5" fill="#ff9aa8"/>
-    <path d="M44 58 Q50 63 56 58" stroke="#1f2a44" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>`;
+// ── Aset rapor: logo + font ditanam (data URI) ──
+// html2canvas memotret salinan dokumen; kalau font masih diunduh dari Google,
+// hurufnya dipotret dengan font cadangan → jarak huruf berantakan. Font & logo
+// ditanam langsung supaya PDF/gambar selalu sama dengan tampilan.
+const _PR_FONT_URL = 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Lora:ital@1&display=swap';
+let _PR_ASSETS = null, _prAssetsP = null;
+function _prLogoSrc(){ return (_PR_ASSETS && _PR_ASSETS.logo) || new URL('favicon-256x256.png', location.href).href; }
+function _prBlobToDataURL(b){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(b); }); }
+function prLoadAssets(){
+  if(_PR_ASSETS) return Promise.resolve(_PR_ASSETS);
+  if(_prAssetsP) return _prAssetsP;
+  _prAssetsP = (async()=>{
+    const out = { fontCSS:'', logo:'' };
+    try{ const b = await (await fetch('favicon-256x256.png')).blob(); out.logo = await _prBlobToDataURL(b); }catch(e){}
+    try{
+      const css = await (await fetch(_PR_FONT_URL)).text();
+      const blocks = css.split('@font-face').slice(1).map(x=>'@font-face'+x.slice(0, x.indexOf('}')+1));
+      // hanya subset latin (atau blok tanpa unicode-range)
+      const keep = blocks.filter(b=>!/unicode-range/.test(b) || /U\+0000-00FF/i.test(b));
+      const faces = await Promise.all(keep.map(async b=>{
+        const m = b.match(/url\(([^)]+)\)/); if(!m) return '';
+        const url = m[1].replace(/['"]/g,'');
+        const data = await _prBlobToDataURL(await (await fetch(url)).blob());
+        return b.replace(m[0], `url(${data})`);
+      }));
+      out.fontCSS = faces.filter(Boolean).join('\n');
+    }catch(e){ console.warn('Report fonts not embedded', e); }
+    // Daftarkan juga di dokumen utama: html2canvas menggambar teks di canvas milik
+    // dokumen utama, jadi fontnya harus dikenal di sini juga.
+    if(out.fontCSS && !document.getElementById('pr-font-faces')){
+      const st=document.createElement('style'); st.id='pr-font-faces'; st.textContent=out.fontCSS; document.head.appendChild(st);
+    }
+    _PR_ASSETS = out; return out;
+  })();
+  _prAssetsP.catch(()=>{ _prAssetsP = null; });
+  return _prAssetsP;
 }
 
 function _prCSS(th){
@@ -433,7 +453,8 @@ function _prCSS(th){
   .hdr{position:relative;height:138px;background:linear-gradient(120deg,${th.h1},${th.h2});overflow:hidden}
   .hdr .b1{position:absolute;border-radius:50%;background:rgba(255,255,255,.12)}
   .hdr-in{position:relative;display:flex;align-items:center;gap:18px;padding:10px 40px 0 46px}
-  .mascot{width:104px;height:104px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 6px 18px rgba(0,0,0,.12)}
+  .mascot{width:104px;height:104px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 6px 18px rgba(0,0,0,.12);overflow:hidden}
+  .mascot img{width:100px;height:100px;border-radius:50%;display:block}
   .brand h1{font-size:31px;font-weight:800;color:#fff;letter-spacing:-.5px;line-height:1.1;white-space:nowrap}
   .brand h1 span{color:#ffcf4a}
   .brand p{font-size:11px;font-weight:700;color:rgba(255,255,255,.85);letter-spacing:3.5px;margin-top:4px;white-space:nowrap}
@@ -447,7 +468,7 @@ function _prCSS(th){
   .info b{font-size:14px;font-weight:700;color:#28324a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
   .mini{height:84px;background:linear-gradient(120deg,${th.h1},${th.h2});position:relative;overflow:hidden;display:flex;align-items:center;padding:0 40px;gap:14px}
   .mini .m{width:60px;height:60px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center}
-  .mini .m svg{width:52px;height:52px}
+  .mini .m img{width:56px;height:56px;border-radius:50%;display:block}
   .mini h2{font-size:24px;font-weight:800;color:#fff}.mini h2 span{color:#ffcf4a}
   .mini .who{margin-left:auto;background:#fff;border-radius:22px;padding:10px 26px;font-size:12px;font-weight:700;color:${th.h1};position:relative}
   .body{padding:16px 40px 0}
@@ -517,7 +538,7 @@ function _prCSS(th){
   .foot i{font-style:italic;opacity:.95}.foot b{font-size:10px;font-weight:700;margin-top:2px;letter-spacing:.3px}
   .foot .pg{position:absolute;right:40px;top:15px;font-size:10px;opacity:.9}
   .foot .fl{position:absolute;left:40px;top:6px;width:32px;height:32px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center}
-  .foot .fl svg{width:28px;height:28px}
+  .foot .fl img{width:30px;height:30px;border-radius:50%;display:block}
   .foot .st1,.foot .st2{position:absolute;top:12px;color:#ffcf4a;font-size:16px}.foot .st1{left:40px}.foot .st2{right:40px}
   .sum3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
   .sm{background:#fff;border:2px solid ${th.line};border-radius:18px;padding:10px 14px;display:flex;align-items:center;gap:14px}
@@ -535,6 +556,17 @@ function _prCSS(th){
   .pres .pg2 div{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700}
   .pres .pg2 div span:first-child{width:150px}
   .pres .bars i{width:18px;height:7px}
+  /* Pemadatan bertahap bila isi terlalu panjang (lihat prFit) */
+  .page.t1 .st{margin-bottom:5px;font-size:15px} .page.t1 td{padding-top:4px!important;padding-bottom:4px!important}
+  .page.t1 .nt{padding:5px 10px} .page.t1 .nt p{font-size:9.8px;line-height:1.38} .page.t1 .un{padding:7px 10px}
+  .page.t1 .sc{padding:8px 10px} .page.t1 .scale{gap:7px} .page.t1 .hb{padding:6px 9px} .page.t1 .bl{margin:3px 0}
+  .page.t1 .parent .q,.page.t1 .pband p{font-size:11.2px;line-height:1.5}
+  .page.t2 .st{margin-bottom:4px;font-size:14px} .page.t2 td{padding-top:3px!important;padding-bottom:3px!important;font-size:11.5px}
+  .page.t2 .nt{padding:4px 9px} .page.t2 .nt p{font-size:9.2px;line-height:1.32} .page.t2 .notes{gap:6px;padding:8px}
+  .page.t2 .un{padding:6px 10px} .page.t2 .un p{font-size:9px} .page.t2 .sc{padding:6px 10px} .page.t2 .sc p{font-size:8.8px}
+  .page.t2 .scale{gap:6px} .page.t2 .hb{padding:5px 8px} .page.t2 .att p{font-size:10px;line-height:1.45} .page.t2 .bl{margin:2px 0}
+  .page.t2 .parent{padding:22px 18px 14px} .page.t2 .parent .q,.page.t2 .pband p{font-size:10.5px;line-height:1.45}
+  .page.t2 .body [style*="margin-top:11px"]{margin-top:7px!important} .page.t2 .body [style*="margin-top:12px"]{margin-top:8px!important}
   `;
 }
 
@@ -563,7 +595,7 @@ function buildProgressReportHTML(r, opt){
 
   const header = `
     <div class="hdr"><div class="b1" style="width:180px;height:180px;right:-40px;top:-70px"></div><div class="b1" style="width:110px;height:110px;left:300px;top:-50px"></div><div class="b1" style="width:220px;height:220px;right:120px;top:60px;opacity:.6"></div><div class="b1" style="width:70px;height:70px;left:420px;top:90px"></div>
-      <div class="hdr-in"><div class="mascot">${_prMascot(t.mascot)}</div>
+      <div class="hdr-in"><div class="mascot"><img src="${_prLogoSrc()}" alt="LittleLume English"></div>
         <div class="brand"><h1>LittleLume <span>English</span></h1><p>LEARN · PLAY · SHINE</p></div>
         <div class="ed"><i style="left:14px">★</i><b>STUDENT PROGRESS REPORT</b><span>${t.id==='kg'?'Kindergarten':t.id==='g13'?esc(r.grade):'Grade 4 - 6'} Edition</span><i style="right:14px">★</i></div>
       </div></div>
@@ -574,12 +606,12 @@ function buildProgressReportHTML(r, opt){
       <div style="border-color:#6fd3a6"><small>TEACHER</small><b>${esc(r.teacher||'—')}</b></div>
     </div>`;
   const mini = `<div class="mini"><div class="b1" style="position:absolute;width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,.12);right:260px;top:-70px"></div>
-      <div class="m">${_prMascot(t.mascot)}</div><h2>LittleLume <span>English</span></h2><div class="who">${esc(name)} · ${esc(r.grade)}</div></div>`;
+      <div class="m"><img src="${_prLogoSrc()}" alt=""></div><h2>LittleLume <span>English</span></h2><div class="who">${esc(name)} · ${esc(r.grade)}</div></div>`;
   const footMsg = t.id==='kg' ? `${count(skillLv,3)} of ${t.skills.length} skills and ${count(unitLv,3)} of ${units.length} topics are Confident. Keep shining, ${esc(nick)}!`
                 : t.id==='g13' ? `Lumi is proud of you, ${esc(nick)}! Keep shining.` : `Aim high and keep shining, ${esc(nick)}!`;
   const foot = (pg, total) => t.id==='kg'
     ? `<div class="foot"><span class="st1">★</span><i>${footMsg}</i><b>LittleLume English · Learn · Play · Shine</b><span class="st2">★</span></div>`
-    : `<div class="foot"><span class="fl">${_prMascot(t.mascot)}</span><i>${footMsg}</i><b>LittleLume English · Learn · Play · Shine</b><span class="pg">Page ${pg} of ${total}</span></div>`;
+    : `<div class="foot"><span class="fl"><img src="${_prLogoSrc()}" alt=""></span><i>${footMsg}</i><b>LittleLume English · Learn · Play · Shine</b><span class="pg">Page ${pg} of ${total}</span></div>`;
 
   const scaleCards = (cols) => `<div class="scale" style="grid-template-columns:repeat(${cols},1fr)">${PR_LEVELS.map(l=>`
     <div class="sc" style="background:${LVBG(l.v)}"><div class="ic">${_prIcon(l.v,22)}</div><div><b>${l.name}</b><p>${t.scored?l.desc.replace(' menggunakan skill',''):l.desc}</p></div>
@@ -677,14 +709,18 @@ function buildProgressReportHTML(r, opt){
   }
 
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Progress Report - ${esc(name)}</title>
-    ${opt.noFonts?'':'<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Lora:ital@1&display=swap" rel="stylesheet">'}
+    ${_PR_ASSETS && _PR_ASSETS.fontCSS ? `<style>${_PR_ASSETS.fontCSS}</style>` : (opt.noFonts?'':'<link href="'+_PR_FONT_URL+'" rel="stylesheet">')}
     <style>${_prCSS(th)}</style></head><body>${pages.join('')}
     <script>
       // Isi terlalu panjang → kecilkan sedikit agar tetap muat di atas footer
       function prFit(){ document.querySelectorAll('.page').forEach(function(p){
         var b=p.querySelector('.body'), f=p.querySelector('.foot'); if(!b||!f) return;
-        b.style.transform=''; var room=f.getBoundingClientRect().top-b.getBoundingClientRect().top-10, h=b.scrollHeight;
-        if(h>room){ var k=Math.max(0.72, room/h); b.style.transformOrigin='top center'; b.style.transform='scale('+k.toFixed(3)+')'; }
+        var over=function(){ return b.scrollHeight > f.getBoundingClientRect().top-b.getBoundingClientRect().top-10; };
+        b.style.transform=''; p.classList.remove('t1','t2');
+        if(over()) p.classList.add('t1');
+        if(over()){ p.classList.remove('t1'); p.classList.add('t2'); }
+        if(over()){ var room=f.getBoundingClientRect().top-b.getBoundingClientRect().top-10, k=Math.max(0.8, room/b.scrollHeight);
+          b.style.transformOrigin='top left'; b.style.width=(100/k)+'%'; b.style.transform='scale('+k.toFixed(3)+')'; }
       }); }
       prFit(); if(document.fonts&&document.fonts.ready) document.fonts.ready.then(prFit); window.addEventListener('load', prFit);
     <\/script></body></html>`;
@@ -694,8 +730,9 @@ function buildProgressReportHTML(r, opt){
 //  VIEW / PRINT / PDF / WHATSAPP
 // ════════════════════════════════════════════════
 let _prViewId = null;
-function prView(id){
+async function prView(id){
   const r = raporList.find(x=>x.id===id); if(!r) return;
+  try{ await Promise.race([prLoadAssets(), new Promise(res=>setTimeout(res,4000))]); }catch(e){}
   _prViewId = id;
   let ov = document.getElementById('pr-viewer');
   if(!ov){
@@ -734,15 +771,34 @@ function _prRec(){ return raporList.find(x=>x.id===_prViewId); }
 function _prFileBase(r){ return `Progress-Report-${(r.namaSiswa||'Student').replace(/\s+/g,'-')}-${prPeriodLabel(r.dari,r.sampai).replace(/\s+/g,'')}`; }
 function _prSay(html, hide){ const el=document.getElementById('pr-status'); if(!el) return; el.style.display='block'; el.innerHTML=html; if(hide) setTimeout(()=>el.style.display='none',hide); }
 
-function prPrint(){
+// Cetak dari PDF yang sama → hasil cetak identik di HP & laptop
+// (cetak langsung dari HTML di HP sering menambah margin & memotong halaman).
+async function prPrint(){
   const r=_prRec(); if(!r) return;
-  const w = window.open('', '_blank'); if(!w){ showToast('Allow pop-ups to print.','warn'); return; }
-  w.document.write(buildProgressReportHTML(r) + `<script>window.onload=function(){setTimeout(function(){window.print()},700)}<\/script>`);
-  w.document.close();
+  const w = window.open('', '_blank');
+  if(w) w.document.write('<p style="font-family:Arial,sans-serif;padding:24px;color:#555">⏳ Preparing the report for printing…</p>');
+  _prSay('⏳ Preparing print…');
+  try{
+    const blob = await _prPdfBlob(r);
+    const url = URL.createObjectURL(blob);
+    if(w) w.location.href = url; else window.open(url,'_blank');
+    setTimeout(()=>URL.revokeObjectURL(url), 120000);
+    _prSay('✅ The PDF opened in a new tab — use its Print button.',6000);
+  }catch(e){
+    console.error(e);
+    const html = buildProgressReportHTML(r) + `<script>window.onload=function(){setTimeout(function(){window.print()},700)}<\/script>`;
+    const ww = w || window.open('', '_blank'); if(!ww){ showToast('Allow pop-ups to print.','warn'); return; }
+    ww.document.open(); ww.document.write(html); ww.document.close();
+    _prSay('',1);
+  }
 }
 // Render tiap halaman A4 → canvas (iframe tersembunyi + html2canvas)
 async function _prCanvases(r){
   if(typeof html2canvas!=='function') throw new Error('html2canvas not loaded');
+  await prLoadAssets();
+  try{
+    await Promise.race([Promise.all(['400','500','600','700','800'].map(w=>document.fonts.load(w+' 14px Poppins')).concat([document.fonts.load('italic 14px Lora')])), new Promise(res=>setTimeout(res,4000))]);
+  }catch(e){}
   const W=794, H=1123;
   const ifr=document.createElement('iframe'); ifr.setAttribute('aria-hidden','true');
   ifr.style.cssText=`position:fixed;left:-10000px;top:0;width:${W}px;height:${H}px;border:0;visibility:hidden`;
@@ -750,7 +806,14 @@ async function _prCanvases(r){
   try{
     const doc=ifr.contentDocument; doc.open(); doc.write(buildProgressReportHTML(r)); doc.close();
     await new Promise(res=>{ if(doc.readyState==='complete') res(); else ifr.onload=()=>res(); setTimeout(res,3000); });
-    try{ await Promise.race([doc.fonts.ready, new Promise(res=>setTimeout(res,2000))]); }catch(e){}
+    try{
+      await Promise.race([Promise.all(['400','500','600','700','800'].map(w=>doc.fonts.load(w+' 14px Poppins')).concat([doc.fonts.load('italic 14px Lora')])), new Promise(res=>setTimeout(res,4000))]);
+      await Promise.race([doc.fonts.ready, new Promise(res=>setTimeout(res,3000))]);
+    }catch(e){}
+    const imgs=[...doc.images].filter(i=>!i.complete);
+    await Promise.race([Promise.all(imgs.map(i=>new Promise(res=>{i.onload=i.onerror=res;}))), new Promise(res=>setTimeout(res,3000))]);
+    try{ ifr.contentWindow.prFit && ifr.contentWindow.prFit(); }catch(e){}
+    await new Promise(res=>setTimeout(res,120));
     doc.body.style.background='#fff';
     const out=[];
     for(const pg of doc.querySelectorAll('.page')){

@@ -9,10 +9,20 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.14.0';
+const APP_VERSION = '1.14.1';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.14.1', date: '2026-10-22',
+    title: 'Neater progress report PDF',
+    items: [
+      ['improve', 'Progress reports now show the LittleLume English logo instead of the cartoon mascots.'],
+      ['fix', 'PDF and images no longer get uneven letter spacing or broken lines on devices without the report font — fonts are now built into the report.'],
+      ['fix', 'Print now prints from the same PDF, so phones no longer add margins or cut the A4 pages.'],
+      ['fix', 'Long teacher notes are fitted by tightening spacing step by step instead of shrinking the whole page.'],
+    ],
+  },
   {
     version: '1.14.0', date: '2026-10-22',
     title: 'Progress reports per grade',
