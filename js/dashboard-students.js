@@ -207,21 +207,9 @@ function openEditStudent(id){
   document.getElementById('s-feemonthly').value=s.feeMonthly||'';
   document.getElementById('s-billingtype').value=s.billingType||'per_session';
   onBillingTypeChange();
-  // Kunci billing type jika sudah ada payment — tidak boleh diubah
-  const hasPayment = bayarList.some(b=>b.siswaId===id);
-  const btEl = document.getElementById('s-billingtype');
+  // Semua murid ditagih per sesi; murid lama "monthly" diberi tautan konversi
   const btHint = document.getElementById('billing-lock-hint');
-  if(hasPayment){
-    btEl.disabled = true;
-    btEl.style.opacity = '0.55';
-    btEl.style.cursor = 'not-allowed';
-    if(btHint) btHint.style.display = 'block';
-  } else {
-    btEl.disabled = false;
-    btEl.style.opacity = '';
-    btEl.style.cursor = '';
-    if(btHint) btHint.style.display = 'none';
-  }
+  if(btHint) btHint.style.display = s.billingType==='monthly' ? 'block' : 'none';
   // Load existing schedules for this student, keyed to their actual id
   const existing = scheduleList.filter(sc=>sc.siswaId===id);
   renderSchedEntries(existing, id);
@@ -232,7 +220,9 @@ function saveStudent(){
   const nama=document.getElementById('s-nama').value.trim();
   if(!nama){ infoModal('Required Field', 'Full name is required!'); return; }
   const id=document.getElementById('s-id').value;
-  const billingType=document.getElementById('s-billingtype').value||'per_session';
+  // Billing selalu per sesi; data lama "monthly" tetap sampai dikonversi di halaman Payment
+  const billingType = (id && siswaList.find(x=>x.id===id)?.billingType==='monthly') ? 'monthly' : 'per_session';
+  if(!(Number(document.getElementById('s-fee').value)>0)) showToast('Tip: fill in the fee per session so payments are calculated automatically.','warn',5000);
 
   // Derive hari string from pending entries for backward compat
   const dayAbbr={Monday:'Mon',Tuesday:'Tue',Wednesday:'Wed',Thursday:'Thu',Friday:'Fri',Saturday:'Sat'};
@@ -248,7 +238,7 @@ function saveStudent(){
     catatan:document.getElementById('s-catatan').value.trim(),
     feePerSesi:Number(document.getElementById('s-fee').value)||0,
     billingType,
-    feeMonthly:billingType==='monthly'?Number(document.getElementById('s-feemonthly').value)||0:0,
+    feeMonthly:billingType==='monthly'?(siswaList.find(x=>x.id===id)?.feeMonthly||0):0,
   };
 
   // Tentukan finalId dulu
@@ -549,12 +539,12 @@ function renderStudents(){
   const ym = todayISO().slice(0,7);
   const monthAtt = absensiList.filter(a=>a.status==='Hadir' && (a.tanggal||'').startsWith(ym));
   const activeIds = new Set(monthAtt.map(a=>a.siswaId));
-  const monthly = siswaList.filter(s=>s.billingType==='monthly').length;
+  const withDep = siswaList.filter(s=>typeof getDepositBalance==='function' && getDepositBalance(s.id)>0).length;
   const noSched = siswaList.filter(s=>!scheduleList.some(sc=>sc.siswaId===s.id) && !s.hari).length;
   stats.innerHTML=`
     <div class="stat-card s-purple"><div class="ico">👤</div><div class="val">${siswaList.length}</div><div class="lbl">Students</div></div>
     <div class="stat-card s-green"><div class="ico">✅</div><div class="val">${activeIds.size}</div><div class="lbl">Came this month</div><div class="trend">${monthAtt.length} session(s)</div></div>
-    <div class="stat-card s-blue"><div class="ico">💳</div><div class="val">${siswaList.length-monthly}<span style="font-size:0.8rem;color:var(--muted)"> / ${monthly}</span></div><div class="lbl">Per session / Monthly</div></div>
+    <div class="stat-card s-blue" style="cursor:pointer" onclick="navigate('deposits')"><div class="ico">🏦</div><div class="val">${withDep}</div><div class="lbl">With deposit balance</div></div>
     <div class="stat-card ${noSched?'s-yellow':'s-green'}"><div class="ico">📅</div><div class="val">${noSched}</div><div class="lbl">Without schedule</div></div>`;
 
   // ── Filter level ──
@@ -582,9 +572,9 @@ function renderStudents(){
   const attCount = {}; monthAtt.forEach(a=>attCount[a.siswaId]=(attCount[a.siswaId]||0)+1);
 
   const feeOf = s => s.billingType==='monthly'
-    ? `<span class="st-fee">${fmt(s.feeMonthly||0)}<small>/month</small></span>`
+    ? `<span class="st-fee">${fmt(s.feeMonthly||0)}<small>/month (old)</small></span>`
     : (s.feePerSesi ? `<span class="st-fee">${fmt(s.feePerSesi)}<small>/session</small></span>` : '<span class="st-fee muted">No fee set</span>');
-  const billOf = s => s.billingType==='monthly' ? '📅 Monthly' : '💳 Per session';
+  const billOf = s => { const d = typeof getDepositBalance==='function' ? getDepositBalance(s.id) : 0; return s.billingType==='monthly' ? '🔄 Old monthly' : d>0 ? `🏦 Deposit ${fmt(d)}` : '💳 Per session'; };
   const av = s => `<div class="dash-av st-av" style="background:${_dashColor(s.nama)}">${esc((s.nama||'?').trim()[0]||'?')}</div>`;
   const actions = s => `
       <button class="btn sm icon-only" title="Edit" onclick="event.stopPropagation();openEditStudent('${s.id}')">✏️</button>

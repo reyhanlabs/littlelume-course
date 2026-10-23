@@ -18,8 +18,8 @@ function getDepositRefunds(siswaId){
   return depositList.filter(d=>d.siswaId===siswaId && d.tipe==='refund')
                     .reduce((s,d)=>s+(+d.jumlah||0),0);
 }
-function getDepositUsed(siswaId, excludeBayarId=null){
-  return bayarList.filter(b=>b.siswaId===siswaId && b.id!==excludeBayarId)
+function getDepositUsed(siswaId, excludeBayarId=null, manualOnly=false){
+  return bayarList.filter(b=>b.siswaId===siswaId && b.id!==excludeBayarId && !(manualOnly && b.auto))
                   .reduce((s,b)=>s+(+b.depositUsed||0),0);
 }
 /**
@@ -70,11 +70,12 @@ function getDepositBalanceAt(siswaId, refDate, refId){
  * Pemakaian = deposit yang dipakai di payment + refund.
  * Return: Map topupId → nominal terpakai
  */
-function getTopupUsage(siswaId){
+function getTopupUsage(siswaId, manualOnly=false){
   const topups = depositList
     .filter(d=>d.siswaId===siswaId && d.tipe==='topup')
     .sort((a,b)=> _isOnOrBefore(a.tanggal,a.id,b.tanggal,b.id) ? -1 : 1);
-  let consumed = getDepositUsed(siswaId) + getDepositRefunds(siswaId);
+  // Pelunasan otomatis (b.auto) dibangun ulang sendiri → tidak menghalangi edit/hapus top-up
+  let consumed = getDepositUsed(siswaId, null, manualOnly) + getDepositRefunds(siswaId);
   const usage = new Map();
   topups.forEach(t=>{
     const amt  = +t.jumlah||0;
@@ -189,7 +190,7 @@ function deleteStudentDeposits(siswaId){
   const s = siswaList.find(x=>x.id===siswaId); if(!s) return;
   const topups = depositList.filter(d=>d.siswaId===siswaId && d.tipe==='topup');
   if(!topups.length){ showToast('No top-ups to delete','info'); return; }
-  const usage   = getTopupUsage(siswaId);
+  const usage   = getTopupUsage(siswaId, true);
   const unused  = topups.filter(t=>!(usage.get(t.id)>0));                               // dihapus utuh
   const partial = topups.filter(t=>usage.get(t.id)>0 && usage.get(t.id)<(+t.jumlah||0)); // dipotong
   const fullCount = topups.length - unused.length - partial.length;                       // terpakai penuh, tetap
@@ -309,16 +310,17 @@ function saveDeposit(){
     data.tipe = old.tipe;
     // Top-up dipindah ke siswa lain → saldo siswa LAMA tidak boleh jadi minus
     if(old.siswaId !== siswaId){
-      const oldStudentBal = getDepositBalance(old.siswaId) - (+old.jumlah||0);
+      const oldStudentBal = getDepositTopups(old.siswaId) - getDepositRefunds(old.siswaId) - getDepositUsed(old.siswaId, null, true) - (+old.jumlah||0);
       if(oldStudentBal < 0){
         showToast(`Cannot move: ${old.namaSiswa} has already used this deposit (balance would be ${fmt(oldStudentBal)})`, 'warn', 6000);
         return;
       }
     }
     // Simulate new balance: current - old.jumlah + new.jumlah (both topups)
-    const newBalance = getDepositBalance(siswaId) - (old.siswaId===siswaId ? old.jumlah : 0) + jumlah;
+    const manualBal = getDepositTopups(siswaId) - getDepositRefunds(siswaId) - getDepositUsed(siswaId, null, true);
+    const newBalance = manualBal - (old.siswaId===siswaId ? old.jumlah : 0) + jumlah;
     if(newBalance < 0){
-      showToast(`Cannot reduce: this student has already used ${fmt(getDepositUsed(siswaId))} from deposit`, 'warn', 5000);
+      showToast(`Cannot reduce: this student has already used ${fmt(getDepositUsed(siswaId, null, true))} from deposit in payments`, 'warn', 5000);
       return;
     }
     depositList[i] = {...old, ...data};
@@ -342,7 +344,7 @@ function deleteDeposit(id){
   if(!d) return;
   const label = d.tipe==='refund' ? 'refund' : 'top-up';
   if(d.tipe==='topup'){
-    const usedAmt = getTopupUsage(d.siswaId).get(d.id) || 0;
+    const usedAmt = getTopupUsage(d.siswaId, true).get(d.id) || 0;
     const amtT = +d.jumlah||0;
     if(usedAmt > 0 && usedAmt < amtT){
       // Terpakai sebagian → yang boleh dihapus hanya sisanya
@@ -377,14 +379,15 @@ function deleteDeposit(id){
     }
   }
   const balAfter = d.tipe==='topup'
-    ? getDepositBalance(d.siswaId) - d.jumlah
+    ? Math.max(0, getDepositTopups(d.siswaId) - getDepositRefunds(d.siswaId) - getDepositUsed(d.siswaId, null, true) - d.jumlah)
     : getDepositBalance(d.siswaId) + d.jumlah;
   dangerModal(
     `Delete ${label}?`,
     `Are you sure you want to delete this ${label} of <strong>${fmt(d.jumlah)}</strong> for <strong>${esc(d.namaSiswa)}</strong>?<br><br>` +
     (d.tipe==='refund'
       ? `The refunded amount will return to their deposit balance.`
-      : `New balance will be <strong>${fmt(balAfter)}</strong>.`) +
+      : `New balance will be <strong>${fmt(balAfter)}</strong>.` +
+        ((getTopupUsage(d.siswaId).get(d.id)||0) > 0 ? `<br><br>⚠️ <strong>${fmt(getTopupUsage(d.siswaId).get(d.id))}</strong> of this top-up already paid sessions automatically — those sessions will show as <strong>unpaid</strong> again.` : '')) +
     `<br><br>This cannot be undone.`,
     ()=>{
       depositList = depositList.filter(x=>x.id!==id);
@@ -504,6 +507,7 @@ function openDepositDetail(siswaId){
     return;
   }
   const _usage = getTopupUsage(siswaId);
+  const _usageM = getTopupUsage(siswaId, true);   // hanya pemakaian manual yang menghalangi hapus
   body.innerHTML = mutations.map(m=>{
     const amtColor = m.amount>0 ? 'var(--green)' : 'var(--red)';
     const amtSign  = m.amount>0 ? '+' : '−';
@@ -519,8 +523,8 @@ function openDepositDetail(siswaId){
       actions = `
         <button class="btn sm" onclick="closeModal('modal-deposit-detail');showDepositReceipt('${m.entry.id}')" title="Receipt">🧾 Receipt</button>
         <button class="btn wa sm" onclick="waReceiptQuick('deposit','${m.entry.id}',this)" title="Send receipt to WhatsApp">💬 WA</button>
-        <button class="btn sm icon-only" onclick="closeModal('modal-deposit-detail');openDepositForm('${m.entry.id}')" title="Edit">✏️</button>
-        <button class="btn danger sm icon-only" onclick="deleteDeposit('${m.entry.id}')" title="${usedAmt>=amtT?'Already used — cannot delete':usedAmt>0?'Remove unused part':'Delete'}" style="${usedAmt>=amtT?'opacity:0.5':''}">🗑️</button>`;
+        ${m.entry.fromBayarId?'':`<button class="btn sm icon-only" onclick="closeModal('modal-deposit-detail');openDepositForm('${m.entry.id}')" title="Edit">✏️</button>`}
+        <button class="btn danger sm icon-only" onclick="deleteDeposit('${m.entry.id}')" title="${(_usageM.get(m.entry.id)||0)>=amtT?'Already used in a payment — cannot delete':(_usageM.get(m.entry.id)||0)>0?'Remove unused part':'Delete'}" style="${(_usageM.get(m.entry.id)||0)>=amtT?'opacity:0.5':''}">🗑️</button>`;
     } else if(m.type==='refund'){
       icon='↩️'; label='Refund';
       detail = `${esc(m.entry.metode||'')}${m.entry.catatan?' · '+esc(m.entry.catatan):''}`;
@@ -529,8 +533,8 @@ function openDepositDetail(siswaId){
         <button class="btn wa sm" onclick="waReceiptQuick('deposit','${m.entry.id}',this)" title="Send receipt to WhatsApp">💬 WA</button>
         <button class="btn danger sm icon-only" onclick="deleteDeposit('${m.entry.id}')" title="Delete">🗑️</button>`;
     } else {
-      icon='💳'; label='Applied to Payment';
-      detail = `${esc(m.entry.periode||'Payment')} · Invoice ${fmt(m.entry.tagihan)}`;
+      icon= m.entry.auto ? '🏦' : '💳'; label= m.entry.auto ? `Paid ${m.entry.sesiIds.length} session(s) automatically` : 'Applied to Payment';
+      detail = `${esc(m.entry.periode||'Payment')} · ${m.entry.auto ? `${m.entry.sesiIds.length} × ${fmt(Math.round(m.entry.tagihan/(m.entry.sesiIds.length||1)))}` : 'Invoice '+fmt(m.entry.tagihan)}`;
       actions = `<button class="btn sm" onclick="closeModal('modal-deposit-detail');navigate('payment');setTimeout(()=>openPaymentForm('${m.entry.id}'),100)">👁️ View Payment</button>
         <button class="btn wa sm" onclick="waReceiptQuick('payment','${m.entry.id}',this)" title="Send payment receipt to WhatsApp">💬 WA</button>`;
     }

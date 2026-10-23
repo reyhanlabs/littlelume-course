@@ -9,10 +9,21 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.14.2';
+const APP_VERSION = '1.15.0';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.15.0', date: '2026-10-23',
+    title: 'Simpler payments: always per session',
+    items: [
+      ['new', 'Every student is now billed only for the sessions they attend (Present), at their fee per session — paying per session or monthly is just how the parent pays.'],
+      ['new', 'Pay more than the sessions selected → the extra is saved as deposit. Pay without choosing sessions → it is saved as deposit (pay in advance).'],
+      ['new', 'Deposit balance pays the next attended sessions automatically, and any remainder carries over to the next month. Changing a session to Excused/Absent gives the money back to the deposit.'],
+      ['improve', 'Payment form groups unpaid sessions by month with "Select month", fills the invoice and period for you, and receipts list the session dates and rate.'],
+      ['new', 'Old "Monthly (flat)" payments can be converted with a preview: each month is matched to the sessions attended, extra money becomes deposit, and months already paid stay paid.'],
+    ],
+  },
   {
     version: '1.14.2', date: '2026-10-22',
     title: 'Updated Grade 3 curriculum',

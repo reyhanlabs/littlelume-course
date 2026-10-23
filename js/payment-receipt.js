@@ -56,38 +56,41 @@ function loadSesiForPayment(){
   _sesiLinkedCurrent = linkedInCurrentPayment;
 
   if(!sesiSiswa.length){
-    wrap.innerHTML='<div style="color:var(--muted);font-size:0.83rem">No attendance records found for this student yet.</div>';
+    wrap.innerHTML='<div style="color:var(--muted);font-size:0.83rem">No sessions attended yet. You can still record a payment in advance — it will be saved as deposit.</div>';
+    updateSesiCount();
     return;
   }
 
-  wrap.innerHTML = sesiSiswa.map(a => {
+  const row = a => {
     const isPaid = paidSesiIds.has(a.id);
     const isLinkedInCurrent = linkedInCurrentPayment.has(a.id);
-    const isInvalid = isLinkedInCurrent && a.status !== 'Hadir';  // Mark if status changed
-    const label  = tglFmt(a.tanggal) + (a.keterangan ? ' · '+a.keterangan : '');
-    
-    let statusHtml = '';
+    const isInvalid = isLinkedInCurrent && a.status !== 'Hadir';
+    const autoPay = isPaid ? bayarList.find(b=>b.auto && (b.sesiIds||[]).includes(a.id)) : null;
+    const dt = new Date(a.tanggal+'T00:00:00');
+    const label = dt.toLocaleDateString('en-GB',{weekday:'short', day:'numeric', month:'short'}) + (a.keterangan ? ' · '+esc(a.keterangan) : '');
     const kind = isPaid ? 'paid-other' : isInvalid ? 'invalid' : 'normal';
-    if(isPaid){
-      statusHtml = '<div style="font-size:0.72rem;color:var(--green)">✅ Already paid in another payment</div>';
-    } else if(isInvalid){
-      // ✅ NEW: Visual warning if attendance status changed
-      statusHtml = `<div style="font-size:0.72rem;color:var(--yellow)">⚠️ Status changed to ${esc(a.status)} - still linked to this payment</div>`;
-    } else {
-      statusHtml = '<div style="font-size:0.72rem;color:var(--muted)">Not yet paid</div>';
-    }
-    statusHtml = `<div id="sstat-${a.id}" data-kind="${kind}">${statusHtml}</div>`;
-    
-    return `<div class="sesi-row" onclick="toggleSesiCheck('${a.id}')" ${isInvalid ? 'style="opacity:0.7"' : ''}>
-      <div class="sesi-check ${isPaid?'checked disabled':''}" id="scheck-${a.id}" title="${isPaid?'Already paid in another transaction':''}">
-        ${isPaid?'✓':''}
-      </div>
-      <div style="flex:1">
-        <div style="font-size:0.87rem;font-weight:700">${label}</div>
-        ${statusHtml}
-      </div>
+    const statusHtml = isPaid
+      ? `<div style="font-size:0.72rem;color:var(--green)">${autoPay?'🏦 Paid from deposit':'✅ Already paid'}</div>`
+      : isInvalid ? `<div style="font-size:0.72rem;color:var(--yellow)">⚠️ Status changed to ${esc(a.status)} - still linked to this payment</div>`
+      : '<div style="font-size:0.72rem;color:var(--muted)">Not yet paid</div>';
+    return `<div class="sesi-row ${isPaid?'is-paid':''}" data-ym="${a.tanggal.slice(0,7)}" onclick="toggleSesiCheck('${a.id}')" ${isInvalid ? 'style="opacity:0.7"' : ''}>
+      <div class="sesi-check ${isPaid?'checked disabled':''}" id="scheck-${a.id}" title="${isPaid?'Already paid':''}">${isPaid?'✓':''}</div>
+      <div style="flex:1"><div style="font-size:0.87rem;font-weight:700">${label}</div><div id="sstat-${a.id}" data-kind="${kind}">${statusHtml}</div></div>
     </div>`;
-  }).join('');
+  };
+  // Kelompokkan per bulan (terbaru di atas); sesi yang sudah lunas disembunyikan dulu
+  const groups = {};
+  sesiSiswa.forEach(a=>{ (groups[a.tanggal.slice(0,7)] = groups[a.tanggal.slice(0,7)] || []).push(a); });
+  const nPaid = sesiSiswa.filter(a=>paidSesiIds.has(a.id)).length;
+  wrap.innerHTML = Object.keys(groups).sort().reverse().map(ym=>{
+    const list = groups[ym];
+    const open = list.filter(a=>!paidSesiIds.has(a.id)).length;
+    return `<div class="sesi-month ${open?'':'all-paid'}" data-ym="${ym}">
+      <div class="sesi-month-hd"><b>${typeof billMonthLabel==='function'?billMonthLabel(ym):ym}</b>
+        <span>${list.length} present · ${open?`<b style="color:var(--red)">${open} unpaid</b>`:'all paid'}</span>
+        ${open?`<button type="button" class="btn sm" onclick="event.stopPropagation();selectMonthSesi('${ym}')">Select month</button>`:''}
+      </div>${list.map(row).join('')}</div>`;
+  }).join('') + (nPaid ? `<button type="button" class="btn sm sesi-toggle-paid" onclick="this.closest('#sesi-picker-wrap').classList.toggle('show-paid');this.textContent=this.closest('#sesi-picker-wrap').classList.contains('show-paid')?'Hide paid sessions':'Show ${nPaid} paid session(s)'">Show ${nPaid} paid session(s)</button>` : '');
 
   updateSesiCount();
 }
@@ -126,47 +129,44 @@ let _paymentAmountManuallyEdited = false;
 
 function updateSesiCount(){
   _refreshSesiStatusLabels();
-  const checked = document.querySelectorAll('#sesi-picker-wrap .sesi-check.checked:not(.disabled)').length;
+  const ids = getSelectedSesiIds();
+  const checked = ids.length;
   const countEl = document.getElementById('sesi-selected-count');
-
   const siswaId = document.getElementById('b-siswa').value;
   const siswa = siswaId ? siswaList.find(x => x.id === siswaId) : null;
+  if(siswa && siswa.billingType==='monthly'){ if(typeof refreshDepositPanel==='function') refreshDepositPanel(); return; }
 
+  // Periode otomatis dari bulan sesi yang dipilih
+  const perEl = document.getElementById('b-periode');
+  if(perEl && !perEl.dataset.touched){
+    const dates = ids.map(id=>absensiList.find(a=>a.id===id)?.tanggal).filter(Boolean);
+    perEl.value = typeof billPeriodLabel==='function' ? billPeriodLabel(dates) : '';
+  }
+  const fee = siswa ? (siswa.feePerSesi||0) : 0;
   if(siswa && checked > 0){
-    const feePerSesi = siswa.feePerSesi || 0;
-    if(feePerSesi <= 0){
-      if(countEl) countEl.textContent = `${checked} session(s) selected`;
-      return;
-    }
-
-    const totalAmount = checked * feePerSesi;
-    const formatted   = 'Rp ' + Number(totalAmount).toLocaleString('id-ID');
-
-    if(!_paymentAmountManuallyEdited){
-      // Selalu update mengikuti jumlah sesi yang aktif dicentang
+    if(fee <= 0){
+      if(countEl) countEl.innerHTML = `${checked} session(s) selected · <span style="color:var(--yellow)">set the fee per session in the student profile</span>`;
+    } else {
+      const totalAmount = checked * fee;
+      const formatted = 'Rp ' + Number(totalAmount).toLocaleString('id-ID');
       document.getElementById('b-tagihan').value = formatted;
-      document.getElementById('b-jumlah').value  = formatted;
+      if(!_paymentAmountManuallyEdited) document.getElementById('b-jumlah').value = formatted;
+      if(countEl) countEl.innerHTML = `<b>${checked}</b> session(s) × ${fmt(fee)} = <b>${fmt(totalAmount)}</b>`;
     }
-
-    if(countEl) countEl.textContent =
-      `${checked} session(s) × ${fmt(feePerSesi)} = ${fmt(totalAmount)}` +
-      (_paymentAmountManuallyEdited ? ' (amount entered manually)' : '');
-
-  } else if(checked === 0){
-    if(!_paymentAmountManuallyEdited){
-      document.getElementById('b-tagihan').value = '';
-      document.getElementById('b-jumlah').value  = '';
-    }
-    if(countEl) countEl.textContent = '';
-
-  } else if(!siswa){
+  } else {
     document.getElementById('b-tagihan').value = '';
-    document.getElementById('b-jumlah').value  = '';
-    if(countEl) countEl.textContent = '';
+    if(!_paymentAmountManuallyEdited) document.getElementById('b-jumlah').value = '';
+    if(countEl) countEl.textContent = siswa ? 'No session selected — the amount will be saved as deposit (pay in advance).' : '';
   }
   if(typeof refreshDepositPanel === 'function') refreshDepositPanel();
 }
 
+function selectMonthSesi(ym){
+  const els=[...document.querySelectorAll(`#sesi-picker-wrap .sesi-row[data-ym="${ym}"] .sesi-check:not(.disabled)`)];
+  const allOn = els.length && els.every(el=>el.classList.contains('checked'));
+  els.forEach(el=>{ el.classList.toggle('checked', !allOn); el.textContent = allOn ? '' : '✓'; });
+  updateSesiCount();
+}
 function selectAllSesi(select){
   document.querySelectorAll('#sesi-picker-wrap .sesi-check:not(.disabled)').forEach(el=>{
     if(select){ el.classList.add('checked'); el.textContent='✓'; }
@@ -197,6 +197,11 @@ function renderSesiChecksForEdit(sesiIds){
 // ════════════════════════════════════════════════
 function openPaymentForm(id){
   const b=id?bayarList.find(x=>x.id===id):null;
+  if(b && b.auto){
+    infoModal('🏦 Paid from deposit', `This payment was created automatically from <b>${esc(b.namaSiswa)}</b>'s deposit balance (${b.sesiIds.length} session(s) × ${fmt(b.tagihan/(b.sesiIds.length||1))}).<br><br>It updates by itself when attendance or the deposit changes, so it can't be edited. To change it, edit the attendance or the deposit.`);
+    return;
+  }
+  const _perEl=document.getElementById('b-periode'); if(_perEl) delete _perEl.dataset.touched;
   // Pastikan tab aktif adalah 'rekap' agar form payment terlihat
   switchPayTab('rekap');
   // Update title form sesuai mode
@@ -265,86 +270,108 @@ function savePayment(){
   const id=document.getElementById('b-id').value;
   const isMonthly = (s?.billingType||'per_session')==='monthly';
   const tanggal = document.getElementById('b-tanggal').value;
-  const jumlah  = getNumberValue('b-jumlah');
-  const tagihan = getNumberValue('b-tagihan');
-  const periode = document.getElementById('b-periode').value.trim();
+  let   jumlah  = getNumberValue('b-jumlah');
+  let   tagihan = getNumberValue('b-tagihan');
+  let   periode = document.getElementById('b-periode').value.trim();
+  const catatan = document.getElementById('b-catatan').value.trim();
 
-  // ── Validasi wajib ──
   if(!tanggal){ showToast('Payment date is required!','warn'); return; }
-  if(jumlah <= 0){ showToast('Amount paid (Jumlah) cannot be zero!','warn'); return; }
-  if(tagihan <= 0){ showToast('Invoice amount (Tagihan) cannot be zero!','warn'); return; }
+  if(jumlah <= 0){ showToast('Amount received cannot be zero!','warn'); return; }
 
-  let sesiIds;
-  if(isMonthly){
-    if(!periode){
-      showToast('Period is required for monthly billing! (e.g. July 2026)','warn'); return;
-    }
-    sesiIds = getMonthlySessionIds(siswaId, periode);
-    if(sesiIds === null){
-      // Periode tidak bisa di-parse — tolak simpan agar tidak terjadi link salah bulan
-      showToast('Period format not recognized. Use format: "July 2026" or "Juli 2026"','warn'); return;
-    }
-    if(sesiIds.length === 0){
-      // Parse OK tapi tidak ada sesi hadir di bulan itu — izinkan simpan dengan warning
-      showToast('No attendance (Hadir) found for this period. Payment saved without session links.','warn');
-    }
-  } else {
-    sesiIds = getSelectedSesiIds();
-  }
+  // ── Data lama (monthly flat) yang belum dikonversi: alur lama ──
+  if(isMonthly) return _savePaymentLegacyMonthly(s, id, tanggal, jumlah, tagihan, periode);
 
-  // Deposit-used validation: cannot exceed available balance (excluding self on edit)
-  const depositUsed = getNumberValue('b-depositUsed');
+  const sesiIds = getSelectedSesiIds();
+  let depositUsed = getNumberValue('b-depositUsed');
   if(depositUsed > 0){
-    const availBal = (typeof getDepositBalance === 'function')
-      ? getDepositBalance(siswaId, id || null) : 0;
-    if(depositUsed > availBal){
-      showToast(`Deposit used (${fmt(depositUsed)}) exceeds available balance (${fmt(availBal)})`,'warn',5000);
-      return;
-    }
-    if(depositUsed > jumlah){
-      showToast(`Deposit used cannot exceed amount paid (${fmt(jumlah)})`,'warn'); return;
-    }
+    const availBal = typeof getDepositBalance==='function' ? getDepositBalance(siswaId, id||null) : 0;
+    if(depositUsed > availBal){ showToast(`Deposit used (${fmt(depositUsed)}) exceeds available balance (${fmt(availBal)})`,'warn',5000); return; }
+    if(depositUsed > jumlah){ showToast(`Deposit used cannot exceed the amount (${fmt(jumlah)})`,'warn'); return; }
   }
 
-  // ── Status otomatis & cegah lebih bayar ──
-  const selfId = id || uid();
-  let prevPaid = 0, oldPeriode = null;
-  if(id){ oldPeriode = bayarList.find(b=>b.id===id)?.periode ?? null; }
-  if(isMonthly){
-    prevPaid = _monthlyGroup(siswaId, periode).filter(o=>o.id!==selfId).reduce((t,o)=>t+(+o.jumlah||0),0);
-  }
-  if(prevPaid + jumlah > tagihan){
-    showToast(prevPaid>0
-      ? `Total paid (${fmt(prevPaid)} earlier + ${fmt(jumlah)}) exceeds invoice ${fmt(tagihan)}. Record the extra as a deposit top-up.`
-      : `Amount paid (${fmt(jumlah)}) exceeds invoice (${fmt(tagihan)}). Record the extra as a deposit top-up.`,
-      'warn', 6000);
+  // ── Tanpa sesi = bayar di muka → seluruhnya jadi saldo deposit ──
+  if(!sesiIds.length){
+    if(id){ showToast('Select at least one session for this payment (or delete it).','warn'); return; }
+    const cash = jumlah - depositUsed;
+    if(cash <= 0){ showToast('Select the sessions to pay.','warn'); return; }
+    const newId = uid();
+    depositList.push({ id:newId, siswaId, namaSiswa:s?.nama||'-', tanggal, jumlah:cash, tipe:'topup', metode:'Payment in advance', catatan: catatan || 'Paid in advance' });
+    DB.set('deposits', depositList);
+    closePaymentForm(); _afterPaymentChange();
+    const after = typeof getDepositBalance==='function' ? getDepositBalance(siswaId) : cash;
+    showToast(`✅ ${fmt(cash)} saved as deposit — it will pay ${s?.nama||'the student'}'s next sessions automatically. Balance now ${fmt(after)}.`,'success',6000);
+    if(typeof showDepositReceipt==='function') setTimeout(()=>showDepositReceipt(newId), 300);
     return;
   }
 
-  const data={
-    siswaId, namaSiswa:s?.nama||'-',
-    periode,
-    tanggal,
-    jumlah,
-    tagihan,
-    status: derivePaymentStatus(prevPaid + jumlah, tagihan),   // diturunkan otomatis
-    catatan:document.getElementById('b-catatan').value.trim(),
-    sesiIds,
-    depositUsed,
-    billingType: isMonthly ? 'monthly' : 'per_session',
+  const fee = s?.feePerSesi || 0;
+  if(fee>0) tagihan = sesiIds.length * fee;
+  // Pembayaran hasil konversi bulan lama yang sesinya tidak diubah: pertahankan tagihan aslinya
+  const prevRec = id ? bayarList.find(b=>b.id===id) : null;
+  if(prevRec && prevRec.converted && JSON.stringify([...(prevRec.sesiIds||[])].sort())===JSON.stringify([...sesiIds].sort())) tagihan = +prevRec.tagihan||tagihan;
+  if(tagihan <= 0){ showToast('Set the fee per session in the student profile first.','warn'); return; }
+  if(!periode && typeof billPeriodLabel==='function') periode = billPeriodLabel(sesiIds.map(x=>absensiList.find(a=>a.id===x)?.tanggal));
+
+  // ── Lebih bayar → kelebihan masuk deposit ──
+  let extra = 0;
+  if(jumlah > tagihan){
+    extra = jumlah - tagihan;
+    if(depositUsed > tagihan){ extra -= (depositUsed - tagihan); depositUsed = tagihan; }
+    jumlah = tagihan;
+  }
+  const selfId = id || uid();
+  const data = {
+    siswaId, namaSiswa:s?.nama||'-', periode, tanggal, jumlah, tagihan,
+    status: derivePaymentStatus(jumlah, tagihan),
+    catatan, sesiIds, depositUsed, billingType:'per_session',
   };
   if(id){ const i=bayarList.findIndex(b=>b.id===id); if(i>-1) bayarList[i]={...bayarList[i],...data}; }
   else bayarList.push({id:selfId,...data});
-  // Cicilan bulanan: urutan tanggal bisa menggeser status record lain di periode yang sama
-  if(isMonthly){
-    _recalcMonthlyGroupStatus(siswaId, periode);
-    if(oldPeriode!==null && oldPeriode!==periode) _recalcMonthlyGroupStatus(siswaId, oldPeriode);
+
+  // Deposit kelebihan yang terhubung ke pembayaran ini (dibuat / diperbarui / dihapus)
+  const linked = depositList.find(d=>d.fromBayarId===selfId && d.tipe==='topup');
+  if(extra > 0){
+    if(linked) Object.assign(linked, { jumlah:extra, tanggal });
+    else depositList.push({ id:uid(), siswaId, namaSiswa:s?.nama||'-', tanggal, jumlah:extra, tipe:'topup', metode:'From payment', catatan:`Extra from payment ${periode||tglFmt(tanggal)}`, fromBayarId:selfId });
+  } else if(linked){
+    depositList = depositList.filter(d=>d!==linked);
   }
-  DB.set('bayar',bayarList);
-  closePaymentForm(); renderPayment(); updateUnpaidBadge(); updateMbnBadge();
-  // Refresh hutang tab jika sedang aktif
+  if(extra > 0 || linked) DB.set('deposits', depositList);
+  DB.set('bayar', bayarList);
+  closePaymentForm(); _afterPaymentChange();
+  showToast(extra>0 ? `✅ Payment saved · extra ${fmt(extra)} added to deposit` : '✅ Payment saved!','success', extra>0?5000:3500);
+}
+function _afterPaymentChange(){
+  renderPayment(); updateUnpaidBadge(); updateMbnBadge();
   if(document.getElementById('ptab-hutang')?.classList.contains('active')) renderHutangSesi();
   if(document.getElementById('page-dashboard').classList.contains('active')) renderDashboard();
+  if(document.getElementById('page-deposits')?.classList.contains('active') && typeof renderDeposits==='function') renderDeposits();
+}
+
+// Alur lama untuk murid "Monthly (flat)" yang belum dikonversi
+function _savePaymentLegacyMonthly(s, id, tanggal, jumlah, tagihan, periode){
+  const siswaId = s.id;
+  if(tagihan <= 0){ showToast('Invoice amount cannot be zero!','warn'); return; }
+  if(!periode){ showToast('Period is required for monthly billing! (e.g. July 2026)','warn'); return; }
+  const sesiIds = getMonthlySessionIds(siswaId, periode);
+  if(sesiIds === null){ showToast('Period format not recognized. Use format: "July 2026"','warn'); return; }
+  const depositUsed = getNumberValue('b-depositUsed');
+  if(depositUsed > 0){
+    const availBal = typeof getDepositBalance==='function' ? getDepositBalance(siswaId, id||null) : 0;
+    if(depositUsed > availBal){ showToast(`Deposit used exceeds available balance (${fmt(availBal)})`,'warn',5000); return; }
+  }
+  const selfId = id || uid();
+  const oldPeriode = id ? (bayarList.find(b=>b.id===id)?.periode ?? null) : null;
+  const prevPaid = _monthlyGroup(siswaId, periode).filter(o=>o.id!==selfId).reduce((t,o)=>t+(+o.jumlah||0),0);
+  if(prevPaid + jumlah > tagihan){ showToast('Amount exceeds the monthly invoice. Switch this student to per-session billing first.','warn',6000); return; }
+  const data={ siswaId, namaSiswa:s.nama, periode, tanggal, jumlah, tagihan, status: derivePaymentStatus(prevPaid+jumlah, tagihan),
+    catatan:document.getElementById('b-catatan').value.trim(), sesiIds, depositUsed, billingType:'monthly' };
+  if(id){ const i=bayarList.findIndex(b=>b.id===id); if(i>-1) bayarList[i]={...bayarList[i],...data}; }
+  else bayarList.push({id:selfId,...data});
+  _recalcMonthlyGroupStatus(siswaId, periode);
+  if(oldPeriode!==null && oldPeriode!==periode) _recalcMonthlyGroupStatus(siswaId, oldPeriode);
+  DB.set('bayar',bayarList);
+  closePaymentForm(); _afterPaymentChange();
   showToast('✅ Payment saved!','success');
 }
 
@@ -505,8 +532,17 @@ function _updateAutoStatus(){
       .filter(o=>o.id!==id).reduce((t,o)=>t+(+o.jumlah||0),0);
   }
   const total = prev + jumlah;
-  sel.value = derivePaymentStatus(total, tagihan);
+  sel.value = derivePaymentStatus(Math.min(total, tagihan||total), tagihan);
   if(!hint) return;
+  if(s && s.billingType!=='monthly'){
+    if(!jumlah){ hint.innerHTML=''; return; }
+    if(!tagihan){ sel.value='Lunas'; hint.innerHTML=`<span style="color:var(--green)">🏦 ${fmt(jumlah)} will be saved as deposit (paid in advance)</span>`; return; }
+    hint.innerHTML = jumlah > tagihan
+      ? `<span style="color:var(--green)">✅ Paid in full · extra <b>${fmt(jumlah-tagihan)}</b> goes to deposit for the next sessions</span>`
+      : jumlah < tagihan ? `<span style="color:var(--yellow)">Partial — ${fmt(tagihan-jumlah)} remaining</span>`
+      : `<span style="color:var(--green)">Paid in full</span>`;
+    return;
+  }
   if(!tagihan || !jumlah){ hint.innerHTML=''; return; }
   const prevTxt = prev>0 ? ` (incl. ${fmt(prev)} paid earlier this period)` : '';
   hint.innerHTML = total > tagihan
@@ -544,6 +580,9 @@ function onPaymentStudentChange(){
   // show/hide panels
   document.getElementById('monthly-pay-panel').style.display=isMonthly?'block':'none';
   document.getElementById('sesi-picker-group').style.display=isMonthly?'none':'block';
+  const perGrp=document.getElementById('b-periode-group'); if(perGrp) perGrp.style.display=isMonthly?'':'none';
+  const legacy=document.getElementById('b-legacy-note');
+  if(legacy) legacy.style.display=isMonthly?'block':'none';
   if(isMonthly){
     refreshMonthlyPanel();
   } else {
@@ -609,6 +648,8 @@ function applyMonthlyBilling(){
 function deletePayment(id){
   const payment = bayarList.find(b => b.id === id);
   if(!payment) return;
+  if(payment.auto){ openPaymentForm(id); return; }
+  const extraDep = depositList.find(d=>d.fromBayarId===id && d.tipe==='topup');
   
   const depReturn = +payment.depositUsed || 0;
   const depNote = depReturn > 0
@@ -622,11 +663,13 @@ function deletePayment(id){
     `Are you sure you want to delete this payment?<br><br>` +
     `<strong>Student:</strong> ${esc(payment.namaSiswa)}<br>` +
     `<strong>Amount:</strong> ${fmt(payment.jumlah)}<br>` +
-    `<strong>Status:</strong> ${esc(payment.status)}${depNote}<br><br>` +
+    `<strong>Status:</strong> ${esc(payment.status)}${depNote}` +
+    (extraDep ? `<div style="margin-top:8px;font-size:0.85rem;color:var(--muted)">The extra ${fmt(extraDep.jumlah)} that went to deposit from this payment is removed too.</div>` : '') + `<br><br>` +
     `This action cannot be undone.`,
     () => {
       bayarList = bayarList.filter(b => b.id !== id);
       if(payment.billingType==='monthly') _recalcMonthlyGroupStatus(payment.siswaId, payment.periode);
+      if(extraDep){ depositList = depositList.filter(d=>d!==extraDep); DB.set('deposits', depositList); }
       DB.set('bayar', bayarList);
       renderPayment();
       updateUnpaidBadge(); updateMbnBadge();
@@ -661,6 +704,7 @@ function clearPaymentFilter(){
   renderPayment();
 }
 function renderPayment(){
+  if(typeof billRenderBanner==='function') billRenderBanner();
   // ── Render stats ──
   const statsEl = document.getElementById('payment-stats');
   if(statsEl){
@@ -767,7 +811,7 @@ function renderPayment(){
     }
     __html0+=`<tr>
       <td style="color:var(--muted);font-size:0.83rem">${tglFmt(b.tanggal)}</td>
-      <td><strong>${esc(b.namaSiswa)}</strong></td>
+      <td><strong>${esc(b.namaSiswa)}</strong>${b.auto?'<div class="pay-auto">🏦 From deposit</div>':''}</td>
       <td style="color:var(--muted);font-size:0.83rem">${esc(b.periode)||'-'}</td>
       <td style="max-width:200px">${sesiHtml}</td>
       <td class="r" style="font-weight:800;color:var(--green);font-size:0.87rem;white-space:nowrap">${fmt(b.tagihan)}</td>
@@ -775,10 +819,10 @@ function renderPayment(){
       <td>${chip(sl,sc)}</td>
       <td style="font-size:0.82rem;color:var(--muted)">${esc(b.catatan)||'-'}</td>
       <td class="nowrap">
-        <button class="btn sm" onclick="openPaymentForm('${b.id}')" style="margin-right:4px">✏️</button>
+        ${b.auto?`<button class="btn sm" onclick="openPaymentForm('${b.id}')" title="Created automatically from deposit" style="margin-right:4px">ℹ️</button>`:`<button class="btn sm" onclick="openPaymentForm('${b.id}')" style="margin-right:4px">✏️</button>`}
         <button class="btn sm" onclick="showReceipt('${b.id}')" style="margin-right:4px">🧾</button>
         <button class="btn wa sm" onclick="waReceiptQuick('payment','${b.id}',this)" title="Send receipt to WhatsApp" style="margin-right:4px">💬</button>
-        <button class="btn danger sm icon-only" onclick="deletePayment('${b.id}')">🗑️</button>
+        ${b.auto?'':`<button class="btn danger sm icon-only" onclick="deletePayment('${b.id}')">🗑️</button>`}
       </td>
     </tr>`;
   });
@@ -864,7 +908,7 @@ function renderHutangSesi(){
             <div class="st-sessions">${monthChips}</div>
           </div>`;
       } else {
-        // ── Per-session mode: existing logic ──
+        // ── Per sesi: kelompokkan sesi belum dibayar per bulan ──
         const sesiHadir = absensiList
           .filter(a => a.siswaId === siswa.id && a.status === 'Hadir')
           .sort((a,b) => a.tanggal.localeCompare(b.tanggal));
@@ -874,9 +918,12 @@ function renderHutangSesi(){
         const pctPaid = sesiHadir.length ? Math.round(((sesiHadir.length - unpaidSesi.length)/sesiHadir.length)*100) : 0;
         const fee = siswa.feePerSesi || 0;
         const totalHutang = fee ? unpaidSesi.length * fee : null;
+        const depBal = typeof getDepositBalance==='function' ? getDepositBalance(siswa.id) : 0;
+        const net = totalHutang!==null ? Math.max(0, totalHutang - depBal) : null;
         const feeInfo = fee
-          ? `<span style="color:var(--red);font-weight:700">Total: ${fmt(totalHutang)}</span>`
+          ? `<span style="color:var(--red);font-weight:700">To pay: ${fmt(net)}</span> <span style="color:var(--muted);font-size:0.75rem">(${unpaidSesi.length} × ${fmt(fee)}${depBal>0?` − deposit ${fmt(depBal)}`:''})</span>`
           : `<span style="color:var(--muted);font-size:0.75rem">⚠️ Set fee/session in student profile</span>`;
+        const byM = {}; unpaidSesi.forEach(a=>{ (byM[a.tanggal.slice(0,7)] = byM[a.tanggal.slice(0,7)] || []).push(a); });
         __html1 += `
           <div class="sesi-tracker-card">
             <div class="st-header">
@@ -888,9 +935,8 @@ function renderHutangSesi(){
               <button class="btn sm primary" onclick="openPaymentFormForStudent('${siswa.id}')">💰 Record Payment</button>
             </div>
             <div class="pbar-wrap" style="margin-bottom:10px"><div class="pbar-fill" style="width:${pctPaid}%"></div></div>
-            <div class="st-sessions">
-              ${unpaidSesi.map(a=>`<span class="session-chip unpaid" title="${a.tanggal}">📅 ${tglFmt(a.tanggal)}</span>`).join('')}
-            </div>
+            ${Object.keys(byM).sort().map(ym=>`<div class="st-month"><b>${typeof billMonthLabel==='function'?billMonthLabel(ym):ym}</b><span>${byM[ym].length} × ${fmt(fee)} = ${fmt(byM[ym].length*fee)}</span></div>
+            <div class="st-sessions">${byM[ym].map(a=>`<span class="session-chip unpaid" title="${a.tanggal}">📅 ${tglFmt(a.tanggal)}</span>`).join('')}</div>`).join('')}
           </div>`;
       }
     });
@@ -902,12 +948,13 @@ function openPaymentFormForStudent(siswaId){
   document.getElementById('form-payment-title').textContent = '💰 Record Payment';
   _paymentAmountManuallyEdited = false;
   document.getElementById('b-id').value='';
-  document.getElementById('b-periode').value='';
+  document.getElementById('b-periode').value=''; delete document.getElementById('b-periode').dataset.touched;
   document.getElementById('b-tanggal').value=todayISO();
   document.getElementById('b-jumlah').value='';
   document.getElementById('b-tagihan').value='';
   document.getElementById('b-status').value='Lunas';
   document.getElementById('b-catatan').value='';
+  if(typeof resetDepositPanelState==='function') resetDepositPanelState();
   const opts = siswaList.map(s=>`<option value="${s.id}"${s.id===siswaId?' selected':''}>${esc(s.nama)}</option>`).join('');
   const siswaEl = document.getElementById('b-siswa');
   siswaEl.innerHTML='<option value="">-- Select --</option>'+opts;
@@ -965,11 +1012,24 @@ function _buildReceiptBodyHTML(b,siswa){
     rows.push(['Coverage', 'All sessions in period']);
   } else {
     if(b.sesiIds && b.sesiIds.length){
-      const sesiLabels = b.sesiIds.map(id=>{
-        const a = absensiList.find(x=>x.id===id);
-        return a ? tglFmt(a.tanggal) : id;
-      }).join(', ');
-      rows.push(['Sessions ('+b.sesiIds.length+'×)', sesiLabels]);
+      const n = b.sesiIds.length;
+      // Tanggal sesi dikelompokkan per bulan: "Sep 2026: 5, 19"
+      const byM = {};
+      b.sesiIds.map(id=>absensiList.find(x=>x.id===id)).filter(Boolean)
+        .sort((x,y)=>x.tanggal.localeCompare(y.tanggal))
+        .forEach(a=>{ (byM[a.tanggal.slice(0,7)] = byM[a.tanggal.slice(0,7)] || []).push(+a.tanggal.slice(8,10)); });
+      const sesiLabels = Object.entries(byM).map(([ym,days])=>{
+        const [y,m]=ym.split('-'); return new Date(+y,+m-1,1).toLocaleDateString('en-GB',{month:'short',year:'numeric'})+': '+days.join(', ');
+      }).join(' · ') || '-';
+      rows.push(['Sessions attended ('+n+'×)', sesiLabels]);
+      rows.push(['Rate', `${n} × ${fmt(Math.round((+b.tagihan||0)/n))}`]);
+    }
+    if(b.auto) rows.push(['Paid with', '🏦 Deposit balance']);
+    const extra = (typeof depositList!=='undefined') ? depositList.find(d=>d.fromBayarId===b.id && d.tipe==='topup') : null;
+    if(extra) rows.push(['Extra → Deposit', fmt(extra.jumlah)]);
+    if(extra && !(+b.depositUsed>0)){
+      const bal = typeof getDepositBalanceAt==='function' ? getDepositBalanceAt(b.siswaId, b.tanggal, extra ? extra.id : b.id) : 0;
+      rows.push(['Deposit balance', fmt(bal)]);
     }
   }
   const paidPct = getPaymentProgress(b).pct;   // kumulatif s/d cicilan ini

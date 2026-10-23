@@ -142,7 +142,7 @@ saveAbsensi = function(){
     const oldAtt = absensiList.find(a => a.tanggal === d && a.siswaId === s.id);
     if(oldAtt && oldAtt.status === 'Hadir' && newStatus !== 'Hadir') {
       const paymentWithThisSesi = bayarList.find(b =>
-        b.sesiIds && b.sesiIds.includes(oldAtt.id)
+        !b.auto && b.sesiIds && b.sesiIds.includes(oldAtt.id)
       );
       if(paymentWithThisSesi) {
         conflicts.push({

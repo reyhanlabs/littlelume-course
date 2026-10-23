@@ -198,7 +198,7 @@ function saveSingleAtt(){
   // Cek apakah record lama ini sudah terhubung ke payment
   if(existingIdx > -1 && status !== absensiList[existingIdx].status){
     const existingId = absensiList[existingIdx].id;
-    const linkedPayment = bayarList.find(b=>b.sesiIds && b.sesiIds.includes(existingId));
+    const linkedPayment = bayarList.find(b=>!b.auto && b.sesiIds && b.sesiIds.includes(existingId));
     if(linkedPayment && absensiList[existingIdx].status === 'Hadir'){
       showToast(`⚠️ Status can't be changed — this session is already linked to a payment (${esc(linkedPayment.namaSiswa)}).`,'warn');
       return;
@@ -334,7 +334,7 @@ function saveAttEdit(){
   // ✅ VALIDATION: Check if payment exists for this session
   if(oldStatus === 'Hadir' && newStatus !== 'Hadir') {
     const paymentWithThisSesi = bayarList.find(b => 
-      b.sesiIds && b.sesiIds.includes(id)
+      !b.auto && b.sesiIds && b.sesiIds.includes(id)
     );
     
     if(paymentWithThisSesi) {
@@ -376,7 +376,7 @@ function saveAttEdit(){
 function deleteAttendance(id){
   // ✅ VALIDATION: Check apakah attendance ini ada di pembayaran
   const paymentWithThisAttendance = bayarList.find(b => 
-    b.sesiIds && b.sesiIds.includes(id)
+    !b.auto && b.sesiIds && b.sesiIds.includes(id)
   );
   
   if(paymentWithThisAttendance){

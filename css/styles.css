@@ -1991,3 +1991,36 @@ tbody tr { transition:background .15s }
 .pr-toolbar-act select{width:auto!important;min-width:170px}
 .pr-toolbar-act .btn{white-space:nowrap}
 @media(max-width:600px){ .pr-toolbar-act{flex-wrap:wrap;width:100%} .pr-toolbar-act select{flex:1} }
+
+/* ══ v1.15.0 — BILLING PER SESI ══ */
+.bill-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:#fff7ed;border:2px solid #fdba74;border-radius:16px;padding:12px 16px;margin-bottom:16px;box-shadow:0 4px 0 #fdba74}
+.bill-banner b{display:block;font-size:0.92rem;color:#9a3412}
+.bill-banner span{font-size:0.8rem;color:#7c2d12}
+[data-theme="dark"] .bill-banner{background:#3a2410;border-color:#7a4a1a;box-shadow:0 4px 0 #7a4a1a}
+[data-theme="dark"] .bill-banner b,[data-theme="dark"] .bill-banner span{color:#fed7aa}
+.bill-info{background:var(--bg3);border-radius:10px;padding:9px 12px;font-size:0.82rem;line-height:1.45}
+.bill-info span{color:var(--muted);font-size:0.76rem}
+.bill-legacy-note{background:rgba(255,179,71,0.12);border:1px solid rgba(255,179,71,0.35);border-radius:10px;padding:9px 12px;font-size:0.8rem;margin:6px 0 4px;line-height:1.45}
+.bill-readonly{background:var(--bg3)!important;color:var(--muted)!important;cursor:default}
+.sesi-month{margin-bottom:8px}
+.sesi-month-hd{position:sticky;top:-10px;z-index:1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--bg3);padding:6px 2px;border-bottom:1.5px dashed var(--border);margin-bottom:4px}
+.sesi-month-hd b{font-size:0.85rem}
+.sesi-month-hd span{font-size:0.74rem;color:var(--muted);font-weight:600}
+.sesi-month-hd .btn{margin-left:auto;padding:3px 9px;font-size:0.72rem}
+#sesi-picker-wrap .sesi-row.is-paid{display:none}
+#sesi-picker-wrap .sesi-month.all-paid{display:none}
+#sesi-picker-wrap.show-paid .sesi-row.is-paid{display:flex;opacity:.65}
+#sesi-picker-wrap.show-paid .sesi-month.all-paid{display:block}
+.sesi-toggle-paid{width:100%;margin-top:4px}
+.pay-auto{display:inline-block;margin-top:2px;font-size:0.68rem;font-weight:800;color:#0f766e;background:rgba(13,148,136,.12);border-radius:6px;padding:1px 7px}
+[data-theme="dark"] .pay-auto{color:#5eead4}
+.st-month{display:flex;justify-content:space-between;gap:8px;font-size:0.76rem;margin:8px 0 4px;color:var(--muted)}
+.st-month b{color:var(--text)}
+.bm-box{width:min(920px,100%);height:auto;max-height:94vh}
+.bm-body{padding:14px 18px;overflow:auto;flex:1}
+.bm-intro{font-size:0.85rem;line-height:1.55;margin-bottom:12px}
+.bm-intro ul{margin:6px 0 8px 18px}
+.bm-table td,.bm-table th{vertical-align:middle;font-size:0.84rem}
+.bm-table .r{text-align:right}
+.bm-fee{width:130px;text-align:right;padding:6px 10px!important}
+.bm-warn{margin-top:10px;color:var(--yellow);font-weight:700;font-size:0.84rem}

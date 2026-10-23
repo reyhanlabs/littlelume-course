@@ -280,19 +280,20 @@
               </div>
             </div>
             <div class="form-group">
-              <label>Billing Mode</label>
-              <select id="s-billingtype" onchange="onBillingTypeChange()" style="width:100%">
-                <option value="per_session">💳 Per Session</option>
-                <option value="monthly">📅 Monthly (flat)</option>
+              <label>Billing</label>
+              <select id="s-billingtype" onchange="onBillingTypeChange()" style="display:none">
+                <option value="per_session">Per session</option>
+                <option value="monthly">Monthly (old)</option>
               </select>
+              <div class="bill-info">💳 Charged <b>per session attended</b> (Present only).<br><span>Paying in advance or monthly? Record the payment without choosing sessions — it becomes deposit and pays the next sessions automatically.</span></div>
               <div id="billing-lock-hint" style="display:none;margin-top:6px;padding:8px 12px;border-radius:8px;background:rgba(255,179,71,0.12);border:1px solid rgba(255,179,71,0.3);font-size:0.78rem;color:var(--yellow);font-weight:600">
-                🔒 Billing mode is locked. This student has payment records — delete all payments first to change it.
+                🔄 This student still uses the old monthly (flat) billing. <a href="javascript:void(0)" onclick="closeStudentForm();navigate('payment');setTimeout(billMigrateOpen,200)">Switch to per-session →</a>
               </div>
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label id="lbl-s-fee">Fee / Session (Rp)</label>
+              <label id="lbl-s-fee">Fee per Session (Rp) *</label>
               <input type="number" id="s-fee" placeholder="e.g. 75000" min="0" style="width:100%">
             </div>
             <div class="form-group" id="grp-monthly-fee" style="display:none">
@@ -610,6 +611,7 @@
       <div class="sec-hd">
         <div><h2>💰 Payment</h2><div class="sub">Tuition tracking & receipts</div></div>
       </div>
+      <div class="bill-banner" id="bill-legacy-banner" style="display:none"></div>
       <div class="card-grid card-grid-4 dash-stats" id="payment-stats" style="margin-bottom:20px"></div>
 
       <!-- Tab Bar -->
@@ -1006,12 +1008,13 @@
     </div>
 
     <!-- Period — selalu tampil untuk semua billing type (label di payment history) -->
-    <div class="form-group" style="margin-top:8px">
+    <div class="form-group" id="b-periode-group" style="margin-top:8px">
       <label>Month / Period</label>
-      <input type="text" id="b-periode" placeholder="e.g. August 2026" oninput="refreshMonthlyPanel()">
+      <input type="text" id="b-periode" placeholder="e.g. August 2026" oninput="this.dataset.touched='1';refreshMonthlyPanel()">
     </div>
 
-    <!-- ── MONTHLY BILLING PANEL (auto-fill, hanya untuk monthly) ── -->
+    <div id="b-legacy-note" class="bill-legacy-note" style="display:none">🔄 This student still uses the old <b>monthly (flat)</b> billing. <a href="javascript:void(0)" onclick="closePaymentForm();billMigrateOpen()">Switch to per-session</a> so the amount follows the sessions attended.</div>
+    <!-- ── MONTHLY BILLING PANEL (data lama, sebelum konversi) ── -->
     <div id="monthly-pay-panel" style="display:none;background:linear-gradient(135deg,var(--bg3),var(--bg2));border:1.5px solid var(--accent);border-radius:14px;padding:16px 18px;margin-top:4px">
       <div style="font-family:'Fredoka One',sans-serif;font-weight:800;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:8px">
         📅 Monthly Billing
@@ -1025,8 +1028,8 @@
 
     <!-- STEP 2: Pilih sesi (per-session) -->
     <div class="form-group" id="sesi-picker-group" style="margin-top:14px">
-      <label>📋 Sessions to Pay <span style="color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0">(select from attendance records)</span></label>
-      <div id="sesi-picker-wrap" style="border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--bg3);max-height:200px;overflow-y:auto">
+      <label>📋 Sessions to Pay <span style="color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0">(only Present sessions are billed)</span></label>
+      <div id="sesi-picker-wrap" style="border:1px solid var(--border);border-radius:10px;padding:10px;background:var(--bg3);max-height:280px;overflow-y:auto">
         <div style="color:var(--muted);font-size:0.83rem">Select a student to see their available sessions.</div>
       </div>
       <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap">
@@ -1038,8 +1041,8 @@
 
     <!-- STEP 3: Detail pembayaran -->
     <div class="form-row" style="margin-top:4px">
-      <div class="form-group"><label>Total Invoice (Rp)</label><input type="text" inputmode="numeric" id="b-tagihan" placeholder="e.g. Rp 150.000" style="text-align:right"></div>
-      <div class="form-group"><label>Amount Paid (Rp)</label><input type="text" inputmode="numeric" id="b-jumlah" placeholder="e.g. Rp 150.000" style="text-align:right"></div>
+      <div class="form-group"><label>Invoice (auto)</label><input type="text" inputmode="numeric" id="b-tagihan" placeholder="sessions × fee" style="text-align:right" readonly tabindex="-1" class="bill-readonly"></div>
+      <div class="form-group"><label>Amount Received (Rp)</label><input type="text" inputmode="numeric" id="b-jumlah" placeholder="e.g. Rp 150.000" style="text-align:right"></div>
     </div>
 
     <!-- ── DEPOSIT AUTO-SUGGEST PANEL (visible only if student has balance) ── -->
@@ -1221,6 +1224,7 @@
 <script src="js/attendance-eval.js"></script>
 <script src="js/payment-receipt.js"></script>
 <script src="js/deposits.js"></script>
+<script src="js/billing.js"></script>
 <script src="js/reports-analytics.js"></script>
 <script src="js/notifications-ui.js"></script>
 <script src="js/search-nav-misc.js"></script>
