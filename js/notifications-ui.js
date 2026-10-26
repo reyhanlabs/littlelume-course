@@ -207,8 +207,8 @@ saveAbsensi = function(){
 let _notifList = JSON.parse(localStorage.getItem('notifList')||'[]');
 function saveNotifs(){ localStorage.setItem('notifList', JSON.stringify(_notifList)); }
 
-function addNotif(title, sub, icon='🔔'){
-  const n = {id:uid(), title, sub, icon, ts: Date.now(), read: false};
+function addNotif(title, sub, icon='🔔', page=''){
+  const n = {id:uid(), title, sub, icon, ts: Date.now(), read: false, page};
   _notifList.unshift(n);
   if(_notifList.length > 50) _notifList = _notifList.slice(0,50);
   saveNotifs();
@@ -245,7 +245,7 @@ function renderNotifPanel(){
     return Math.round(d/86400000)+'d ago';
   };
   el.innerHTML = _notifList.slice(0,20).map(n=>`
-    <div class="notif-item ${!n.read?'unread':''}">
+    <div class="notif-item ${!n.read?'unread':''}" ${n.page?`style="cursor:pointer" onclick="document.getElementById('notif-panel').classList.remove('open');navigate('${esc(n.page)}')"`:''}>
       <div class="ni-icon">${n.icon}</div>
       <div class="ni-body">
         <div class="ni-title">${esc(n.title)}</div>

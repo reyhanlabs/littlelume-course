@@ -9,10 +9,19 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.15.0';
+const APP_VERSION = '1.15.1';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.15.1', date: '2026-10-26',
+    title: 'Deposit notifications',
+    items: [
+      ['new', 'When attendance is saved and a session is paid from a student\'s deposit, you now get a notice and an entry in the 🔔 bell (amount, session date and balance left).'],
+      ['new', 'The bell also tells you when money goes back to the deposit (a session changed to Excused/Absent) and when a deposit is running out.'],
+      ['improve', 'Tap a notification to jump to Payment or Deposits.'],
+    ],
+  },
   {
     version: '1.15.0', date: '2026-10-23',
     title: 'Simpler payments: always per session',

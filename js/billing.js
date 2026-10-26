@@ -101,6 +101,48 @@ function billSyncDeposits(onlySiswaId){
   return true;
 }
 
+// Peta sesi yang dibayar otomatis: sesiId → { siswaId, amount }
+function _billAutoMap(){
+  const m = new Map();
+  bayarList.forEach(b=>{ if(!b.auto) return; const per = (b.sesiIds||[]).length ? Math.round((+b.tagihan||0)/b.sesiIds.length) : 0;
+    (b.sesiIds||[]).forEach(id=>m.set(id, { siswaId:b.siswaId, amount:per })); });
+  return m;
+}
+// Notifikasi (lonceng + toast) saat deposit memotong / mengembalikan pembayaran sesi
+function _billNotifyChanges(before, after){
+  const per = {};
+  const get = id => per[id] || (per[id] = { added:[], removed:[] });
+  after.forEach((v, id)=>{ if(!before.has(id)) get(v.siswaId).added.push({ id, amount:v.amount }); });
+  before.forEach((v, id)=>{ if(!after.has(id)) get(v.siswaId).removed.push({ id, amount:v.amount }); });
+  const dateOf = id => { const a = absensiList.find(x=>x.id===id); return a ? new Date(a.tanggal+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : ''; };
+  const cls = (typeof currentClassName!=='undefined' && currentClassName) ? ' · '+currentClassName : '';
+  const toasts = [];
+  Object.entries(per).forEach(([sid, ch])=>{
+    const s = siswaList.find(x=>x.id===sid); if(!s) return;
+    const name = s.nick || s.nama;
+    const bal = typeof getDepositBalance==='function' ? getDepositBalance(sid) : 0;
+    const fee = billFee(s);
+    if(ch.added.length){
+      const amt = ch.added.reduce((t,x)=>t+x.amount,0);
+      const dates = ch.added.map(x=>dateOf(x.id)).filter(Boolean).join(', ');
+      if(typeof addNotif==='function') addNotif(`${s.nama}: ${ch.added.length} session(s) paid from deposit`,
+        `${fmt(amt)}${dates?' ('+dates+')':''} · balance left ${fmt(bal)}${cls}`, '🏦', 'payment');
+      toasts.push(`🏦 ${esc(name)}: ${ch.added.length} session(s) paid from deposit (${fmt(amt)}) · balance ${fmt(bal)}`);
+      if(fee>0 && bal < fee && typeof addNotif==='function')
+        addNotif(bal>0 ? `${s.nama}: deposit almost empty` : `${s.nama}: deposit used up`, bal>0 ? `${fmt(bal)} left — not enough for the next session (${fmt(fee)})${cls}` : `Next sessions will be billed normally (${fmt(fee)} each)${cls}`, '⚠️', 'deposits');
+    }
+    if(ch.removed.length){
+      const amt = ch.removed.reduce((t,x)=>t+x.amount,0);
+      const dates = ch.removed.map(x=>dateOf(x.id)).filter(Boolean).join(', ');
+      if(typeof addNotif==='function') addNotif(`${s.nama}: ${fmt(amt)} returned to deposit`,
+        `${ch.removed.length} session(s)${dates?' ('+dates+')':''} no longer billed · balance ${fmt(bal)}${cls}`, '↩️', 'deposits');
+      toasts.push(`↩️ ${esc(name)}: ${fmt(amt)} returned to deposit · balance ${fmt(bal)}`);
+    }
+  });
+  if(toasts.length && typeof showToast==='function')
+    setTimeout(()=>showToast(toasts.slice(0,3).join('<br>') + (toasts.length>3?`<br>+${toasts.length-3} more — see 🔔`:''), 'info', 6000), 450);
+}
+
 // Setiap perubahan absensi / pembayaran / deposit / murid → sinkronkan pelunasan otomatis
 (function(){
   if(typeof DB==='undefined' || DB._billHooked) return;
@@ -108,7 +150,10 @@ function billSyncDeposits(onlySiswaId){
   DB.set = function(k, v){
     orig(k, v);
     if(['absensi','bayar','deposits','siswa'].includes(k)){
-      try{ if(billSyncDeposits()) orig('bayar', bayarList); }catch(e){ console.warn('billSyncDeposits', e); }
+      try{
+        const before = _billAutoMap();
+        if(billSyncDeposits()){ orig('bayar', bayarList); _billNotifyChanges(before, _billAutoMap()); }
+      }catch(e){ console.warn('billSyncDeposits', e); }
     }
   };
   DB._billHooked = true;
