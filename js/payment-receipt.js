@@ -263,7 +263,8 @@ function openPaymentForm(id){
 }
 function closePaymentForm(){ closeModal('modal-payment'); document.getElementById('form-payment-title').textContent='💰 Record Payment'; }
 function openEditBayar(id){ openPaymentForm(id) }
-function savePayment(){
+function savePayment(opts){
+  opts = opts || {};
   const siswaId=document.getElementById('b-siswa').value;
   if(!siswaId){ showToast('Select a student!','warn'); return; }
   const s=siswaList.find(x=>x.id===siswaId);
@@ -312,6 +313,16 @@ function savePayment(){
   if(tagihan <= 0){ showToast('Set the fee per session in the student profile first.','warn'); return; }
   if(!periode && typeof billPeriodLabel==='function') periode = billPeriodLabel(sesiIds.map(x=>absensiList.find(a=>a.id===x)?.tanggal));
 
+  // ── Edit yang MENGURANGI uang yang diterima → jangan hilangkan selisihnya diam-diam ──
+  if(prevRec && !opts.reduceOk){
+    const prevLinked = depositList.find(d=>d.fromBayarId===prevRec.id && d.tipe==='topup');
+    const prevCash = (+prevRec.jumlah||0) - (+prevRec.depositUsed||0) + (prevLinked ? +prevLinked.jumlah||0 : 0);
+    const newCash  = jumlah - depositUsed;
+    const diff = prevCash - newCash;
+    if(diff > 0){ _askReducedPayment(prevRec, diff); return; }
+  }
+  if(opts.addBack > 0) jumlah += opts.addBack;
+
   // ── Lebih bayar → kelebihan masuk deposit ──
   let extra = 0;
   if(jumlah > tagihan){
@@ -340,6 +351,22 @@ function savePayment(){
   DB.set('bayar', bayarList);
   closePaymentForm(); _afterPaymentChange();
   showToast(extra>0 ? `✅ Payment saved · extra ${fmt(extra)} added to deposit` : '✅ Payment saved!','success', extra>0?5000:3500);
+}
+// Dialog: uang yang diterima berkurang saat edit → pindahkan selisih ke deposit atau memang dikurangi
+function _askReducedPayment(prev, diff){
+  const id = 'modal-dialog-' + Date.now();
+  const el = document.createElement('div');
+  el.innerHTML = `<div class="overlay open" id="${id}"><div class="modal modal-sm">
+    <div class="modal-title">⚠️ Amount received is lower</div>
+    <div class="modal-content">This payment was recorded as <b>${fmt((+prev.jumlah||0) - (+prev.depositUsed||0))}</b> received${depositList.some(d=>d.fromBayarId===prev.id)?' (incl. extra saved to deposit)':''}.
+      With your change, <b>${fmt(diff)}</b> would disappear from the records.<br><br>
+      Did the parent really pay this money? Then keep it as <b>deposit</b> — it will pay the next sessions automatically.</div>
+    <div class="modal-footer" style="flex-wrap:wrap;gap:8px">
+      <button class="btn primary" onclick="closeModalDialog('${id}');savePayment({reduceOk:true, addBack:${diff}})">🏦 Keep ${fmt(diff)} as deposit</button>
+      <button class="btn" onclick="closeModalDialog('${id}');savePayment({reduceOk:true})">It was a typo — reduce it</button>
+      <button class="btn" onclick="closeModalDialog('${id}')">Back</button>
+    </div></div></div>`;
+  document.body.appendChild(el.firstElementChild);
 }
 function _afterPaymentChange(){
   renderPayment(); updateUnpaidBadge(); updateMbnBadge();

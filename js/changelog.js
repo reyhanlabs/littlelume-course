@@ -9,10 +9,17 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.15.1';
+const APP_VERSION = '1.15.2';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.15.2', date: '2026-11-10',
+    title: 'Safer payment edits',
+    items: [
+      ['fix', 'Editing a payment to a lower amount no longer makes the difference disappear silently — you can keep it as deposit (it pays the next sessions) or confirm it was a typo.'],
+    ],
+  },
   {
     version: '1.15.1', date: '2026-10-26',
     title: 'Deposit notifications',
