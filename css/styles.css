@@ -2024,3 +2024,10 @@ tbody tr { transition:background .15s }
 .bm-table .r{text-align:right}
 .bm-fee{width:130px;text-align:right;padding:6px 10px!important}
 .bm-warn{margin-top:10px;color:var(--yellow);font-weight:700;font-size:0.84rem}
+
+/* ══ v1.16.0 — edit sesi kurikulum ══ */
+.ce-acts{display:flex;flex-direction:column;gap:6px}
+.ce-act{display:grid;grid-template-columns:60px 150px 1fr auto;gap:6px;align-items:start;background:var(--bg3);border-radius:10px;padding:6px}
+.ce-act input,.ce-act textarea{padding:6px 8px!important;font-size:0.82rem!important;min-height:0}
+.ce-a-btns{display:flex;flex-direction:column;gap:4px}
+@media(max-width:600px){ .ce-act{grid-template-columns:56px 1fr auto} .ce-act textarea{grid-column:1 / 3} }

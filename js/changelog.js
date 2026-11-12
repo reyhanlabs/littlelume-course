@@ -9,10 +9,19 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.15.2';
+const APP_VERSION = '1.16.0';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.16.0', date: '2026-11-12',
+    title: 'Edit curriculum sessions',
+    items: [
+      ['new', 'Lessons → curriculum: open a session and tap ✏️ Edit to change its title, objectives, grammar, vocabulary, media, activities and assessment.'],
+      ['new', 'Edited sessions show an "✏️ Edited" tag, apply to every class using that curriculum, and can be put back with ↩️ Reset to original.'],
+      ['improve', 'New lessons and printed lesson plans use your edited version; lessons you already created keep their own text.'],
+    ],
+  },
   {
     version: '1.15.2', date: '2026-11-10',
     title: 'Safer payment edits',

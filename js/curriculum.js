@@ -5,22 +5,46 @@
 //  hanya saat halaman Lessons dibuka. Tidak disimpan di Firestore.
 //  Setiap kelas punya setelan { grade, semester } di classesList[].curriculum.
 //  Lesson yang dibuat dari kurikulum menyimpan kunci: kurikulum = "grade|semester|index".
+//  Editan guru disimpan di Firestore workspace/curriculum_edits (berlaku untuk semua
+//  kelas) dan ditimpakan di atas JSON asli; "Reset" mengembalikan ke versi asli.
 // ════════════════════════════════════════════════
 const CUR_GRADES = { kindergarten:'Kindergarten', grade1:'Grade 1', grade3:'Grade 3', grade4:'Grade 4' };
 const CUR_URL = 'curriculum/curriculum.json';
 
 let _curData = null, _curLoading = null;
+let _curOrig = null;            // JSON asli (tanpa editan)
+let _curEdits = { meetings:{} }; // { meetings: { "grade|sem|idx": {...field yang diubah} } }
+const CUR_EDIT_DOC = 'curriculum_edits';
+const CUR_EDIT_FIELDS = ['title','duration','objectives','grammarPattern','grammarExample','grammarNote','grammarCorner','pronunciation','readingWriting','vocab','media','activities','assessment'];
 
 function curLoad(){
   if(_curData) return Promise.resolve(_curData);
   if(!_curLoading){
-    _curLoading = fetch(CUR_URL, { cache:'no-cache' })   // selalu cek versi terbaru di server
-      .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
-      .then(j=>{ _curData = j; return j; })
+    const edits = (typeof db!=='undefined' ? db.collection('workspace').doc(CUR_EDIT_DOC).get().then(d=>d.exists?d.data():null).catch(e=>{ console.warn('curriculum edits', e); return null; }) : Promise.resolve(null));
+    _curLoading = Promise.all([
+      fetch(CUR_URL, { cache:'no-cache' }).then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }),
+      edits,
+    ]).then(([j, e])=>{
+        _curOrig = j;
+        _curEdits = { meetings: (e && e.meetings) || {} };
+        _curData = _curApplyEdits(j, _curEdits);
+        return _curData;
+      })
       .finally(()=>{ _curLoading = null; });
   }
   return _curLoading;
 }
+// Timpakan editan di atas data asli (salinan baru, data asli tidak diubah)
+function _curApplyEdits(orig, edits){
+  const out = JSON.parse(JSON.stringify(orig));
+  Object.entries(edits.meetings||{}).forEach(([key, ch])=>{
+    const p = curParseKey(key); if(!p) return;
+    const m = out?.[p.grade]?.['semester'+p.sem]?.meetings?.[p.idx];
+    if(m && ch) Object.assign(m, ch);
+  });
+  return out;
+}
+function curIsEdited(key){ return !!(_curEdits.meetings||{})[key]; }
 
 // Tebak grade dari nama kelas ("Grade 3", "Kelas 1", "TK", "Kindergarten")
 function curGuessGrade(name){
@@ -129,7 +153,7 @@ async function renderCurriculum(){
         <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);${done?'opacity:0.75':''}">
           <div style="flex-shrink:0;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.78rem;background:${done?'rgba(0,214,143,0.15)':'var(--bg3)'};color:${done?'var(--green)':'var(--text)'}">${i+1}</div>
           <div style="flex:1;min-width:0;cursor:pointer" onclick="curShowMeeting('${key}')">
-            <div style="font-weight:700;font-size:0.88rem">${esc(m.title)} ${status}</div>
+            <div style="font-weight:700;font-size:0.88rem">${esc(m.title)} ${status}${curIsEdited(key)?' <span class="chip chip-muted" style="font-size:0.66rem" title="Edited by you">✏️ Edited</span>':''}</div>
             <div style="font-size:0.75rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.grammarPattern||'')}${m.vocab?.length?' · '+esc(m.vocab.slice(0,6).join(', '))+(m.vocab.length>6?'…':''):''}</div>
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0">
@@ -191,7 +215,102 @@ function curShowMeeting(key){
         ? ['✏️','Open lesson',`closeModalDialog('modal-cur-meeting');openEditLesson('${linkedLesson.id}')`]
         : ['➕','Add to lessons',`closeModalDialog('modal-cur-meeting');curAddLesson('${key}')`],
       print:`curPrintMeeting('${key}')`,
+      more:[
+        ['✏️','Edit this session',`closeModalDialog('modal-cur-meeting');curEditMeeting('${key}')`],
+        curIsEdited(key) ? ['↩️','Reset to original',`closeModalDialog('modal-cur-meeting');curResetMeeting('${key}')`] : null,
+      ],
     }));
+  // Tombol edit juga langsung terlihat di judul modal
+  const t = document.querySelector('#modal-cur-meeting .modal-title');
+  if(t) t.insertAdjacentHTML('beforeend', ` <button class="btn sm" style="margin-left:6px;vertical-align:middle" onclick="closeModalDialog('modal-cur-meeting');curEditMeeting('${key}')">✏️ Edit</button>${curIsEdited(key)?' <span class="chip chip-muted" style="font-size:0.66rem;vertical-align:middle">Edited</span>':''}`);
+}
+
+// ════════════════════════════════════════════════
+//  EDIT SESI KURIKULUM
+// ════════════════════════════════════════════════
+function curEditMeeting(key){
+  const r = curGetMeeting(key); if(!r) return;
+  const m = r.m;
+  const lines = a => esc((a||[]).join('\n'));
+  const fld = (id, label, val, ph, hint) => `<div class="form-group"><label>${label}${hint?` <small style="font-weight:500;color:var(--muted);text-transform:none">${hint}</small>`:''}</label><input type="text" id="ce-${id}" value="${esc(val||'')}" placeholder="${ph||''}"></div>`;
+  const area = (id, label, val, rows, hint) => `<div class="form-group"><label>${label}${hint?` <small style="font-weight:500;color:var(--muted);text-transform:none">${hint}</small>`:''}</label><textarea id="ce-${id}" rows="${rows||3}">${val||''}</textarea></div>`;
+  const used = materiList.filter(l=>l.kurikulum===key).length;
+  _curModal('modal-cur-edit', `✏️ Edit ${esc(m.num)}`, `
+    <div style="font-size:0.78rem;color:var(--muted);margin-bottom:10px">${esc(CUR_GRADES[r.grade]||r.grade)} · Semester ${r.sem} · changes apply to <b>every class</b> using this curriculum.${used?` Lessons already created from this session (${used}) keep their own text.`:''}</div>
+    <div class="form-row">${fld('title','Title',m.title)}${fld('duration','Duration',m.duration,'60 minutes')}</div>
+    ${area('objectives','Objectives',lines(m.objectives),4,'(one per line)')}
+    <div class="form-row">${fld('grammarPattern','Grammar pattern',m.grammarPattern)}${fld('grammarExample','Grammar example',m.grammarExample)}</div>
+    ${area('grammarNote','Grammar note',esc(m.grammarNote||''),2)}
+    ${area('grammarCorner','Grammar Corner',esc(m.grammarCorner||''),2)}
+    <div class="form-row">${area('pronunciation','Pronunciation drill',esc(m.pronunciation||''),2)}${area('readingWriting','Reading & writing',esc(m.readingWriting||''),2)}</div>
+    ${area('vocab','Vocabulary',esc((m.vocab||[]).join(', ')),2,'(separate with commas)')}
+    ${area('media','Media',lines(m.media),3,'(one per line)')}
+    <div class="form-group"><label>Activities</label>
+      <div id="ce-acts" class="ce-acts">${(m.activities||[]).map(_curActRow).join('')}</div>
+      <button type="button" class="btn sm" style="margin-top:6px" onclick="document.getElementById('ce-acts').insertAdjacentHTML('beforeend', _curActRow({}))">＋ Add activity</button>
+    </div>
+    ${area('assessment','Assessment',lines(m.assessment),3,'(one per line)')}
+  `, `<div class="btn-row" style="margin-top:14px;flex-wrap:wrap">
+      <button class="btn primary" onclick="curSaveMeeting('${key}')">💾 Save changes</button>
+      ${curIsEdited(key)?`<button class="btn" onclick="closeModalDialog('modal-cur-edit');curResetMeeting('${key}')">↩️ Reset to original</button>`:''}
+      <button class="btn" onclick="closeModalDialog('modal-cur-edit');curShowMeeting('${key}')">Cancel</button>
+    </div>`);
+}
+function _curActRow(a){
+  return `<div class="ce-act">
+    <input type="text" class="ce-a-w" value="${esc(a.waktu||'')}" placeholder="5'" title="Time">
+    <input type="text" class="ce-a-k" value="${esc(a.kegiatan||'')}" placeholder="Activity">
+    <textarea class="ce-a-d" rows="2" placeholder="Description">${esc(a.deskripsi||'')}</textarea>
+    <div class="ce-a-btns">
+      <button type="button" class="btn sm icon-only" title="Move up" onclick="const r=this.closest('.ce-act'); r.previousElementSibling && r.parentNode.insertBefore(r, r.previousElementSibling)">↑</button>
+      <button type="button" class="btn danger sm icon-only" title="Remove" onclick="this.closest('.ce-act').remove()">✕</button>
+    </div>
+  </div>`;
+}
+async function curSaveMeeting(key){
+  const p = curParseKey(key); const orig = _curOrig?.[p.grade]?.['semester'+p.sem]?.meetings?.[p.idx];
+  if(!orig){ showToast('Session not found','error'); return; }
+  const v = id => (document.getElementById('ce-'+id)?.value||'').trim();
+  const lines = id => v(id).split('\n').map(x=>x.replace(/^[-•*]\s*/,'').trim()).filter(Boolean);
+  const next = {
+    title: v('title'), duration: v('duration'),
+    objectives: lines('objectives'),
+    grammarPattern: v('grammarPattern'), grammarExample: v('grammarExample'), grammarNote: v('grammarNote'),
+    grammarCorner: v('grammarCorner'), pronunciation: v('pronunciation'), readingWriting: v('readingWriting'),
+    vocab: v('vocab').split(/[,\n]/).map(x=>x.trim()).filter(Boolean),
+    media: lines('media'),
+    activities: [...document.querySelectorAll('#ce-acts .ce-act')].map(r=>({
+      waktu: r.querySelector('.ce-a-w').value.trim(), kegiatan: r.querySelector('.ce-a-k').value.trim(), deskripsi: r.querySelector('.ce-a-d').value.trim(),
+    })).filter(a=>a.waktu||a.kegiatan||a.deskripsi),
+    assessment: lines('assessment'),
+  };
+  if(!next.title){ showToast('Title is required','warn'); return; }
+  // Simpan hanya field yang berbeda dari versi asli
+  const diff = {};
+  CUR_EDIT_FIELDS.forEach(f=>{
+    const o = orig[f] ?? (Array.isArray(next[f]) ? [] : '');
+    if(JSON.stringify(o) !== JSON.stringify(next[f])) diff[f] = next[f];
+  });
+  const meetings = { ...(_curEdits.meetings||{}) };
+  if(Object.keys(diff).length) meetings[key] = diff; else delete meetings[key];
+  try{
+    await _curWriteEdits(meetings);
+    closeModalDialog('modal-cur-edit');
+    showToast(Object.keys(diff).length ? '✅ Session updated' : 'No changes — session matches the original', 'success');
+    renderCurriculum(); curShowMeeting(key);
+  }catch(e){ console.error(e); showToast('❌ Could not save: '+(e.message||e),'error',6000); }
+}
+function curResetMeeting(key){
+  confirmModal('↩️ Reset to original', 'Undo all your changes to this session and go back to the original curriculum text?', async ()=>{
+    const meetings = { ...(_curEdits.meetings||{}) }; delete meetings[key];
+    try{ await _curWriteEdits(meetings); showToast('↩️ Session reset to original','success'); renderCurriculum(); curShowMeeting(key); }
+    catch(e){ showToast('❌ Could not reset: '+(e.message||e),'error',6000); }
+  }, { okText:'Reset' });
+}
+async function _curWriteEdits(meetings){
+  await db.collection('workspace').doc(CUR_EDIT_DOC).set({ meetings, updatedAt: new Date().toISOString(), updatedBy: (typeof currentUser!=='undefined' && currentUser?.email) || '' });
+  _curEdits = { meetings };
+  _curData = _curApplyEdits(_curOrig, _curEdits);
 }
 
 function curShowOverview(){
