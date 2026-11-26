@@ -855,7 +855,7 @@ async function prDownloadImages(){
 async function prShareWA(){
   const r=_prRec(); if(!r) return;
   const s = siswaList.find(x=>x.id===r.siswaId) || {};
-  const caption = `Assalamu'alaikum, here is the English progress report for *${r.namaSiswa}* (${prPeriodLabel(r.dari,r.sampai)}) from LittleLume English. Thank you for your support! 🌟`;
+  const caption = typeof WA_REPORT_MSG!=='undefined' ? WA_REPORT_MSG : `Assalamu’alaikum, Dear Parents 😊`;
   _prSay('⏳ Preparing PDF…');
   try{
     const blob = await _prPdfBlob(r);

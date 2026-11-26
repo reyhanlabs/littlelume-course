@@ -1,3 +1,14 @@
+// Pesan WhatsApp untuk orang tua saat mengirim evaluasi / laporan perkembangan
+const WA_REPORT_MSG = `Assalamu’alaikum, Dear Parents 😊
+
+We’re happy to share your child’s English Lesson Progress Report from LittleLume English. This report is a little glimpse of your child’s learning journey, progress, and growth in English.
+
+Thank you so much for your trust and support. We truly appreciate being part of your child’s learning journey and hope to continue helping them learn, grow, and shine with confidence. 💗
+
+Warm regards,
+LittleLume English
+Learn • Play • Shine ✨`;
+
 //  REPORTS
 // ════════════════════════════════════════════════
 const _reportTexts={};
@@ -358,7 +369,7 @@ function showEvalPrint(id){
   `;
   const txt=`⭐ EVALUATION REPORT — LITTLELUME ENGLISH COURSE\n${'─'.repeat(36)}\nStudent  : ${e.namaSiswa}${s?.nick?' ('+s.nick+')':''}\n${s?.kelas?'School   : '+s.kelas+'\n':''}${s?.namaOrtu?'Parent   : '+s.namaOrtu+'\n':''}Date     : ${tglFmt(e.tanggal)}\nLevel    : ${s?.level||'-'}\nScore    : ${e.nilai||'-'}/100\nRating   : ${stars(e.rating)} ${ratingLabels[e.rating]||''}\n${e.progress?'\n📈 Progress:\n'+e.progress+'\n':''}${e.catatan?'\n📝 Notes:\n'+e.catatan+'\n':''}\n${'─'.repeat(36)}\nLittleLume English Course 🎓`;
   _docStore.eval = { html:bodyHTML, text:txt, title:'Evaluation-'+e.namaSiswa+'-'+e.tanggal,
-    caption:`Assalamu'alaikum, here is the English evaluation report for *${e.namaSiswa}* (${tglFmt(e.tanggal)}). Thank you.`, phone:s?.hp };
+    caption:WA_REPORT_MSG, phone:s?.hp };
   document.getElementById('eval-print-content').innerHTML = `<div class="doc-preview">${bodyHTML}</div>`;
   document.getElementById('doc-status-eval').style.display='none';
   openModal('modal-eval-print');
@@ -441,7 +452,7 @@ function showReportPrint(siswaId){
   const key='rpt_'+siswa.id;
   const txt = _reportTexts[key] || `📤 PARENT REPORT — ${siswa.nama}\nLittleLume English Course\n${now}`;
   _docStore.report = { html:bodyHTML, text:txt, title:'Report-'+siswa.nama.replace(/\s+/g,'-'),
-    caption:`Assalamu'alaikum, here is the progress report for *${siswa.nama}* from LittleLume English Course. Thank you.`, phone:siswa.hp };
+    caption:WA_REPORT_MSG, phone:siswa.hp };
   document.getElementById('report-print-content').innerHTML = `<div class="doc-preview">${bodyHTML}</div>`;
   document.getElementById('doc-status-report').style.display='none';
   openModal('modal-report-print');

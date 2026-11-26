@@ -9,10 +9,17 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.16.0';
+const APP_VERSION = '1.16.1';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.16.1', date: '2026-11-26',
+    title: 'New message for parents',
+    items: [
+      ['improve', 'Sending an evaluation, parent report or progress report via WhatsApp now uses the new "Dear Parents" message from LittleLume English.'],
+    ],
+  },
   {
     version: '1.16.0', date: '2026-11-12',
     title: 'Edit curriculum sessions',
