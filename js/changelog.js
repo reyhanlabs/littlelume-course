@@ -9,10 +9,18 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.16.1';
+const APP_VERSION = '1.16.2';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.16.2', date: '2026-11-26',
+    title: 'Progress report message on WhatsApp',
+    items: [
+      ['fix', 'WhatsApp drops the text when a PDF is shared. "💬 Send via WhatsApp" now sends the report pages as images with the parent message as caption.'],
+      ['improve', '"📄 Send PDF via WhatsApp" is still there — the message is copied first so you can paste it; on a laptop WhatsApp opens with the message already filled in.'],
+    ],
+  },
   {
     version: '1.16.1', date: '2026-11-26',
     title: 'New message for parents',

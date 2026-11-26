@@ -741,7 +741,8 @@ async function prView(id){
       <div class="pr-viewer-hd"><b id="pr-viewer-title"></b><button class="btn sm icon-only" onclick="prCloseView()" title="Close">✕</button></div>
       <div class="pr-viewer-body"><iframe id="pr-viewer-frame" title="Progress report preview"></iframe></div>
       <div class="pr-viewer-ft">
-        <button class="btn wa" onclick="prShareWA()">💬 Send PDF via WhatsApp</button>
+        <button class="btn wa" onclick="prShareWA('img')" title="Pages as images — the message is attached as caption">💬 Send via WhatsApp</button>
+        <button class="btn" onclick="prShareWA('pdf')" title="PDF file — WhatsApp does not attach text to PDFs, the message is copied so you can paste it">📄 Send PDF via WhatsApp</button>
         <button class="btn primary" onclick="prDownloadPDF()">📄 Download PDF</button>
         <button class="btn" onclick="prPrint()">🖨️ Print</button>
         <button class="btn" onclick="prDownloadImages()">🖼️ Save as images</button>
@@ -852,25 +853,46 @@ async function prDownloadImages(){
     _prSay(`✅ ${cs.length} image(s) saved.`,4000);
   }catch(e){ console.error(e); _prSay('⚠️ Could not create images.'); }
 }
-async function prShareWA(){
+// Kirim rapor ke WhatsApp.
+//  mode 'img' (default): halaman rapor sebagai gambar JPG — WhatsApp menyertakan teks sebagai caption.
+//  mode 'pdf': file PDF — WhatsApp TIDAK menyertakan teks untuk dokumen, jadi teks disalin dulu
+//              ke clipboard supaya tinggal di-paste.
+async function prShareWA(mode){
+  mode = mode==='pdf' ? 'pdf' : 'img';
   const r=_prRec(); if(!r) return;
   const s = siswaList.find(x=>x.id===r.siswaId) || {};
   const caption = typeof WA_REPORT_MSG!=='undefined' ? WA_REPORT_MSG : `Assalamu’alaikum, Dear Parents 😊`;
-  _prSay('⏳ Preparing PDF…');
+  // Salin teks SEKARANG (masih dalam klik pengguna) — setelah PDF dibuat izin clipboard bisa sudah habis
+  let copied=false; try{ await navigator.clipboard.writeText(caption); copied=true; }catch(e){}
+  _prSay(mode==='pdf' ? '⏳ Preparing PDF…' : '⏳ Preparing images…');
   try{
-    const blob = await _prPdfBlob(r);
-    const file = new File([blob], _prFileBase(r)+'.pdf', {type:'application/pdf'});
-    if(navigator.canShare && navigator.canShare({files:[file]})){
-      try{ await navigator.share({ files:[file], text:caption }); _prSay('✅ Shared. Choose the contact in WhatsApp, then send.',5000); return; }
-      catch(e){ if(e.name==='AbortError'){ _prSay('',1); return; } }
+    let files;
+    if(mode==='pdf'){
+      const blob = await _prPdfBlob(r);
+      files = [ new File([blob], _prFileBase(r)+'.pdf', {type:'application/pdf'}) ];
+    } else {
+      const cs = await _prCanvases(r);
+      files = await Promise.all(cs.map((c,i)=>new Promise(res=>c.toBlob(b=>res(new File([b], `${_prFileBase(r)}${cs.length>1?'-p'+(i+1):''}.jpg`, {type:'image/jpeg'})), 'image/jpeg', 0.92))));
     }
-    const a=document.createElement('a'); a.download=file.name; a.href=URL.createObjectURL(file); a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href),10000);
-    let copied=false; try{ await navigator.clipboard.writeText(caption); copied=true; }catch(e){}
+    if(navigator.canShare && navigator.canShare({files})){
+      try{
+        await navigator.share({ files, text:caption });
+        _prSay(mode==='pdf'
+          ? `✅ Shared. WhatsApp doesn't attach text to PDF files — ${copied?'the message is copied, just <b>paste</b> it':'type your message'} before sending.`
+          : '✅ Shared with the message as caption. Choose the contact in WhatsApp, then send.', 9000);
+        return;
+      }catch(e){ if(e.name==='AbortError'){ _prSay('',1); return; } }
+    }
+    // Laptop / browser tanpa Web Share: unduh file, buka WhatsApp dengan pesan sudah terisi
+    for(const f of files){
+      const a=document.createElement('a'); a.download=f.name; a.href=URL.createObjectURL(f); a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+      await new Promise(res=>setTimeout(res,300));
+    }
     const hp=(s.hp||'').replace(/\D/g,'');
-    window.open(hp ? 'https://wa.me/'+(hp.startsWith('62')?hp:'62'+hp.replace(/^0/,'')) : 'https://wa.me/','_blank');
-    _prSay(copied ? '✅ PDF saved & message copied → in WhatsApp tap 📎, pick the PDF, <b>paste</b> the message, send.' : '✅ PDF saved → in WhatsApp tap 📎 and pick the PDF.', 10000);
-  }catch(e){ console.error(e); _prSay('⚠️ Could not create the PDF — use 🖨️ Print → Save as PDF, then send it.'); }
+    window.open((hp ? 'https://wa.me/'+(hp.startsWith('62')?hp:'62'+hp.replace(/^0/,'')) : 'https://wa.me/') + '?text=' + encodeURIComponent(caption),'_blank');
+    _prSay(`✅ ${mode==='pdf'?'PDF':'Image(s)'} saved and WhatsApp opened with the message filled in → send it, then tap 📎 and attach the ${mode==='pdf'?'PDF':'image(s)'}.`, 12000);
+  }catch(e){ console.error(e); _prSay('⚠️ Could not create the file — use 🖨️ Print → Save as PDF, then send it.'); }
 }
 
 // Segarkan daftar rapor bersama halaman Evaluation
