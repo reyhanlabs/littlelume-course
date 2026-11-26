@@ -9,10 +9,19 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.16.2';
+const APP_VERSION = '1.17.0';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.17.0', date: '2026-11-26',
+    title: 'Monthly Bill for parents',
+    items: [
+      ['new', '"📄 Monthly Bill" on the Payment page (and "📄 Bill" on each Unpaid card): pick a student and a month to see attendance (Present / Excused / Absent), every session date and whether it is paid.'],
+      ['new', 'The bill shows sessions × fee, what is already paid (cash or deposit), unpaid sessions from earlier months, deposit balance used — and the final "Amount to pay".'],
+      ['improve', 'Send it to parents via WhatsApp (image + message), print, save as image/PDF or copy the text — same buttons as receipts.'],
+    ],
+  },
   {
     version: '1.16.2', date: '2026-11-26',
     title: 'Progress report message on WhatsApp',

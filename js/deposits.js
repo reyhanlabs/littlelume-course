@@ -681,6 +681,7 @@ function showDepositReceipt(id){
   const modal = document.getElementById('modal-receipt');
   modal.dataset.receiptId   = id;
   modal.dataset.receiptType = 'deposit';
+  { const t=modal.querySelector('.modal-title'); if(t) t.textContent='🧾 Receipt'; }
   modal.dataset.receiptText = waText;
   document.getElementById('wa-status').style.display = 'none';
   openModal('modal-receipt');

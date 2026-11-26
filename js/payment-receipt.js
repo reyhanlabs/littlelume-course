@@ -959,7 +959,10 @@ function renderHutangSesi(){
                 <div style="font-size:0.75rem;color:var(--muted);margin-top:2px">${unpaidSesi.length} unpaid session(s) · ${sesiHadir.length} total present · ${pctPaid}% paid</div>
                 <div style="margin-top:4px;font-size:0.8rem">${feeInfo}</div>
               </div>
-              <button class="btn sm primary" onclick="openPaymentFormForStudent('${siswa.id}')">💰 Record Payment</button>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+                <button class="btn sm" onclick="billStatementOpen('${siswa.id}')" title="Monthly bill for parents">📄 Bill</button>
+                <button class="btn sm primary" onclick="openPaymentFormForStudent('${siswa.id}')">💰 Record Payment</button>
+              </div>
             </div>
             <div class="pbar-wrap" style="margin-bottom:10px"><div class="pbar-fill" style="width:${pctPaid}%"></div></div>
             ${Object.keys(byM).sort().map(ym=>`<div class="st-month"><b>${typeof billMonthLabel==='function'?billMonthLabel(ym):ym}</b><span>${byM[ym].length} × ${fmt(fee)} = ${fmt(byM[ym].length*fee)}</span></div>
@@ -1139,6 +1142,7 @@ function showReceipt(id){
   const modal=document.getElementById('modal-receipt');
   modal.dataset.receiptId=id;
   modal.dataset.receiptType='payment';
+  { const t=modal.querySelector('.modal-title'); if(t) t.textContent='🧾 Receipt'; }
   modal.dataset.receiptText=
     `LITTLELUME ENGLISH COURSE\nPayment Receipt — ${rno}\n\n${rows.map(([k,v])=>k.padEnd(16)+': '+v).join('\n')}\n\nAmount Paid     : ${fmt(b.jumlah)}\n${(+b.depositUsed||0)>0?`From Deposit    : ${fmt(b.depositUsed)}\nCash            : ${fmt(b.jumlah-b.depositUsed)}\nRemaining Bal   : ${fmt((typeof getDepositBalance==='function')?getDepositBalanceAt(b.siswaId, b.tanggal, b.id):0)}\n`:''}Status          : ${b.status}\n${b.catatan?'Note            : '+b.catatan+'\n':''}\nThank you for your trust!`;
   document.getElementById('wa-status').style.display='none';
@@ -1287,6 +1291,7 @@ function _getReceiptContext(forceType, forceId){
   const modal = document.getElementById('modal-receipt');
   const id    = forceId   || modal.dataset.receiptId;
   const type  = forceType || modal.dataset.receiptType || 'payment';
+  if(type === 'statement') return typeof _billStatementContext==='function' ? _billStatementContext(id) : null;
   if(type === 'deposit'){
     const d = (typeof depositList!=='undefined') ? depositList.find(x=>x.id===id) : null;
     if(!d) return null;

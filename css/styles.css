@@ -2031,3 +2031,7 @@ tbody tr { transition:background .15s }
 .ce-act input,.ce-act textarea{padding:6px 8px!important;font-size:0.82rem!important;min-height:0}
 .ce-a-btns{display:flex;flex-direction:column;gap:4px}
 @media(max-width:600px){ .ce-act{grid-template-columns:56px 1fr auto} .ce-act textarea{grid-column:1 / 3} }
+/* Monthly Bill picker */
+.bill-st-picker{display:flex;gap:8px;padding:10px 14px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2}
+.bill-st-picker select{flex:1;min-width:0}
+.bill-st-picker input[type=month]{width:150px;flex-shrink:0}
