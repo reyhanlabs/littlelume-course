@@ -9,10 +9,19 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.17.0';
+const APP_VERSION = '1.17.1';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.17.1', date: '2026-11-26',
+    title: 'Bill: any period + unpaid only',
+    items: [
+      ['new', 'Bill now has a From – To period, so it can cover several months (e.g. 27 Oct – 30 Nov). It opens from the oldest unpaid session to the end of this month.'],
+      ['new', 'Choose "⏳ Unpaid only" (default — just the sessions still to pay) or "📋 All sessions" (full attendance incl. paid, excused and absent).'],
+      ['improve', 'Quick buttons "This month" and "All unpaid", plus a warning when unpaid sessions fall outside the chosen period. Sessions are grouped per month.'],
+    ],
+  },
   {
     version: '1.17.0', date: '2026-11-26',
     title: 'Monthly Bill for parents',

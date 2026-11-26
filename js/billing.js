@@ -340,42 +340,72 @@ window.addEventListener('load', ()=>{
 });
 
 // ════════════════════════════════════════════════════════════════════
-//  TAGIHAN BULANAN (Monthly Bill) — ringkasan untuk orang tua
-//  Isi: kehadiran bulan itu (Present/Excused/Absent), sesi yang ditagih,
-//  yang sudah dibayar (tunai / deposit), tunggakan bulan sebelumnya,
-//  saldo deposit, dan TOTAL YANG HARUS DIBAYAR.
-//  Memakai modal-receipt (receiptType='statement', receiptId='<siswaId>|<YYYY-MM>')
-//  sehingga tombol WhatsApp / Print / Image / Copy yang sama ikut berfungsi.
+//  TAGIHAN (Bill) — ringkasan untuk orang tua
+//  Periode bebas (From – To, bisa lintas bulan) + mode:
+//    • Unpaid only  → hanya sesi hadir yang belum dibayar
+//    • All sessions → semua absensi (Present/Excused/Absent) + yang sudah dibayar
+//  Memakai modal-receipt (receiptType='statement',
+//  receiptId='<siswaId>|<from>|<to>|<u|a>') sehingga tombol WhatsApp /
+//  Print / Image / Copy yang sama ikut berfungsi.
 // ════════════════════════════════════════════════════════════════════
-function billStatementData(siswaId, ym){
-  const s = siswaList.find(x=>x.id===siswaId); if(!s) return null;
-  const fee = billFee(s);
-  const paidMap = new Map();   // sesiId → 'cash' | 'deposit'
+let _billSt = null;   // {siswaId, from, to, unpaidOnly}
+
+function _billPaidMap(siswaId){
+  const m = new Map();   // sesiId → 'cash' | 'deposit'
   bayarList.filter(b=>b.siswaId===siswaId).forEach(b=>(b.sesiIds||[]).forEach(id=>{
-    if(!paidMap.has(id) || b.auto) paidMap.set(id, b.auto ? 'deposit' : 'cash');
+    if(!m.has(id) || b.auto) m.set(id, b.auto ? 'deposit' : 'cash');
   }));
+  return m;
+}
+function _billMonthEnd(ym){ const [y,m]=ym.split('-').map(Number); return todayISO(new Date(y, m, 0)); }
+// Periode default: dari sesi unpaid tertua (atau awal bulan ini) s/d akhir bulan ini
+function _billDefaultRange(siswaId){
+  const ym = todayISO().slice(0,7), pm = _billPaidMap(siswaId);
+  const oldest = absensiList.filter(a=>a.siswaId===siswaId && a.status==='Hadir' && !pm.has(a.id))
+    .map(a=>a.tanggal).sort()[0];
+  const start = ym + '-01';
+  return { from: oldest && oldest < start ? oldest : start, to: _billMonthEnd(ym) };
+}
+
+function billStatementData(siswaId, from, to, unpaidOnly){
+  const s = siswaList.find(x=>x.id===siswaId); if(!s) return null;
+  const fee = billFee(s), pm = _billPaidMap(siswaId);
   const all = absensiList.filter(a=>a.siswaId===siswaId).sort((a,b)=>a.tanggal.localeCompare(b.tanggal));
-  const month = all.filter(a=>_billYM(a.tanggal)===ym);
-  const present = month.filter(a=>a.status==='Hadir');
-  const excused = month.filter(a=>a.status==='Izin');
-  const absent  = month.filter(a=>a.status==='Alpha');
-  const paidCash = present.filter(a=>paidMap.get(a.id)==='cash');
-  const paidDep  = present.filter(a=>paidMap.get(a.id)==='deposit');
-  const unpaidThis = present.filter(a=>!paidMap.has(a.id));
-  const unpaidPrev = all.filter(a=>a.status==='Hadir' && _billYM(a.tanggal)<ym && !paidMap.has(a.id));
+  const inRange = all.filter(a=>a.tanggal>=from && a.tanggal<=to);
+  const present = inRange.filter(a=>a.status==='Hadir');
+  const excused = inRange.filter(a=>a.status==='Izin');
+  const absent  = inRange.filter(a=>a.status==='Alpha');
+  const paidCash = present.filter(a=>pm.get(a.id)==='cash');
+  const paidDep  = present.filter(a=>pm.get(a.id)==='deposit');
+  const unpaid   = present.filter(a=>!pm.has(a.id));
+  const unpaidOutside = all.filter(a=>a.status==='Hadir' && !pm.has(a.id) && (a.tanggal<from || a.tanggal>to));
+  const shown = unpaidOnly ? unpaid : inRange;
   const depBal = typeof getDepositBalance==='function' ? getDepositBalance(siswaId) : 0;
-  const owed = (unpaidThis.length + unpaidPrev.length) * fee;
+  const owed = unpaid.length * fee;
   const depApplied = Math.min(depBal, owed);
   const due = Math.max(0, owed - depApplied);
-  return { s, ym, fee, month, present, excused, absent, paidCash, paidDep, unpaidThis, unpaidPrev, paidMap,
-           depBal, depApplied, owed, due, depLeft: depBal - depApplied };
+  return { s, from, to, unpaidOnly: !!unpaidOnly, fee, paidMap: pm, inRange, shown, present, excused, absent,
+           paidCash, paidDep, unpaid, unpaidOutside, depBal, depApplied, owed, due, depLeft: depBal - depApplied };
 }
-function _billDay(t){ return new Date(t+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}); }
-function _billDays(list){ return list.map(a=>+a.tanggal.slice(8,10)).join(', '); }
+
+// "November 2026" bila tepat satu bulan penuh, selain itu "2 Oct – 10 Nov 2026"
+function billRangeLabel(from, to){
+  const ym = from.slice(0,7);
+  if(from === ym+'-01' && to === _billMonthEnd(ym)) return billMonthLabel(ym);
+  return _billDay(from, from.slice(0,4)!==to.slice(0,4)) + ' – ' + _billDay(to, true);
+}
+const _BILL_MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function _billDay(t, withYear){ return (+t.slice(8,10)) + ' ' + _BILL_MON[+t.slice(5,7)-1] + (withYear ? ' ' + t.slice(0,4) : ''); }
+// Kelompokkan tanggal per bulan → [{ym, label:'Nov 2026', days:'2, 10'}]
+function _billByMonth(list){
+  const g = {};
+  list.forEach(a=>{ const ym=_billYM(a.tanggal); (g[ym]=g[ym]||[]).push(+a.tanggal.slice(8,10)); });
+  return Object.keys(g).sort().map(ym=>({ ym, label: _BILL_MON[+ym.slice(5,7)-1] + ' ' + ym.slice(0,4), days: g[ym].join(', ') }));
+}
 
 function _billStatementHTML(d){
-  const s = d.s, monthLbl = billMonthLabel(d.ym);
-  const rno = 'BILL-' + d.ym.replace('-','') + '-' + s.id.slice(-4).toUpperCase();
+  const s = d.s, periodLbl = billRangeLabel(d.from, d.to);
+  const rno = 'BILL-' + d.to.slice(0,7).replace('-','') + '-' + s.id.slice(-4).toUpperCase();
   const initials = (s.nama||'?').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
   const pill = (txt, bg, bd, col) => `<span style="display:inline-block;background:${bg};border:1px solid ${bd};color:${col};border-radius:999px;padding:3px 10px;font-size:0.68rem;font-weight:800;margin:0 4px 4px 0">${txt}</span>`;
   const stOf = a => a.status!=='Hadir'
@@ -383,32 +413,46 @@ function _billStatementHTML(d){
       : d.paidMap.get(a.id)==='cash' ? ['✅ Present','#0f766e','paid']
       : d.paidMap.get(a.id)==='deposit' ? ['✅ Present','#0f766e','paid · deposit']
       : ['✅ Present','#0f766e','<b style="color:#db2777">unpaid</b>'];
-  const rowsSess = d.month.length ? d.month.map(a=>{ const [l,c,p]=stOf(a); return `
+  const multiMonth = new Set(d.shown.map(a=>_billYM(a.tanggal))).size > 1;
+  let lastYm = '';
+  const rowsSess = d.shown.length ? d.shown.map(a=>{
+      const [l,c,p]=stOf(a), ym=_billYM(a.tanggal);
+      const hd = multiMonth && ym!==lastYm ? `<div style="font-size:0.62rem;font-weight:800;color:#0d9488;letter-spacing:.4px;padding:6px 0 2px">${billMonthLabel(ym).toUpperCase()}</div>` : '';
+      lastYm = ym;
+      return hd + `
       <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px dashed #f5d0e6;font-size:0.74rem">
         <span style="width:58px;font-weight:800;color:#4a1942">${_billDay(a.tanggal)}</span>
         <span style="flex:1;color:${c};font-weight:700">${l}</span>
         <span style="color:#7c6f86;font-size:0.68rem">${p}</span>
       </div>`; }).join('')
-    : `<div style="font-size:0.74rem;color:#7c6f86;padding:6px 0">No attendance recorded this month.</div>`;
+    : `<div style="font-size:0.74rem;color:#7c6f86;padding:6px 0">${d.unpaidOnly ? 'No unpaid sessions in this period. 🎉' : 'No attendance recorded in this period.'}</div>`;
   const line = (k, v, opt) => `<div style="display:flex;justify-content:space-between;gap:10px;padding:4px 0;font-size:0.76rem;${opt&&opt.b?'font-weight:800;':''}color:${opt&&opt.c||'#4a1942'}"><span>${k}</span><span style="white-space:nowrap">${v}</span></div>`;
-  const calc = [
+  const plural = n => n>1?'s':'';
+  const calc = d.unpaidOnly ? [
+    line(`Unpaid sessions (${d.unpaid.length} × ${fmt(d.fee)})`, fmt(d.owed)),
+    d.depApplied ? line('Deposit balance used', '− '+fmt(d.depApplied), {c:'#0f766e'}) : '',
+  ].join('') : [
     line(`Sessions attended (${d.present.length} × ${fmt(d.fee)})`, fmt(d.present.length*d.fee)),
-    d.paidCash.length ? line(`Already paid (${d.paidCash.length} session${d.paidCash.length>1?'s':''})`, '− '+fmt(d.paidCash.length*d.fee), {c:'#0f766e'}) : '',
-    d.paidDep.length  ? line(`Paid from deposit (${d.paidDep.length} session${d.paidDep.length>1?'s':''})`, '− '+fmt(d.paidDep.length*d.fee), {c:'#0f766e'}) : '',
-    d.unpaidPrev.length ? line(`Unpaid from earlier months (${d.unpaidPrev.length} × ${fmt(d.fee)})`, '+ '+fmt(d.unpaidPrev.length*d.fee), {c:'#be123c'}) : '',
+    d.paidCash.length ? line(`Already paid (${d.paidCash.length} session${plural(d.paidCash.length)})`, '− '+fmt(d.paidCash.length*d.fee), {c:'#0f766e'}) : '',
+    d.paidDep.length  ? line(`Paid from deposit (${d.paidDep.length} session${plural(d.paidDep.length)})`, '− '+fmt(d.paidDep.length*d.fee), {c:'#0f766e'}) : '',
     d.depApplied ? line('Deposit balance used', '− '+fmt(d.depApplied), {c:'#0f766e'}) : '',
   ].join('');
+  const pills = d.unpaidOnly
+    ? pill(`⏳ ${d.unpaid.length} unpaid session${plural(d.unpaid.length)}`,'#fdf2f8','#f9a8d4','#be185d')
+    : pill(`✅ ${d.present.length} Present`,'#e0fdf4','#5eead4','#0f766e')
+      + (d.excused.length?pill(`📝 ${d.excused.length} Excused`,'#fffbeb','#fcd34d','#b45309'):'')
+      + (d.absent.length?pill(`❌ ${d.absent.length} Absent`,'#fff1f2','#fda4af','#be123c'):'');
   const due = d.due > 0
     ? `<div style="background:linear-gradient(135deg,#db2777,#0d9488);border-radius:10px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center;color:#fff">
          <span style="font-size:0.72rem;font-weight:800;letter-spacing:.4px">AMOUNT TO PAY</span><span style="font-size:1.05rem;font-weight:900">${fmt(d.due)}</span></div>`
-    : `<div style="background:#e0fdf4;border:1px solid #5eead4;border-radius:10px;padding:11px 14px;text-align:center;color:#0f4c4c;font-size:0.8rem;font-weight:800">✅ ALL PAID — nothing to pay this month</div>`;
+    : `<div style="background:#e0fdf4;border:1px solid #5eead4;border-radius:10px;padding:11px 14px;text-align:center;color:#0f4c4c;font-size:0.8rem;font-weight:800">✅ ALL PAID — nothing to pay for this period</div>`;
   const depNote = d.depLeft > 0 ? `<div style="text-align:center;font-size:0.7rem;color:#0d9488;margin-top:7px">🏦 Deposit balance left: <b>${fmt(d.depLeft)}</b> — used for the next sessions</div>` : '';
   return `
   <div style="background:linear-gradient(135deg,#fdf2f8,#f0fdfa);padding:14px 16px;display:flex;align-items:center;gap:10px">
     <div style="width:44px;height:44px;border-radius:12px;overflow:hidden;flex-shrink:0;border:2px solid #f9a8d4"><img src="${APP_LOGO_URL}" crossorigin="anonymous" style="width:44px;height:44px;object-fit:cover"></div>
     <div style="flex:1;min-width:0">
       <div style="font-size:0.85rem;font-weight:800;line-height:1.2"><span style="color:#ec4899">Little</span><span style="color:#0d9488">Lume</span> <span style="color:#ec4899">English</span></div>
-      <div style="color:#0d9488;font-size:0.62rem;margin-top:2px;font-weight:700">Monthly Bill · ${monthLbl}</div>
+      <div style="color:#0d9488;font-size:0.62rem;margin-top:2px;font-weight:700">Bill · ${periodLbl}</div>
     </div>
     <div style="background:linear-gradient(135deg,#fce7f3,#d1fae5);border-radius:20px;padding:3px 9px;font-size:0.56rem;font-weight:800;color:#4a1942;font-family:monospace;white-space:nowrap;border:1px solid #f9a8d4">${rno}</div>
   </div>
@@ -418,8 +462,8 @@ function _billStatementHTML(d){
       <div style="min-width:0"><div style="font-size:0.85rem;font-weight:800;color:#4a1942">${esc(s.nama)}</div>
         <div style="font-size:0.68rem;color:#0d9488;margin-top:1px">${s.namaOrtu?'Parent: '+esc(s.namaOrtu)+' · ':''}Fee ${fmt(d.fee)} / session</div></div>
     </div>
-    <div style="font-size:0.62rem;color:#ec4899;font-weight:800;letter-spacing:.5px;margin-bottom:5px">ATTENDANCE · ${monthLbl.toUpperCase()}</div>
-    <div>${pill(`✅ ${d.present.length} Present`,'#e0fdf4','#5eead4','#0f766e')}${d.excused.length?pill(`📝 ${d.excused.length} Excused`,'#fffbeb','#fcd34d','#b45309'):''}${d.absent.length?pill(`❌ ${d.absent.length} Absent`,'#fff1f2','#fda4af','#be123c'):''}</div>
+    <div style="font-size:0.62rem;color:#ec4899;font-weight:800;letter-spacing:.5px;margin-bottom:5px">${d.unpaidOnly?'UNPAID SESSIONS':'ATTENDANCE'} · ${periodLbl.toUpperCase()}</div>
+    <div>${pills}</div>
     <div style="background:#fff;border:1px solid #f9a8d4;border-radius:10px;padding:4px 10px;margin:4px 0 10px">${rowsSess}</div>
     <div style="font-size:0.62rem;color:#ec4899;font-weight:800;letter-spacing:.5px;margin-bottom:3px">BILL</div>
     <div style="background:#fff;border:1px solid #f9a8d4;border-radius:10px;padding:6px 12px;margin-bottom:10px">${calc}</div>
@@ -432,58 +476,90 @@ function _billStatementHTML(d){
   </div>`;
 }
 function _billStatementText(d){
-  const s = d.s, nick = s.nick || s.nama.split(' ')[0], m = billMonthLabel(d.ym);
+  const s = d.s, nick = s.nick || s.nama.split(' ')[0], period = billRangeLabel(d.from, d.to);
   const L = [];
   L.push(`Assalamu’alaikum, Dear Parents 😊`, '');
-  L.push(`Here is *${nick}*’s English class bill for *${m}*:`, '');
-  L.push(`📅 Attendance: ${d.present.length} present${d.excused.length?`, ${d.excused.length} excused`:''}${d.absent.length?`, ${d.absent.length} absent`:''}`);
-  if(d.present.length) L.push(`   Sessions: ${_billDays(d.present)} ${new Date(d.ym+'-01T00:00:00').toLocaleDateString('en-GB',{month:'short'})}`);
-  L.push(`💳 Fee: ${d.present.length} × ${fmt(d.fee)} = ${fmt(d.present.length*d.fee)}`);
-  if(d.paidCash.length) L.push(`✅ Already paid: ${fmt(d.paidCash.length*d.fee)}`);
-  if(d.paidDep.length)  L.push(`🏦 Paid from deposit: ${fmt(d.paidDep.length*d.fee)}`);
-  if(d.unpaidPrev.length) L.push(`⏳ Unpaid from earlier months: ${d.unpaidPrev.length} × ${fmt(d.fee)} = ${fmt(d.unpaidPrev.length*d.fee)}`);
+  L.push(`Here is *${nick}*’s English class bill for *${period}*:`, '');
+  if(d.unpaidOnly){
+    L.push(`📅 Unpaid sessions: ${d.unpaid.length}`);
+    _billByMonth(d.unpaid).forEach(m=>L.push(`   ${m.label}: ${m.days}`));
+    L.push(`💳 Fee: ${d.unpaid.length} × ${fmt(d.fee)} = ${fmt(d.owed)}`);
+  } else {
+    L.push(`📅 Attendance: ${d.present.length} present${d.excused.length?`, ${d.excused.length} excused`:''}${d.absent.length?`, ${d.absent.length} absent`:''}`);
+    _billByMonth(d.present).forEach(m=>L.push(`   ${m.label}: ${m.days}`));
+    L.push(`💳 Fee: ${d.present.length} × ${fmt(d.fee)} = ${fmt(d.present.length*d.fee)}`);
+    if(d.paidCash.length) L.push(`✅ Already paid: ${fmt(d.paidCash.length*d.fee)}`);
+    if(d.paidDep.length)  L.push(`🏦 Paid from deposit: ${fmt(d.paidDep.length*d.fee)}`);
+  }
   if(d.depApplied) L.push(`🏦 Deposit balance used: ${fmt(d.depApplied)}`);
   L.push('');
-  L.push(d.due>0 ? `👉 *Amount to pay: ${fmt(d.due)}*` : `✅ *All paid — nothing to pay this month.*`);
+  L.push(d.due>0 ? `👉 *Amount to pay: ${fmt(d.due)}*` : `✅ *All paid — nothing to pay for this period.*`);
   if(d.depLeft>0) L.push(`Deposit balance left: ${fmt(d.depLeft)} (used for the next sessions)`);
   L.push('', 'Thank you for your trust and support 💗', '', 'Warm regards,', 'LittleLume English', 'Learn • Play • Shine ✨');
   return L.join('\n');
 }
 
-// Buka tagihan bulanan (default: bulan ini, murid pertama yang masih punya tagihan)
-function billStatementOpen(siswaId, ym){
+// Buka tagihan. siswaId kosong → murid pertama yang masih punya tunggakan.
+// opts: {from, to, unpaidOnly} — yang tidak diisi pakai nilai sebelumnya / default.
+function billStatementOpen(siswaId, opts){
   if(!siswaList.length){ showToast('Add students first.','warn'); return; }
-  ym = ym || todayISO().slice(0,7);
+  opts = opts || {};
   if(!siswaId){
-    const owing = siswaList.find(s=>{ const d=billStatementData(s.id, ym); return d && d.due>0; });
+    const pmAll = new Set(); bayarList.forEach(b=>(b.sesiIds||[]).forEach(id=>pmAll.add(id)));
+    const owing = siswaList.find(s=>absensiList.some(a=>a.siswaId===s.id && a.status==='Hadir' && !pmAll.has(a.id)));
     siswaId = (owing || siswaList[0]).id;
   }
-  const d = billStatementData(siswaId, ym); if(!d) return;
+  const changedStudent = !_billSt || _billSt.siswaId !== siswaId;
+  const def = _billDefaultRange(siswaId);
+  let from = opts.from || (changedStudent || opts.reset ? def.from : _billSt.from);
+  let to   = opts.to   || (changedStudent || opts.reset ? def.to   : _billSt.to);
+  if(from > to){ const x = from; from = to; to = x; }
+  const unpaidOnly = opts.unpaidOnly !== undefined ? !!opts.unpaidOnly : (_billSt ? _billSt.unpaidOnly : true);
+  _billSt = { siswaId, from, to, unpaidOnly };
+  const d = billStatementData(siswaId, from, to, unpaidOnly); if(!d) return;
+
+  const ym = todayISO().slice(0,7);
+  const outside = d.unpaidOutside.length
+    ? `<div class="bill-st-note">⚠️ ${d.unpaidOutside.length} more unpaid session${d.unpaidOutside.length>1?'s':''} outside this period (${_billByMonth(d.unpaidOutside).map(m=>m.label+': '+m.days).join(' · ')}) — <a href="#" onclick="billStatementOpen('${siswaId}',{reset:true});return false">include all unpaid</a></div>` : '';
   const picker = `<div class="bill-st-picker">
-      <select onchange="billStatementOpen(this.value, document.getElementById('bill-st-month').value)">${siswaList.map(x=>`<option value="${x.id}" ${x.id===siswaId?'selected':''}>${esc(x.nama)}</option>`).join('')}</select>
-      <input type="month" id="bill-st-month" value="${ym}" onchange="billStatementOpen('${siswaId}', this.value)">
+      <select onchange="billStatementOpen(this.value)">${siswaList.map(x=>`<option value="${x.id}" ${x.id===siswaId?'selected':''}>${esc(x.nama)}</option>`).join('')}</select>
+      <div class="bill-st-range">
+        <label>From<input type="date" value="${from}" onchange="billStatementOpen('${siswaId}',{from:this.value})"></label>
+        <label>To<input type="date" value="${to}" onchange="billStatementOpen('${siswaId}',{to:this.value})"></label>
+      </div>
+      <div class="bill-st-row">
+        <div class="bill-st-seg">
+          <button type="button" class="${unpaidOnly?'on':''}" onclick="billStatementOpen('${siswaId}',{unpaidOnly:true})">⏳ Unpaid only</button>
+          <button type="button" class="${unpaidOnly?'':'on'}" onclick="billStatementOpen('${siswaId}',{unpaidOnly:false})">📋 All sessions</button>
+        </div>
+        <div class="bill-st-quick">
+          <button type="button" onclick="billStatementOpen('${siswaId}',{from:'${ym}-01',to:'${_billMonthEnd(ym)}'})">This month</button>
+          <button type="button" onclick="billStatementOpen('${siswaId}',{reset:true})">All unpaid</button>
+        </div>
+      </div>
+      ${outside}
     </div>`;
   document.getElementById('receipt-content').innerHTML = picker + `<div>${_billStatementHTML(d)}</div>`;
   const modal = document.getElementById('modal-receipt');
-  modal.dataset.receiptId = siswaId + '|' + ym;
+  modal.dataset.receiptId = [siswaId, from, to, unpaidOnly?'u':'a'].join('|');
   modal.dataset.receiptType = 'statement';
   modal.dataset.receiptText = _billStatementText(d);
-  const t = modal.querySelector('.modal-title'); if(t) t.textContent = '📄 Monthly Bill';
+  const t = modal.querySelector('.modal-title'); if(t) t.textContent = '📄 Bill';
   const ws = document.getElementById('wa-status'); if(ws) ws.style.display='none';
   if(!modal.classList.contains('open')) openModal('modal-receipt');
 }
 function _billStatementContext(id){
-  const [siswaId, ym] = String(id||'').split('|');
-  const d = billStatementData(siswaId, ym); if(!d) return null;
-  const html = _billStatementHTML(d);
+  const [siswaId, from, to, mode] = String(id||'').split('|');
+  const d = billStatementData(siswaId, from, to, mode !== 'a'); if(!d) return null;
+  const html = _billStatementHTML(d), period = billRangeLabel(from, to);
   return {
     type:'statement', record:d, siswa:d.s,
     renderHTML: html,
-    printHTML: `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Monthly Bill ${esc(d.s.nama)} ${billMonthLabel(ym)}</title>
+    printHTML: `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Bill ${esc(d.s.nama)} ${period}</title>
       <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;max-width:400px;margin:auto;background:#fef9ff;color:#4a1942;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{size:A5 portrait;margin:8mm}</style>
       </head><body>${html}</body></html>`,
-    filenameBase: 'MonthlyBill-' + (d.s.nama||'Student').replace(/[^a-zA-Z0-9 ]/g,'').trim().replace(/ +/g,'_') + '-' + ym,
-    shareTextTitle: 'Monthly bill for ' + d.s.nama,
+    filenameBase: 'Bill-' + (d.s.nama||'Student').replace(/[^a-zA-Z0-9 ]/g,'').trim().replace(/ +/g,'_') + '-' + from + '_' + to,
+    shareTextTitle: 'Bill for ' + d.s.nama,
     caption: _billStatementText(d),
     studentPhone: d.s.hp,
   };
