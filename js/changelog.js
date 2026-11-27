@@ -9,10 +9,17 @@
 //    2. Tambahkan entri BARU di PALING ATAS CHANGELOG (versi sama dengan APP_VERSION)
 //  Pengguna otomatis melihat popup "What's New" sekali setelah versi berubah.
 // ════════════════════════════════════════════════
-const APP_VERSION = '1.17.1';
+const APP_VERSION = '1.17.2';
 
 // type: 'new' = fitur baru · 'improve' = peningkatan · 'fix' = perbaikan bug · 'security' = keamanan
 const CHANGELOG = [
+  {
+    version: '1.17.2', date: '2026-11-26',
+    title: 'Tidier logo on bills & receipts',
+    items: [
+      ['fix', 'The round LittleLume logo was cropped inside a square box. It now shows whole, in a clean circle, on bills, payment receipts and deposit receipts (screen, image, PDF and print).'],
+    ],
+  },
   {
     version: '1.17.1', date: '2026-11-26',
     title: 'Bill: any period + unpaid only',

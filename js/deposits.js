@@ -710,8 +710,8 @@ function _buildDepositReceiptPrintHTML(d, siswa){
     body{font-family:Arial,sans-serif;max-width:380px;margin:auto;background:#fef9ff;color:#4a1942}
     @page{size:A5 portrait;margin:8mm}
     .hdr{background:linear-gradient(135deg,#fdf2f8,#f0fdfa);padding:18px 16px;display:flex;align-items:center;gap:12px}
-    .logo-img{width:44px;height:44px;border-radius:12px;border:2px solid #f9a8d4;overflow:hidden;flex-shrink:0}
-    .logo-img img{width:100%;height:100%;object-fit:cover}
+    .logo-img{width:52px;height:52px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#fff;box-shadow:0 1px 5px rgba(236,72,153,.28)}
+    .logo-img img{width:100%;height:100%;object-fit:contain;display:block}
     .brand1,.brand2{font-size:0.92rem;font-weight:800;line-height:1.15}
     .sub{color:#0d9488;font-size:0.62rem;margin-top:2px}
     .rno{margin-left:auto;background:linear-gradient(135deg,#fce7f3,#d1fae5);border-radius:20px;padding:3px 10px;font-size:0.6rem;font-weight:800;color:#4a1942;font-family:monospace;white-space:nowrap;border:1px solid #f9a8d4}
@@ -794,7 +794,7 @@ function _buildDepositReceiptRenderHTML(d, siswa){
   const scTop = `<svg viewBox="0 0 300 16" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%"><path d="M0,0 Q15,16 30,0 Q45,16 60,0 Q75,16 90,0 Q105,16 120,0 Q135,16 150,0 Q165,16 180,0 Q195,16 210,0 Q225,16 240,0 Q255,16 270,0 Q285,16 300,0 L300,16 L0,16 Z" fill="#fef9ff"/></svg>`;
   const scBot = `<svg viewBox="0 0 300 16" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%"><path d="M0,16 Q15,0 30,16 Q45,0 60,16 Q75,0 90,16 Q105,0 120,16 Q135,0 150,16 Q165,0 180,16 Q195,0 210,16 Q225,0 240,16 Q255,0 270,16 Q285,0 300,16 L300,0 L0,0 Z" fill="#fef9ff"/></svg>`;
   return `<div style="background:linear-gradient(135deg,#fdf2f8,#f0fdfa);padding:16px;display:flex;align-items:center;gap:12px;color:#4a1942">
-    <div style="width:44px;height:44px;border-radius:12px;border:2px solid #f9a8d4;overflow:hidden;flex-shrink:0"><img src="${APP_LOGO_URL}" style="width:100%;height:100%;object-fit:cover"></div>
+    <div style="width:52px;height:52px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#fff;box-shadow:0 1px 5px rgba(236,72,153,.28)"><img src="${APP_LOGO_URL}" style="width:100%;height:100%;object-fit:contain;display:block"></div>
     <div>
       <div style="font-size:0.92rem;font-weight:800;line-height:1.15"><span style="color:#ec4899">Little</span><span style="color:#0d9488">Lume</span></div>
       <div style="font-size:0.92rem;font-weight:800;line-height:1.15"><span style="color:#ec4899">English</span><span style="color:#0d9488"> Course</span></div>

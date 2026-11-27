@@ -449,7 +449,7 @@ function _billStatementHTML(d){
   const depNote = d.depLeft > 0 ? `<div style="text-align:center;font-size:0.7rem;color:#0d9488;margin-top:7px">🏦 Deposit balance left: <b>${fmt(d.depLeft)}</b> — used for the next sessions</div>` : '';
   return `
   <div style="background:linear-gradient(135deg,#fdf2f8,#f0fdfa);padding:14px 16px;display:flex;align-items:center;gap:10px">
-    <div style="width:44px;height:44px;border-radius:12px;overflow:hidden;flex-shrink:0;border:2px solid #f9a8d4"><img src="${APP_LOGO_URL}" crossorigin="anonymous" style="width:44px;height:44px;object-fit:cover"></div>
+    <div style="width:52px;height:52px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#fff;box-shadow:0 1px 5px rgba(236,72,153,.28)"><img src="${APP_LOGO_URL}" crossorigin="anonymous" style="width:52px;height:52px;object-fit:contain;display:block"></div>
     <div style="flex:1;min-width:0">
       <div style="font-size:0.85rem;font-weight:800;line-height:1.2"><span style="color:#ec4899">Little</span><span style="color:#0d9488">Lume</span> <span style="color:#ec4899">English</span></div>
       <div style="color:#0d9488;font-size:0.62rem;margin-top:2px;font-weight:700">Bill · ${periodLbl}</div>
